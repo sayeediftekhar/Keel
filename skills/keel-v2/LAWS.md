@@ -9,19 +9,26 @@ A task is HEAVY if it touches ANY of these; FAST if none.
 4. **Access / auth** — anything gated by login, role, or permission.
 5. **Agent autonomy** — unattended/looping execution.
 6. **Irreversibility** — deletes, migrations, sends, payments, publishes.
-7. **Scale** — query counts / N+1 / anything that degrades with data size.
+7. **Scale** — unbounded queries/loops over persisted data at production N
+   (N+1, missing pagination, missing index). A bounded map over a fixed API
+   response is NOT this surface.
 8. **Schema / migration** — DB shape changes.
 9. **Secrets** — .env, keys, tokens touched or exposed.
 
 A static marketing/landing page, copy edits, styling, a self-contained
 component with mock data, a diagram — trip none of these → FAST.
 
-## Invariants (both lanes, non-negotiable)
-- **Server enforces, not the UI.** Any client-controllable gate can be forged.
-- **Identity from the session, never the request.** Bind sensitive WHEREs to it.
-- **Exact money.** Decimal, never float. Tabular figures on display.
-- **Immutable records** enforced at the DB (triggers), not by grants.
-- **Every law names two enforcement layers.** One layer = PARTIAL, not done.
+## Invariants (both lanes, non-negotiable — each names its two layers)
+- **Server enforces, not the UI.** Layers: server-side authorization check +
+  UI state that mirrors it. UI alone can be forged.
+- **Identity from the session, never the request.** Layers: session-derived ID
+  bound into every sensitive WHERE + request-supplied IDs rejected at the
+  handler.
+- **Exact money.** Layers: decimal type in storage and compute + tabular
+  figures with an explicit rounding rule on display. Never float.
+- **Immutable records.** Layers: DB triggers blocking UPDATE/DELETE + an
+  application layer that never issues them. Not by grants alone.
+- **One layer present = PARTIAL, not done.**
 
 ## /review tripwires (run in-turn on FAST, as a pass on HEAVY)
 - [ ] No dead/unreachable code, no leftover TODOs pretending to be done.
@@ -29,6 +36,6 @@ component with mock data, a diagram — trip none of these → FAST.
 - [ ] a11y basics: labels, contrast, focus order, alt text.
 - [ ] Design conformance: tokens from DESIGN.md used, no ad-hoc hex; one focal
       point per view; none of the anti-patterns in DESIGN.md.
-- [ ] If any danger surface is live, the two enforcement layers are present.
+- [ ] If any danger surface is live, both named enforcement layers are present.
 Report each as pass/fail with a one-line note. Fail = fix this turn (FAST) or
 block the commit (HEAVY).

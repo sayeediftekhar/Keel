@@ -1,9 +1,9 @@
 # KEEL v2 — install & use (Fable-friendly)
 
 ## Files
-- `keel-v2-CLAUDE.md` — the router. Drop into project root as `CLAUDE.md`
+- `CLAUDE.md` — the router. Drop into project root as-is
   (or `.keel/CLAUDE.md` and reference it).
-- `keel-v2-LAWS.md`   — danger surfaces + invariants + review tripwires.
+- `LAWS.md`   — danger surfaces + invariants + review tripwires.
 - Keep your existing `CONTEXT.md`, `LEARNINGS.md`, `DESIGN.md`.
 
 ## What changed from v1

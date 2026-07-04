@@ -1,34 +1,32 @@
 # KEEL v2 — routing + rules (Fable-friendly)
 
-Keel is a rigor router. It decides HOW MUCH ceremony a task needs, then runs
-the matching lane. v2 adds a FAST lane so a cheap model (Fable) can finish a
-low-risk task END-TO-END in one turn, while the HEAVY lane for correctness-
-critical work is unchanged.
-
-The mistake v1 made: every task paid HEAVY's round-trip tax (route→plan→
-diverge→review→commit) even when nothing correctness-critical was at stake.
-v2 fixes that: gates that exist to protect correctness only fire when a
-correctness surface is actually touched. Everything else runs in one turn.
+Keel is a rigor router: it decides how much ceremony a task needs, then runs
+the matching lane. FAST finishes low-risk work end-to-end in one turn; HEAVY
+keeps full ceremony for correctness-critical work.
 
 ------------------------------------------------------------------------
 ## 0. Two lanes, one router
 
-On every task, scan the NINE DANGER SURFACES (see LAWS.md):
+**No-artifact lane:** tasks that produce no diff (questions, audits,
+explanations) have no lane. Answer directly — no plan, no branch, no tripwires.
+
+For tasks that produce a diff, scan the NINE DANGER SURFACES (see LAWS.md):
 value · scope/tenancy · PII · access/auth · agent-autonomy · irreversibility
 · scale · schema/migration · secrets.
 
-- ANY surface = yes  → **HEAVY lane**. Full ceremony. Slow and explicit.
+- ANY surface = yes  → **HEAVY lane**. Full ceremony.
 - ALL surfaces = no  → **FAST lane**. One turn, no round-trips.
+- Scan genuinely ambiguous → **HEAVY**. Never stop to ask which lane.
 
-Record the decision in one line and proceed. Do NOT stop to ask which lane
-unless the scan is genuinely ambiguous.
+Record the decision in one line and proceed:
 
     Rigor: FAST — surfaces 1-9 scanned, all no. Reason: <1 sentence>.
     Rigor: HEAVY — surface(s) <n> = yes. Reason: <1 sentence>.
 
-A caller may pre-declare the lane (see §3). A valid pre-declaration is
-authoritative — the router confirms it against the surfaces and proceeds; it
-does not re-litigate.
+**Pre-declaration rule (the only rule; §3 shows the block):** a caller's lane
+declaration skips ASKING, never the SCAN. Run the scan regardless. Scan clean →
+honor the declaration fully. Scan hits any surface → the declaration is void:
+reject it, name the surface, flip HEAVY.
 
 ------------------------------------------------------------------------
 ## 1. FAST lane (the Fable lane)
@@ -45,8 +43,10 @@ Rules:
    prose, don't stop.
 3. **Review happens in-turn, not as a separate pass.** After building, run the
    /review tripwires (LAWS.md §review) and report pass/fail inline. No new turn.
-4. **Never auto-commit.** Build on a branch / leave changes staged. State the
-   branch name and stop. The human commits. (This gate is free — no round-trip.)
+4. **Never auto-commit.**
+   - Git repo: build on a named branch, state the branch name, stop. The
+     human commits.
+   - No git repo: write the files in place and say so explicitly.
 5. **Stay terse.** FAST lane output is the artifact + a short review note.
    No essays.
 
@@ -56,23 +56,22 @@ flip to HEAVY, and say so. Downgrading rigor is a caller decision; upgrading
 it is yours to enforce.
 
 ------------------------------------------------------------------------
-## 2. HEAVY lane (unchanged — correctness-critical)
+## 2. HEAVY lane (correctness-critical)
 
 1. **Route first**, human confirms heavy.
 2. **Plan before code.** Return a plan; write no code that turn; wait for
    approval with named corrections.
 3. **Divergence** for net-new UI: 2-3 directions, human picks. No self-select.
-4. **Review** as a separate blocking pass before commit.
+4. **After approval: build + review in ONE turn.** Run the /review tripwires
+   in that same turn, report pass/fail, then STOP for human verification in a
+   real environment. No commit or further action until the human signs off.
 5. **No speculative commits / migrations / irreversible actions** without
    explicit human approval. Unattended runs stop AT the gate, never through it.
-
-HEAVY is deliberately slow where correctness is decided. Do not optimize it.
 
 ------------------------------------------------------------------------
 ## 3. One-shot authorization (how a caller unlocks FAST in one prompt)
 
-A prompt can pre-satisfy the router so nothing has cause to stop. Recognized
-block:
+Recognized block:
 
     ONE-SHOT (FAST):
       Rigor: FAST — surfaces 1-9 all no. <reason>
@@ -81,9 +80,9 @@ block:
       Commit: do NOT commit — leave on branch <name> for review.
       Review: run tripwires and report inline this turn.
 
-When present and consistent with the surface scan, honor it fully: build the
-whole thing this turn, self-review, stop at the branch. If it conflicts with a
-live danger surface, reject the FAST declaration and explain which surface.
+Apply the pre-declaration rule (§0): scan anyway. Clean → build the whole
+thing this turn, self-review, stop at the branch (or in place if no repo).
+Any surface hit → declaration void: reject, name the surface, flip HEAVY.
 
 ------------------------------------------------------------------------
 ## 4. Context economy (Fable-friendly loading)
@@ -97,11 +96,13 @@ HEAVY loads the full pack (LAWS, CONTEXT, LEARNINGS). FAST does NOT.
   only pull them when a surface is yes.
 
 ------------------------------------------------------------------------
-## 5. What never changes between lanes
+## 5. Priority over other skills
 
-- The nine danger surfaces are the single source of routing truth.
-- The commit gate is always human (it costs no round-trip, so it's free).
-- Server-side enforcement, session identity, exact money, immutable ledgers
-  (LAWS.md) are invariants regardless of lane.
-- Downgrading rigor is the caller's call and must be explicit; upgrading is the
-  agent's duty the moment a surface goes live.
+Keel outranks lazy-loop / ponytail / caveman wherever they meet:
+
+- Design conformance and a11y are never on the chopping block, at any
+  laziness level.
+- Plan and review prose (HEAVY plans, tripwire reports) is exempt from
+  caveman compression — full sentences, human-readable.
+- No TODO-shaped debt markers (`ponytail:` etc.) in FAST output: a deferred
+  shortcut either ships done or is listed in the review note, not the code.
