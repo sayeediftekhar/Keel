@@ -72,11 +72,17 @@ them as current.
 |------|------|---------------|--------------|
 | claude-for-legal | plugin | anthropics/claude-for-legal | ~12 practice areas, 90+ workflow agents |
 
-## Flagged / ambiguous matches (confirm before pinning)
-- **frontend-design** vs **impeccable** — both kill AI-slop UI; pick one per project.
-- **social-media-skills** — common repo name; pinned to charlie947 (vs blacktwist).
-- **claude-skills** — common name; probable match alirezarezvani (263+→~345 skills).
-- **claude-seo** — AgriciDaniel; "GEO-first"-branded alternatives exist (geo-seo repos).
+## Match status (verified 2026-07)
+- **social-media-skills** — ✅ confirmed `charlie947` (Charlie Hills content OS,
+  17 skills incl. reels/captions/carousels). Not blacktwist.
+- **claude-skills** — ✅ confirmed `alirezarezvani` (changelog shows 263→264
+  skills, 13 platforms — exact "263+ / every platform" match).
+- **claude-seo** — ✅ confirmed `AgriciDaniel` (25 sub-skills + 18 agents, covers
+  GEO/AEO).
+- **frontend-design** vs **impeccable** — ⚖️ open *preference*, not ambiguity.
+  Both kill AI-slop UI; pick one primary per project. Current default in
+  `keel-design`: impeccable primary, frontend-design fallback, fused-landing
+  for pages.
 
 ## Already governed elsewhere (not in a lane)
 - **caveman** / **ponytail** → wrapped by the local `lazy-loop` skill (`/lazy`).
