@@ -1,5 +1,6 @@
 ---
 name: keel-marketing
+disable-model-invocation: true
 description: >-
   Marketing lane router. Dispatches growth work — SEO/GEO, copywriting, CRO,
   analytics, and LinkedIn outreach — to the right vendored marketing skill

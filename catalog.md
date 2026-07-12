@@ -9,14 +9,18 @@ Star/install figures are approximate snapshots and drift upward — don't trust
 them as current.
 
 ## keel-dev — Development
-| Item | Type | Repo / source | What it does |
-|------|------|---------------|--------------|
-| superpowers | plugin | obra/superpowers | Dev methodology: TDD, debugging, planning, subagent-driven dev (~14 skills) |
-| gstack | plugin | garrytan/gstack | 23 role agents = a virtual dev team (plan→build→review→ship) |
-| codex-plugin-cc | plugin | openai/codex-plugin-cc | Official OpenAI bridge — invoke/hand off to Codex inside Claude Code |
-| hyperframes | skill | heygen-com/hyperframes | Agent-native HTML/CSS/JS → deterministic MP4 video |
-| antfu/skills | plugin | antfu/skills | Vue/Vite/Nuxt/Pinia/Vitest skills, auto-synced from docs |
-| agent-browser | mcp | vercel-labs/agent-browser | Token-efficient browser automation via a11y-tree snapshots |
+Conductor: **Pocock spine + power-tools** (see `skills/keel-dev/SKILL.md`).
+
+| Item | Role | Type | Repo / source | What it does |
+|------|------|------|---------------|--------------|
+| mattpocock-skills | **spine** | plugin | mattpocock/skills | The backbone pipeline: grill → to-spec → to-tickets → implement → two-axis code-review; domain-modeling, deep modules, diagnosing-bugs |
+| superpowers | power-tool | plugin | obra/superpowers | Autonomous TDD executor: subagent-driven dev, strict red-green-refactor, systematic-debugging (~14 skills) |
+| gstack | power-tool | plugin | garrytan/gstack | Product studio: design-shotgun/html, real-browser /qa, /review, /cso security, /ship+deploy (23 roles + tools) |
+| codex-plugin-cc | power-tool | plugin | openai/codex-plugin-cc | Official OpenAI bridge — cross-model review / hand-off to Codex |
+| hyperframes | adjunct | skill | heygen-com/hyperframes | Agent-native HTML/CSS/JS → deterministic MP4 video |
+| antfu/skills | adjunct | plugin | antfu/skills | Vue/Vite/Nuxt/Pinia/Vitest skills, auto-synced from docs |
+| agent-browser | adjunct | mcp | vercel-labs/agent-browser | Token-efficient browser automation via a11y-tree snapshots |
+| graphify | comprehension | local | ~/.claude/skills/graphify | Codebase knowledge graph (query/path/explain) — the graphify-first default over grep |
 
 ## keel-design — Design/UI
 | Item | Type | Repo / source | What it does |

@@ -4,13 +4,16 @@
   "lanes": {
     "dev": {
       "router": "keel-dev",
+      "spine": "mattpocock-skills",
       "upstreams": [
-        { "name": "superpowers",     "type": "plugin", "repo": "https://github.com/obra/superpowers" },
-        { "name": "gstack",          "type": "plugin", "repo": "https://github.com/garrytan/gstack" },
-        { "name": "codex-plugin-cc", "type": "plugin", "repo": "https://github.com/openai/codex-plugin-cc" },
-        { "name": "hyperframes",     "type": "skill",  "repo": "https://github.com/heygen-com/hyperframes" },
-        { "name": "antfu-skills",    "type": "plugin", "repo": "https://github.com/antfu/skills" },
-        { "name": "agent-browser",   "type": "mcp",    "repo": "https://github.com/vercel-labs/agent-browser" }
+        { "name": "mattpocock-skills", "type": "plugin", "role": "spine",      "repo": "https://github.com/mattpocock/skills" },
+        { "name": "superpowers",       "type": "plugin", "role": "power-tool", "repo": "https://github.com/obra/superpowers" },
+        { "name": "gstack",            "type": "plugin", "role": "power-tool", "repo": "https://github.com/garrytan/gstack" },
+        { "name": "codex-plugin-cc",   "type": "plugin", "role": "power-tool", "repo": "https://github.com/openai/codex-plugin-cc" },
+        { "name": "hyperframes",       "type": "skill",  "role": "adjunct",    "repo": "https://github.com/heygen-com/hyperframes" },
+        { "name": "antfu-skills",      "type": "plugin", "role": "adjunct",    "repo": "https://github.com/antfu/skills" },
+        { "name": "agent-browser",     "type": "mcp",    "role": "adjunct",    "repo": "https://github.com/vercel-labs/agent-browser" },
+        { "name": "graphify",          "type": "local",  "role": "comprehension", "repo": "~/.claude/skills/graphify" }
       ]
     },
     "design": {
