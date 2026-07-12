@@ -1,0 +1,46 @@
+{
+  "$comment": "Keel MCP connector template. Copy to .mcp.json and fill the ${ENV} values (never commit real secrets — .mcp.json should be gitignored). Delete the servers you don't use; each loads tools into every session. URLs/commands below reflect each vendor's documented setup and may change — check the source repo in catalog.md.",
+  "mcpServers": {
+    "slack": {
+      "command": "npx",
+      "args": ["-y", "@slack/mcp-server"],
+      "env": { "SLACK_MCP_XOXP_TOKEN": "${SLACK_MCP_XOXP_TOKEN}" }
+    },
+    "notion": {
+      "command": "npx",
+      "args": ["-y", "@notionhq/notion-mcp-server"],
+      "env": { "NOTION_TOKEN": "${NOTION_TOKEN}" }
+    },
+    "zapier": {
+      "type": "http",
+      "url": "https://mcp.zapier.com/api/mcp/mcp",
+      "headers": { "Authorization": "Bearer ${ZAPIER_MCP_KEY}" }
+    },
+    "perplexity": {
+      "command": "npx",
+      "args": ["-y", "@perplexity-ai/mcp-server"],
+      "env": { "PERPLEXITY_API_KEY": "${PERPLEXITY_API_KEY}" }
+    },
+    "granola": {
+      "$note": "Granola's official MCP is a hosted connector — set up via granola.ai. Community stdio servers (e.g. chrisguillory/granola-mcp) are third-party; vet before use.",
+      "type": "http",
+      "url": "${GRANOLA_MCP_URL}"
+    },
+    "higgsfield": {
+      "$note": "Hosted generative MCP — configure via higgsfield.ai/mcp.",
+      "type": "http",
+      "url": "${HIGGSFIELD_MCP_URL}",
+      "headers": { "Authorization": "Bearer ${HIGGSFIELD_API_KEY}" }
+    },
+    "kondo": {
+      "$note": "Requires the Kondo browser extension + account (Business tier). Configure via docs.trykondo.com/mcp-setup.",
+      "type": "http",
+      "url": "${KONDO_MCP_URL}"
+    },
+    "agent-browser": {
+      "$note": "vercel-labs/agent-browser — token-efficient browser automation. Check the repo for the current MCP/CLI invocation.",
+      "command": "npx",
+      "args": ["-y", "agent-browser", "mcp"]
+    }
+  }
+}

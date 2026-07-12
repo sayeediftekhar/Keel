@@ -1,0 +1,9 @@
+# Local MCP config carries credentials — never commit it. Commit the template.
+.mcp.json
+
+# Vendored upstreams cloned by install.sh. Uncomment to keep them out of this
+# repo (recommended if you install them per-consuming-project instead). Leave
+# commented if you intend to commit vendor/ or add them as submodules.
+# vendor/
+
+.DS_Store
