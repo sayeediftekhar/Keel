@@ -1,5 +1,6 @@
 ---
 name: keel-design
+disable-model-invocation: true
 description: >-
   Design lane router. Routes visual/UI work to the right vendored design
   engine (impeccable, frontend-design) or to the local fused-landing skill for

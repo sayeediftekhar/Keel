@@ -5,8 +5,9 @@ skills — it curates a set of external skills, plugins, and MCP servers, keeps
 them **unmodified**, and decides when to reach for each one under a single
 rigor standard.
 
-See **[PLAYBOOK.md](PLAYBOOK.md)** for how to run it, **[ARCHITECTURE.md](ARCHITECTURE.md)**
-for the model, **[catalog.md](catalog.md)** for the 28 upstreams, and
+See **[HOWTO.md](HOWTO.md)** for the simple per-project/per-session workflow,
+**[PLAYBOOK.md](PLAYBOOK.md)** for the operating discipline, **[ARCHITECTURE.md](ARCHITECTURE.md)**
+for the model, **[catalog.md](catalog.md)** for the upstreams, and
 **[manifest.json](manifest.json)** for the machine map.
 
 ## The three layers

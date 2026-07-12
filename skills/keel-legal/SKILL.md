@@ -1,5 +1,6 @@
 ---
 name: keel-legal
+disable-model-invocation: true
 description: >-
   Legal lane router (optional / vertical). Routes legal workflows — contract
   review, corporate, privacy, employment, IP, litigation, regulatory — to

@@ -1,5 +1,6 @@
 ---
 name: keel-finance
+disable-model-invocation: true
 description: >-
   Finance lane router (optional / vertical). Routes financial-analysis work —
   IB, equity research, PE, wealth management, DCF/LBO/3-statement models — to

@@ -1,5 +1,6 @@
 ---
 name: keel-content
+disable-model-invocation: true
 description: >-
   Content & social lane router. Routes writing and media tasks — de-AI-ing
   drafts, social posts/reels/captions, and cinematic video — to the right

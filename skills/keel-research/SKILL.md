@@ -1,5 +1,6 @@
 ---
 name: keel-research
+disable-model-invocation: true
 description: >-
   Research lane router. Routes knowledge tasks — querying your own documents,
   real-time web search, and building a searchable second brain — to the right

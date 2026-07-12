@@ -106,3 +106,24 @@ Keel outranks lazy-loop / ponytail / caveman wherever they meet:
   caveman compression — full sentences, human-readable.
 - No TODO-shaped debt markers (`ponytail:` etc.) in FAST output: a deferred
   shortcut either ships done or is listed in the review note, not the code.
+
+------------------------------------------------------------------------
+## 6. Keel lanes, comprehension, and honesty (cross-cutting)
+
+**Lanes (the toolbox).** Lane routers are **user-invoked** (zero context load) —
+you reach for one by name; this arbiter names which fits. Dev conductor is
+`keel-dev`. Others: `keel-design`, `keel-marketing`, `keel-content`,
+`keel-research`, `keel-secure`, `keel-ops`, `keel-finance`*, `keel-legal`*
+(* optional verticals). For a new project or feature, **START with a grill
+session** (align before build), then bring out the lane.
+
+**Comprehension = graphify-first.** To understand a codebase — how X works, what
+depends on Y, data flow, blast radius, architecture — query **graphify**
+(`query`/`path`/`explain`) instead of grep+read. Grep only for an exact known
+string/symbol, a tiny throwaway scope with no `graphify-out/` yet, or an area
+just edited (graph may be stale). Default graphify; grep is the exception.
+
+**Trade-off honesty (unbiased routing).** When a route trades one axis for
+another, say so in one line: direction + rough magnitude (labeled `est.` unless
+measured) + the risk. Never hide the downside. No fake precision — a made-up
+percentage is the bias we are killing.

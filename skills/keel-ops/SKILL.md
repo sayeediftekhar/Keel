@@ -1,5 +1,6 @@
 ---
 name: keel-ops
+disable-model-invocation: true
 description: >-
   Operations & connectors lane router. Routes memory, workspace connectors,
   and meta/skills-management to the right tool — claude-mem, granola, slack,

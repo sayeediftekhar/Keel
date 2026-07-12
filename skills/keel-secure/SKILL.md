@@ -1,5 +1,6 @@
 ---
 name: keel-secure
+disable-model-invocation: true
 description: >-
   Security lane router and gate. Runs VibeSec over security-relevant code to
   catch vulnerabilities before they ship, and wires that check into keel-v2's
