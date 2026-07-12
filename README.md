@@ -1,34 +1,69 @@
-# claude-skills
+# Keel
 
-Reusable, private collection of [Claude Code](https://claude.com/claude-code) skills,
-designed to be consumed by projects as a git submodule under `.claude/skills`.
+A **routing + governance layer** for Claude Code. Keel doesn't reimplement
+skills — it curates a set of external skills, plugins, and MCP servers, keeps
+them **unmodified**, and decides when to reach for each one under a single
+rigor standard.
 
-## Skills
+See **[PLAYBOOK.md](PLAYBOOK.md)** for how to run it, **[ARCHITECTURE.md](ARCHITECTURE.md)**
+for the model, **[catalog.md](catalog.md)** for the 28 upstreams, and
+**[manifest.json](manifest.json)** for the machine map.
 
-| Skill | Purpose |
-|-------|---------|
-| [`fused-landing`](skills/fused-landing/) | _Placeholder — no files yet._ Reserved for the fused landing-page skill. |
-| [`keel-v2`](skills/keel-v2/) | Two-lane rigor router for Claude Code: a **FAST** lane one-shots no-danger tasks end-to-end, auto-upgrading to **HEAVY** for correctness-critical work (auth, money, migrations). |
-| [`lazy-loop`](skills/lazy-loop/) | Umbrella skill fusing **ponytail** (write ~54% less code) and **caveman** (~65% fewer output tokens) — two non-overlapping laziness layers under one `/lazy` toggle. |
+## The three layers
 
-## Install as a submodule
+- **L1 — Arbiter:** [`keel-v2`](skills/keel-v2/) — the rigor router (nine danger
+  surfaces, FAST vs HEAVY). Everything defers to it.
+- **L2 — Lane routers:** thin index skills, one per domain, that dispatch to L3.
+- **L3 — Upstreams:** the external skills/plugins/MCP servers, vendored as-is.
 
-From the root of the consuming project (a git repo):
+## Skills in this repo
+
+| Skill | Role | Routes to |
+|-------|------|-----------|
+| [`keel-v2`](skills/keel-v2/) | **Arbiter** — rigor router, the spine | — |
+| [`keel-dev`](skills/keel-dev/) | Development lane | superpowers, gstack, codex-plugin-cc, hyperframes, antfu/skills, agent-browser |
+| [`keel-design`](skills/keel-design/) | Design/UI lane | impeccable, frontend-design, fused-landing |
+| [`keel-marketing`](skills/keel-marketing/) | Marketing lane | marketingskills, claude-seo, kondo |
+| [`keel-content`](skills/keel-content/) | Content/social lane | humanizer, social-media-skills, higgsfield |
+| [`keel-research`](skills/keel-research/) | Research lane | notebooklm-skill, perplexity, ai-second-brain |
+| [`keel-secure`](skills/keel-secure/) | Security lane + gate | VibeSec-Skill |
+| [`keel-ops`](skills/keel-ops/) | Memory/connectors/meta | claude-mem, granola, slack, notion, zapier, find-skills, claude-skills |
+| [`keel-finance`](skills/keel-finance/) | Finance vertical *(optional)* | financial-services |
+| [`keel-legal`](skills/keel-legal/) | Legal vertical *(optional)* | claude-for-legal |
+| [`fused-landing`](skills/fused-landing/) | Landing-page build + token discipline | *(local)* |
+| [`lazy-loop`](skills/lazy-loop/) | `/lazy` code/prose thrift (caveman + ponytail) | *(local)* |
+
+## Install
+
+Lanes are opt-in. Nothing installs until you name one.
+
+```bash
+./install.sh                 # list lanes + what each pulls
+./install.sh dev design      # vendor those lanes' upstreams
+./install.sh all             # every non-optional lane
+./install.sh mcp             # scaffold .mcp.json from the template
+```
+
+- **skills** → cloned into `vendor/` (unmodified; point Claude Code at it).
+- **plugins** → the installer prints the marketplace/clone command.
+- **MCP servers** → fill credentials in `.mcp.json` (copy from `.mcp.json.template`).
+
+Curate, don't hoard: every installed skill's description sits in context each
+session — install only the lanes you use.
+
+## Use as a submodule
+
+From a consuming project (a git repo):
 
 ```bash
 git submodule add https://github.com/sayeediftekhar/claude-skills .claude/skills
 git submodule update --init --recursive
 ```
 
-Skills then resolve under `.claude/skills/skills/<skill-name>/`.
+Skills resolve under `.claude/skills/skills/<skill-name>/`. Update with
+`git submodule update --remote .claude/skills`.
 
-## Update to the latest skills
+## Editing
 
-```bash
-git submodule update --remote .claude/skills
-```
-
-## Editing the skills
-
-Work in this repo (e.g. cloned at `~/claude-skills-src/claude-skills`), commit, and push.
-Consuming projects pick up changes via `git submodule update --remote`.
+Work in this repo, commit, push. Consuming projects pick up changes via
+`git submodule update --remote`.

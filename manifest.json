@@ -1,0 +1,81 @@
+{
+  "$comment": "Machine-readable map of Keel lanes → upstreams. Consumed by install.sh. type: plugin|skill|mcp|local. See catalog.md for prose, ARCHITECTURE.md for the model.",
+  "version": 1,
+  "lanes": {
+    "dev": {
+      "router": "keel-dev",
+      "upstreams": [
+        { "name": "superpowers",     "type": "plugin", "repo": "https://github.com/obra/superpowers" },
+        { "name": "gstack",          "type": "plugin", "repo": "https://github.com/garrytan/gstack" },
+        { "name": "codex-plugin-cc", "type": "plugin", "repo": "https://github.com/openai/codex-plugin-cc" },
+        { "name": "hyperframes",     "type": "skill",  "repo": "https://github.com/heygen-com/hyperframes" },
+        { "name": "antfu-skills",    "type": "plugin", "repo": "https://github.com/antfu/skills" },
+        { "name": "agent-browser",   "type": "mcp",    "repo": "https://github.com/vercel-labs/agent-browser" }
+      ]
+    },
+    "design": {
+      "router": "keel-design",
+      "upstreams": [
+        { "name": "impeccable",      "type": "skill",  "repo": "https://github.com/pbakaus/impeccable" },
+        { "name": "frontend-design", "type": "plugin", "repo": "https://github.com/anthropics/claude-code", "subpath": "plugins/frontend-design" },
+        { "name": "fused-landing",   "type": "local",  "repo": "skills/fused-landing" }
+      ]
+    },
+    "marketing": {
+      "router": "keel-marketing",
+      "upstreams": [
+        { "name": "marketingskills", "type": "plugin", "repo": "https://github.com/coreyhaines31/marketingskills" },
+        { "name": "claude-seo",      "type": "skill",  "repo": "https://github.com/AgriciDaniel/claude-seo" },
+        { "name": "kondo",           "type": "mcp",    "repo": "https://docs.trykondo.com/mcp-setup" }
+      ]
+    },
+    "content": {
+      "router": "keel-content",
+      "upstreams": [
+        { "name": "humanizer",           "type": "skill", "repo": "https://github.com/blader/humanizer" },
+        { "name": "social-media-skills", "type": "skill", "repo": "https://github.com/charlie947/social-media-skills" },
+        { "name": "higgsfield",          "type": "mcp",   "repo": "https://higgsfield.ai/mcp" }
+      ]
+    },
+    "research": {
+      "router": "keel-research",
+      "upstreams": [
+        { "name": "notebooklm-skill", "type": "skill", "repo": "https://github.com/PleasePrompto/notebooklm-skill" },
+        { "name": "perplexity",       "type": "mcp",   "repo": "https://github.com/perplexityai/modelcontextprotocol" },
+        { "name": "ai-second-brain",  "type": "skill", "repo": "https://github.com/charlie947/ai-second-brain" }
+      ]
+    },
+    "secure": {
+      "router": "keel-secure",
+      "upstreams": [
+        { "name": "VibeSec-Skill", "type": "skill", "repo": "https://github.com/BehiSecc/VibeSec-Skill" }
+      ]
+    },
+    "ops": {
+      "router": "keel-ops",
+      "upstreams": [
+        { "name": "claude-mem",    "type": "skill", "repo": "https://github.com/thedotmack/claude-mem" },
+        { "name": "granola",       "type": "mcp",   "repo": "https://www.granola.ai/blog/granola-mcp" },
+        { "name": "slack",         "type": "mcp",   "repo": "https://github.com/slackapi/slack-mcp-plugin" },
+        { "name": "notion",        "type": "mcp",   "repo": "https://github.com/makenotion/notion-mcp-server" },
+        { "name": "zapier",        "type": "mcp",   "repo": "https://github.com/zapier/zapier-mcp" },
+        { "name": "find-skills",   "type": "skill", "repo": "https://github.com/vercel-labs/skills" },
+        { "name": "claude-skills", "type": "skill", "repo": "https://github.com/alirezarezvani/claude-skills" }
+      ]
+    },
+    "finance": {
+      "router": "keel-finance",
+      "optional": true,
+      "upstreams": [
+        { "name": "financial-services", "type": "plugin", "repo": "https://github.com/anthropics/financial-services" }
+      ]
+    },
+    "legal": {
+      "router": "keel-legal",
+      "optional": true,
+      "upstreams": [
+        { "name": "claude-for-legal", "type": "plugin", "repo": "https://github.com/anthropics/claude-for-legal" }
+      ]
+    }
+  }
+}

@@ -37,5 +37,8 @@ component with mock data, a diagram — trip none of these → FAST.
 - [ ] Design conformance: tokens from DESIGN.md used, no ad-hoc hex; one focal
       point per view; none of the anti-patterns in DESIGN.md.
 - [ ] If any danger surface is live, both named enforcement layers are present.
+- [ ] Security-relevant diff (surfaces 3/4/9 — PII, auth, secrets — or any
+      trust boundary) ran the `keel-secure` gate (VibeSec); high-severity
+      findings resolved, not deferred.
 Report each as pass/fail with a one-line note. Fail = fix this turn (FAST) or
 block the commit (HEAVY).
