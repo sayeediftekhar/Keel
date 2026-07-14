@@ -57,7 +57,7 @@ session — install only the lanes you use.
 From a consuming project (a git repo):
 
 ```bash
-git submodule add https://github.com/sayeediftekhar/claude-skills .claude/skills
+git submodule add https://github.com/sayeediftekhar/Keel .claude/skills
 git submodule update --init --recursive
 ```
 
