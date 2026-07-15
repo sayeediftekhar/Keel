@@ -1,0 +1,9 @@
+# Every change requires review by the maintainer before it can reach main.
+# Instruction files (SKILL.md / CLAUDE.md) and the installer are the highest-risk
+# surface — they run inside downstream agents — so they are owned explicitly too.
+* @sayeediftekhar
+
+/install.sh @sayeediftekhar
+/skills/ @sayeediftekhar
+/manifest.json @sayeediftekhar
+/.github/ @sayeediftekhar

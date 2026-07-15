@@ -1,5 +1,9 @@
 # Keel
 
+[![CI](https://github.com/sayeediftekhar/Keel/actions/workflows/ci.yml/badge.svg)](https://github.com/sayeediftekhar/Keel/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+
 A **routing + governance layer** for Claude Code. Keel doesn't reimplement
 skills — it curates a set of external skills, plugins, and MCP servers, keeps
 them **unmodified**, and decides when to reach for each one under a single
@@ -68,3 +72,22 @@ Skills resolve under `.claude/skills/skills/<skill-name>/`. Update with
 
 Work in this repo, commit, push. Consuming projects pick up changes via
 `git submodule update --remote`.
+
+## Security
+
+Keel is a pack of **agent instructions** that other people run. Treat every change
+as security-relevant: a malicious edit to a `SKILL.md`, `CLAUDE.md`, or
+`install.sh` could inject instructions into a downstream agent. All changes land
+via reviewed PRs on a protected `main`; upstreams are referenced, never modified.
+See [SECURITY.md](SECURITY.md) for the threat model and how to report a
+vulnerability (privately — not via a public issue).
+
+## Contributing
+
+Route, don't merge; keep the arbiter lean; PR through review. See
+[CONTRIBUTING.md](CONTRIBUTING.md).
+
+## License
+
+[MIT](LICENSE) © Sayeed Iftekhar. Keel routes to third-party upstreams that keep
+their own licenses; it does not redistribute them.
