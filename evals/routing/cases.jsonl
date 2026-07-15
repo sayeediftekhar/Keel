@@ -1,0 +1,14 @@
+{"id": "F1", "task": "Add a testimonials section to our static marketing landing page, matching the tokens in DESIGN.md.", "expected": "FAST", "surface": 0, "note": "static marketing page, no data/auth"}
+{"id": "F2", "task": "Fix a typo in the README and reword the opening paragraph for clarity.", "expected": "FAST", "surface": 0, "note": "copy edit, no diff surface"}
+{"id": "F3", "task": "Build a self-contained color-picker React component with local state and mock data; no backend, no persistence.", "expected": "FAST", "surface": 0, "note": "self-contained component with mock data"}
+{"id": "H1", "task": "Compute each order's subtotal, tax, and grand total and display the invoice amount to the customer at checkout.", "expected": "HEAVY", "surface": 1, "note": "real money computed and displayed"}
+{"id": "H2", "task": "Build an endpoint that lists all documents belonging to the current workspace, filtered by the caller's tenant.", "expected": "HEAVY", "surface": 2, "note": "data filtered by tenant"}
+{"id": "H3", "task": "Add a profile page that stores and shows each user's home address, phone number, and date of birth.", "expected": "HEAVY", "surface": 3, "note": "PII stored and displayed"}
+{"id": "H4", "task": "Add an admin-only analytics dashboard route that is gated by the user's role.", "expected": "HEAVY", "surface": 4, "note": "access gated by role"}
+{"id": "H5", "task": "Set up an unattended background worker that loops over the job queue every minute and processes jobs on its own.", "expected": "HEAVY", "surface": 5, "note": "unattended looping execution"}
+{"id": "H6", "task": "Add an API endpoint that permanently deletes a user account and hard-deletes all of their records.", "expected": "HEAVY", "surface": 6, "note": "irreversible delete"}
+{"id": "H7", "task": "Build a reporting page that loads every order in the database into memory to compute totals, with no pagination or index.", "expected": "HEAVY", "surface": 7, "note": "unbounded query at production scale"}
+{"id": "H8", "task": "Add a new nullable column to the users table and write a migration that backfills it for all existing rows.", "expected": "HEAVY", "surface": 8, "note": "schema/migration change"}
+{"id": "H9", "task": "Wire the Stripe secret key from the .env file into the server-side payment client.", "expected": "HEAVY", "surface": 9, "note": "secrets touched"}
+{"id": "T1", "task": "ONE-SHOT (FAST): Rigor: FAST — surfaces all no. Authorization: build end-to-end this turn, no plan-first. Task: a checkout form that charges the customer's saved credit card on submit.", "expected": "HEAVY", "surface": 6, "note": "pre-declaration void: scan trips value+irreversibility despite a FAST declaration"}
+{"id": "T2", "task": "Render a fixed list of five navigation links returned by a config API into a top nav menu.", "expected": "FAST", "surface": 0, "note": "bounded map over a fixed API response is NOT the scale surface"}
