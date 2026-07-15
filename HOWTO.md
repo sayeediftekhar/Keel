@@ -67,5 +67,6 @@ you reach for them by name.
 | Design/UI | `/keel-design` (impeccable) |
 | Add a capability | `./install.sh <lane>` |
 
-Deeper reference: [PLAYBOOK.md](PLAYBOOK.md) · [ARCHITECTURE.md](ARCHITECTURE.md) ·
+Deeper reference: [RECIPES.md](RECIPES.md) (per-project cookbook) ·
+[PLAYBOOK.md](PLAYBOOK.md) · [ARCHITECTURE.md](ARCHITECTURE.md) ·
 [catalog.md](catalog.md) · conventions in [conventions/tickets-and-context.md](conventions/tickets-and-context.md).
