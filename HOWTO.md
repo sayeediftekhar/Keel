@@ -13,9 +13,11 @@ you reach for them by name.
 2. **Install Keel + the lanes you'll use.**
    ```bash
    git submodule add https://github.com/sayeediftekhar/Keel .claude/skills
-   cat .claude/skills/skills/keel-v2/CLAUDE.md >> CLAUDE.md   # arbiter always-on
+   (cd .claude/skills && ./install.sh arbiter)               # keel-v2 rules → CLAUDE.md (idempotent)
    (cd .claude/skills && ./install.sh dev design)            # only the lanes you need
    ```
+   Re-run `./install.sh arbiter` any time you update the submodule — it replaces
+   the managed block in place instead of duplicating it.
 3. **Build the graph.** Run graphify on the repo so comprehension is cheap
    later (`graphify-out/` persists). Vendored upstreams are **not** host code —
    `install.sh` already adds the ignore entries (`.gitignore` / `.graphifyignore`

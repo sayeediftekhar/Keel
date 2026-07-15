@@ -57,7 +57,7 @@
     "ops": {
       "router": "keel-ops",
       "upstreams": [
-        { "name": "claude-mem",    "type": "skill", "repo": "https://github.com/thedotmack/claude-mem" },
+        { "name": "claude-mem",    "type": "plugin", "role": "memory", "repo": "https://github.com/thedotmack/claude-mem" },
         { "name": "granola",       "type": "mcp",   "repo": "https://www.granola.ai/blog/granola-mcp" },
         { "name": "slack",         "type": "mcp",   "repo": "https://github.com/slackapi/slack-mcp-plugin" },
         { "name": "notion",        "type": "mcp",   "repo": "https://github.com/makenotion/notion-mcp-server" },

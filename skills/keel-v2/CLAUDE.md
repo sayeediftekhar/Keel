@@ -95,6 +95,16 @@ HEAVY loads the full pack (LAWS, CONTEXT, LEARNINGS). FAST does NOT.
 - Keep this file lean; put the long danger-surface definitions in LAWS.md and
   only pull them when a surface is yes.
 
+**Memory protocol (load pointers, not payloads).** Full rules in Keel's
+`MEMORY-CONTRACT.md` (`.claude/skills/MEMORY-CONTRACT.md`). Two that always apply:
+- **Session start:** load only the `memory.md` *index* + claude-mem *search
+  index* + this router. NOT the graphify graph, NOT episode bodies, NOT doc
+  contents — pull those only once the task names a target.
+- **Before touching a file:** query graphify (blast radius) and claude-mem
+  (past decisions/bugs) on that *file/symbol*, then dedupe — if the graph
+  already shows it, drop the memory line that merely restates it. One fact,
+  one home; never copy structural facts into `memory.md`.
+
 ------------------------------------------------------------------------
 ## 5. Priority over other skills
 
