@@ -46,6 +46,59 @@ scaffold_mcp() {
   fi
 }
 
+# --- host code-index hygiene -------------------------------------------------
+# Vendored upstreams (vendor/, e.g. hyperframes ~162 MB / 4200+ files) are
+# third-party code, not the host project's. If a host code-indexer walks them,
+# the host's knowledge graph balloons and queries drown in vendored nodes.
+# So on install we teach the host repo's ignore files to skip them.
+#
+# Which file fixes which tool matters — they don't all read the same one:
+#   .gitignore      git + any git-aware indexer (graphify reads it too)
+#   .graphifyignore graphify (root/ancestor only — it never reads nested ones,
+#                   so the entry must live at the host root, not inside vendor/)
+#   .claudeignore   Claude Code comprehension
+# We write all three, idempotently, keyed on the exact entry line.
+
+add_ignore() { # add_ignore <file> <entry> <why>
+  local file="$1" entry="$2" why="$3"
+  if [ -f "$file" ] && grep -qxF -- "$entry" "$file"; then
+    echo "  = $(basename "$file") already ignores '$entry'"
+    return 0
+  fi
+  { [ -s "$file" ] && printf '\n'
+    printf '# keel: %s\n' "$why"
+    printf '%s\n' "$entry"
+  } >> "$file"
+  echo "  + $(basename "$file"): + '$entry'"
+}
+
+ensure_host_ignores() {
+  [ -d "$VENDOR" ] || return 0
+  local host rootp rel
+  host="$(git -C "$ROOT" rev-parse --show-superproject-working-tree 2>/dev/null || true)"
+  if [ -z "$host" ]; then
+    echo
+    echo "~ Keel isn't a submodule of a host repo here — skipping host code-index setup."
+    echo "  (vendor/ is already gitignored inside this repo.)"
+    return 0
+  fi
+  host="$(cd "$host" && pwd -P)"
+  rootp="$(cd "$ROOT" && pwd -P)"
+  rel="${rootp#"$host"/}"
+  if [ "$rel" = "$rootp" ] || [ -z "$rel" ]; then
+    echo "! couldn't locate Keel under host root ($host) — skipping host code-index setup." >&2
+    return 0
+  fi
+  echo
+  echo "Keeping vendored upstreams out of the host project's code index ($host):"
+  # git + git-aware indexers: the vendor/ dir is the multi-hundred-MB culprit.
+  add_ignore "$host/.gitignore"      "$rel/vendor/" "vendored upstreams cloned by keel/install.sh — generated, never host code"
+  # graphify + Claude comprehension: exclude the whole keel submodule (agent infra).
+  add_ignore "$host/.graphifyignore" "$rel/"        "keel submodule is third-party agent infra, not host-project code"
+  add_ignore "$host/.claudeignore"   "$rel/"        "keel submodule is third-party agent infra, not host-project code"
+  echo "  → re-run your code-graph indexer (e.g. graphify update .) to drop vendored nodes."
+}
+
 install_lane() {
   local lane="$1"
   jq -e --arg l "$lane" '.lanes[$l]' "$MANIFEST" >/dev/null 2>&1 \
@@ -92,9 +145,11 @@ main() {
     esac
   done
   if [ "$need_mcp" = true ]; then
+    ensure_host_ignores
     echo
     echo "Next: any 'MCP' upstreams above need credentials — run  ./install.sh mcp  then edit .mcp.json."
-    echo "Point Claude Code at ./vendor for the cloned skills, and commit vendor/ (or add as submodules)."
+    echo "Point Claude Code at ./vendor for the cloned skills. vendor/ is gitignored (generated,"
+    echo "not committed) and excluded from the host code index — see the ignore entries added above."
   fi
 }
 main "$@"

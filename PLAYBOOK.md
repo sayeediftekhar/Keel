@@ -99,5 +99,11 @@ where outsized gains actually come from.
   task → coin-flip. Pick one primary per project.
 - Merging upstreams into monolithic skills → freezes them, kills their internal
   structure, license soup. Route, don't merge.
+- Indexing vendored upstreams as host code → `.claude/skills/keel/vendor/` is
+  third-party, not your project. Let a code-graph indexer walk it and the graph
+  balloons (one dev lane's ~162 MB) and real queries drown in vendored nodes.
+  `install.sh` adds the ignore entries on install; keep them. graphify reads
+  `.gitignore`/`.graphifyignore` (root/ancestor only), so the entry must stay at
+  the host root — not inside the submodule.
 - Re-explaining a constraint you've hit before → encode it instead.
 - Auto-committing / auto-sending / auto-migrating → always stop at the human gate.

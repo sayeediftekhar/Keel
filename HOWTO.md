@@ -17,7 +17,10 @@ you reach for them by name.
    (cd .claude/skills && ./install.sh dev design)            # only the lanes you need
    ```
 3. **Build the graph.** Run graphify on the repo so comprehension is cheap
-   later (`graphify-out/` persists).
+   later (`graphify-out/` persists). Vendored upstreams are **not** host code —
+   `install.sh` already adds the ignore entries (`.gitignore` / `.graphifyignore`
+   / `.claudeignore`) so your code index skips `.claude/skills/keel/vendor/`.
+   Never index vendored third-party code as your own; it drowns real queries.
 4. **Capture shared language** in `CONTEXT.md` as terms emerge.
 
 ---
