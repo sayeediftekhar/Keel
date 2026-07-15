@@ -1,0 +1,47 @@
+name: ci
+
+# Runs on every PR and on pushes to main. Read-only permissions; fork PRs get no
+# secrets, so running the installer/eval here cannot exfiltrate anything.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate JSON
+        run: |
+          jq empty manifest.json
+          jq empty .mcp.json.template
+
+      - name: Shell syntax
+        run: |
+          bash -n install.sh
+          for f in evals/*.sh; do bash -n "$f"; done
+
+      - name: Shellcheck (advisory)
+        continue-on-error: true
+        run: shellcheck install.sh evals/*.sh
+
+      - name: Install regression eval
+        run: bash evals/install-regression.sh
+
+      - name: No secrets committed
+        run: |
+          if git ls-files | grep -qx '.mcp.json'; then
+            echo "::error::.mcp.json (real credentials) must not be committed — only .mcp.json.template"
+            exit 1
+          fi
+          if git grep -nEI '(sk-[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY-----|xox[baprs]-[A-Za-z0-9-]{10,})' \
+               -- . ':(exclude).github/workflows/ci.yml'; then
+            echo "::error::possible secret found in tracked files"
+            exit 1
+          fi
+          echo "no obvious secrets"
