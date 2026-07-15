@@ -68,5 +68,6 @@ you reach for them by name.
 | Add a capability | `./install.sh <lane>` |
 
 Deeper reference: [RECIPES.md](RECIPES.md) (per-project cookbook) ·
+[MEMORY-CONTRACT.md](MEMORY-CONTRACT.md) (how the memory layers compose) ·
 [PLAYBOOK.md](PLAYBOOK.md) · [ARCHITECTURE.md](ARCHITECTURE.md) ·
 [catalog.md](catalog.md) · conventions in [conventions/tickets-and-context.md](conventions/tickets-and-context.md).
