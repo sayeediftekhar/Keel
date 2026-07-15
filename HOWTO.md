@@ -27,6 +27,27 @@ you reach for them by name.
 
 ---
 
+## Updating an existing project (when you want Keel's latest)
+
+Projects pin Keel to a commit — they don't auto-update. When you want new
+improvements, in the consuming project:
+
+```bash
+git submodule update --remote .claude/skills        # pull latest Keel
+git add .claude/skills && git commit -m "update Keel"
+
+(cd .claude/skills && ./install.sh arbiter)          # refresh keel-v2 rules (idempotent)
+(cd .claude/skills && ./install.sh dev design)       # re-apply lanes + the vendor-ignore fix
+```
+Then rebuild the map: **`graphify update .`** (drops any vendored nodes an older
+install indexed).
+
+One-time only: if this project still has an old hand-pasted keel-v2 block in
+`CLAUDE.md` (from before `./install.sh arbiter` existed), delete it once — the
+managed block replaces it going forward.
+
+---
+
 ## Every session (the loop)
 
 1. **Say what you want.** keel-v2 scans and sets the lane:
