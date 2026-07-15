@@ -58,7 +58,7 @@ Conductor: **Pocock spine + power-tools** (see `skills/keel-dev/SKILL.md`).
 ## keel-ops — Memory/connectors/meta
 | Item | Type | Repo / source | What it does |
 |------|------|---------------|--------------|
-| claude-mem | skill | thedotmack/claude-mem | Persistent cross-session memory (capture→compress→re-inject) |
+| claude-mem | plugin (+MCP+hooks) | thedotmack/claude-mem | Persistent cross-session memory — auto-captures sessions → SQLite/vectors → re-injects. See [MEMORY-CONTRACT.md](MEMORY-CONTRACT.md) |
 | granola | mcp | granola.ai (community: chrisguillory/granola-mcp) | Feed meeting transcripts/notes to Claude (hosted) |
 | slack | mcp | slackapi/slack-mcp-plugin | Read/search/post Slack messages, threads, canvases |
 | notion | mcp | makenotion/notion-mcp-server | Read/write Notion pages and databases |

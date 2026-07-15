@@ -8,6 +8,7 @@
 #   ./install.sh dev design      # install those lanes' upstreams
 #   ./install.sh all             # install every non-optional lane
 #   ./install.sh mcp             # just scaffold .mcp.json from the template
+#   ./install.sh arbiter         # sync the always-on keel-v2 rules into host CLAUDE.md
 #
 # Behavior by upstream type:
 #   skill  -> git clone into ./vendor/<name>  (point Claude Code at ./vendor)
@@ -19,6 +20,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MANIFEST="$ROOT/manifest.json"
 VENDOR="$ROOT/vendor"
+ARBITER="$ROOT/skills/keel-v2/CLAUDE.md"
 
 command -v jq >/dev/null 2>&1 || { echo "! needs 'jq' (brew install jq)"; exit 1; }
 [ -f "$MANIFEST" ] || { echo "! manifest.json not found at $MANIFEST"; exit 1; }
@@ -34,7 +36,7 @@ list() {
     jq -r --arg l "$l" '.lanes[$l].upstreams[] | "      - \(.name)  [\(.type)]  \(.repo)"' "$MANIFEST"
   done
   echo
-  echo "Install:  ./install.sh <lane> [lane...]   |   all   |   mcp"
+  echo "Install:  ./install.sh <lane> [lane...]   |   all   |   mcp   |   arbiter"
 }
 
 scaffold_mcp() {
@@ -44,6 +46,47 @@ scaffold_mcp() {
     cp "$ROOT/.mcp.json.template" "$ROOT/.mcp.json"
     echo "+ wrote .mcp.json from template — now fill in the \${ENV} credentials."
   fi
+}
+
+# --- arbiter (always-on keel-v2 rules) --------------------------------------
+# The keel-v2 CLAUDE.md must be present in the HOST project's CLAUDE.md so the
+# router is always on. The old flow was `cat …/keel-v2/CLAUDE.md >> CLAUDE.md`,
+# which DUPLICATES the whole block every time Keel updates. Instead we write it
+# between markers and replace-in-place, so re-running is idempotent — that's how
+# a consuming project picks up an updated arbiter without hand-editing.
+ARB_BEGIN="# >>> keel-v2 arbiter (managed by keel/install.sh) — do not edit between markers >>>"
+ARB_END="# <<< keel-v2 arbiter <<<"
+
+sync_arbiter() {
+  [ -f "$ARBITER" ] || { echo "! keel-v2 arbiter not found at $ARBITER"; return 1; }
+  local host target tmp
+  host="$(git -C "$ROOT" rev-parse --show-superproject-working-tree 2>/dev/null || true)"
+  if [ -z "$host" ]; then
+    echo "~ Keel isn't a submodule of a host repo here — skipping arbiter sync."
+    echo "  Run  ./install.sh arbiter  from a consuming project to install the always-on rules."
+    return 0
+  fi
+  host="$(cd "$host" && pwd -P)"
+  target="$host/CLAUDE.md"
+  tmp="$(mktemp)"
+  # Drop any existing managed block (markers included), keep everything else.
+  if [ -f "$target" ]; then
+    awk -v b="$ARB_BEGIN" -v e="$ARB_END" '
+      $0==b {skip=1; next}
+      skip && $0==e {skip=0; next}
+      !skip {print}
+    ' "$target" > "$tmp"
+  fi
+  # Append a fresh block from the current keel-v2 arbiter.
+  { [ -s "$tmp" ] && printf '\n'
+    printf '%s\n' "$ARB_BEGIN"
+    cat "$ARBITER"
+    printf '%s\n' "$ARB_END"
+  } >> "$tmp"
+  mv "$tmp" "$target"
+  echo "+ synced keel-v2 arbiter → $target (idempotent, marker-delimited)"
+  echo "  NOTE: if you previously ran 'cat …/keel-v2/CLAUDE.md >> CLAUDE.md', delete that"
+  echo "  older un-marked copy once — this managed block replaces it going forward."
 }
 
 # --- host code-index hygiene -------------------------------------------------
@@ -136,6 +179,7 @@ main() {
   for arg in "$@"; do
     case "$arg" in
       mcp) scaffold_mcp ;;
+      arbiter) sync_arbiter ;;
       all) for l in $(lanes_all); do
              opt=$(jq -r --arg l "$l" '.lanes[$l].optional // false' "$MANIFEST")
              [ "$opt" = "true" ] && { echo "~ skipping optional lane: $l (install explicitly)"; continue; }

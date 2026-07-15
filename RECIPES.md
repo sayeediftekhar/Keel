@@ -25,7 +25,7 @@ name. Always grill before you build.**
 ```
 1. Grill me on what we're building.
 2. git submodule add https://github.com/sayeediftekhar/Keel .claude/skills
-   cat .claude/skills/skills/keel-v2/CLAUDE.md >> CLAUDE.md
+   (cd .claude/skills && ./install.sh arbiter)      # keel-v2 rules → CLAUDE.md (idempotent; re-run on update)
    (cd .claude/skills && ./install.sh dev design)   # only the lanes this project needs
 3. Create DESIGN.md (visual tokens) + CONTEXT.md (voice, terms) — the brand, encoded.
 4. Run graphify on the repo so "how does X work" is cheap later.

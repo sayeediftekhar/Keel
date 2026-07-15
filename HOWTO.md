@@ -13,15 +13,38 @@ you reach for them by name.
 2. **Install Keel + the lanes you'll use.**
    ```bash
    git submodule add https://github.com/sayeediftekhar/Keel .claude/skills
-   cat .claude/skills/skills/keel-v2/CLAUDE.md >> CLAUDE.md   # arbiter always-on
+   (cd .claude/skills && ./install.sh arbiter)               # keel-v2 rules → CLAUDE.md (idempotent)
    (cd .claude/skills && ./install.sh dev design)            # only the lanes you need
    ```
+   Re-run `./install.sh arbiter` any time you update the submodule — it replaces
+   the managed block in place instead of duplicating it.
 3. **Build the graph.** Run graphify on the repo so comprehension is cheap
    later (`graphify-out/` persists). Vendored upstreams are **not** host code —
    `install.sh` already adds the ignore entries (`.gitignore` / `.graphifyignore`
    / `.claudeignore`) so your code index skips `.claude/skills/keel/vendor/`.
    Never index vendored third-party code as your own; it drowns real queries.
 4. **Capture shared language** in `CONTEXT.md` as terms emerge.
+
+---
+
+## Updating an existing project (when you want Keel's latest)
+
+Projects pin Keel to a commit — they don't auto-update. When you want new
+improvements, in the consuming project:
+
+```bash
+git submodule update --remote .claude/skills        # pull latest Keel
+git add .claude/skills && git commit -m "update Keel"
+
+(cd .claude/skills && ./install.sh arbiter)          # refresh keel-v2 rules (idempotent)
+(cd .claude/skills && ./install.sh dev design)       # re-apply lanes + the vendor-ignore fix
+```
+Then rebuild the map: **`graphify update .`** (drops any vendored nodes an older
+install indexed).
+
+One-time only: if this project still has an old hand-pasted keel-v2 block in
+`CLAUDE.md` (from before `./install.sh arbiter` existed), delete it once — the
+managed block replaces it going forward.
 
 ---
 
