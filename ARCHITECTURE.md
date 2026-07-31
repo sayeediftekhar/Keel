@@ -51,7 +51,7 @@ that debt.
 
 | Lane | Domain | Dispatches to (L3) |
 |------|--------|--------------------|
-| `keel-dev` | Development | superpowers, gstack, codex-plugin-cc, hyperframes, antfu/skills, agent-browser |
+| `keel-dev` | Development | mattpocock-skills (spine), superpowers, gstack, codex-plugin-cc, hyperframes, antfu/skills, agent-browser |
 | `keel-design` | Design/UI | impeccable, frontend-design, (local) fused-landing |
 | `keel-marketing` | Marketing/growth | marketingskills, claude-seo, kondo (MCP) |
 | `keel-content` | Content/social/writing | humanizer, social-media-skills, higgsfield (MCP) |

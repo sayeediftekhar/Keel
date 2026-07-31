@@ -26,7 +26,7 @@ for the model, **[catalog.md](catalog.md)** for the upstreams, and
 | Skill | Role | Routes to |
 |-------|------|-----------|
 | [`keel-v2`](skills/keel-v2/) | **Arbiter** — rigor router, the spine | — |
-| [`keel-dev`](skills/keel-dev/) | Development lane | superpowers, gstack, codex-plugin-cc, hyperframes, antfu/skills, agent-browser |
+| [`keel-dev`](skills/keel-dev/) | Development lane | mattpocock-skills (spine), superpowers, gstack, codex-plugin-cc, hyperframes, antfu/skills, agent-browser |
 | [`keel-design`](skills/keel-design/) | Design/UI lane | impeccable, frontend-design, fused-landing |
 | [`keel-marketing`](skills/keel-marketing/) | Marketing lane | marketingskills, claude-seo, kondo |
 | [`keel-content`](skills/keel-content/) | Content/social lane | humanizer, social-media-skills, higgsfield |
