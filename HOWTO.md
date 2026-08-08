@@ -23,7 +23,9 @@ you reach for them by name.
    `install.sh` already adds the ignore entries (`.gitignore` / `.graphifyignore`
    / `.claudeignore`) so your code index skips `.claude/skills/keel/vendor/`.
    Never index vendored third-party code as your own; it drowns real queries.
-4. **Capture shared language** in `CONTEXT.md` as terms emerge.
+4. **Capture shared language** in `CONTEXT.md` as terms emerge, and track
+   gate/slice state in `.scratch/<feat>/00-status.md` so any session resumes
+   from one file (see [conventions](conventions/tickets-and-context.md)).
 
 ---
 

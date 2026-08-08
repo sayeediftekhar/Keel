@@ -31,7 +31,7 @@ deliberate exception.
 ## The pipeline (spine default · power-tools opt-in)
 | Phase | Default (Pocock spine) | Opt-in power-tools | Rigor |
 |---|---|---|---|
-| 0 · Align | `grill` — one Q at a time, look up facts, recommend answers | gstack `/office-hours` for product/scope reframes | HEAVY/ambiguous only; FAST skips |
+| 0 · Align | `grill` — one Q at a time, look up facts, recommend answers; HEAVY features also write `00-product.md` (problem, success metric, announcement copy, mockup — **no technical language**) | gstack `/office-hours` for product/scope reframes | HEAVY/ambiguous only; FAST skips |
 | 1 · Language | `domain-modeling` → `CONTEXT.md` glossary + ADRs | — | optional, compounding |
 | 2 · Spec | `to-spec` (synthesize conversation → spec) | gstack `/spec` (Codex quality gate) | HEAVY |
 | 3 · Decompose | `to-tickets` → `.scratch/<feat>/issues/NN.md`, tracer-bullet slices + blocking edges (+ expand/contract for wide refactors) | — | HEAVY |
@@ -43,6 +43,25 @@ deliberate exception.
 | 8 · Debug | `diagnosing-bugs` | superpowers `systematic-debugging` / gstack `/investigate` | as needed |
 | 9 · Arch health | `improve-codebase-architecture` + `codebase-design` (deep modules) | — | periodic |
 
+## Gates (approval boundaries · keel-v2 decides how hard)
+The pipeline is decision-first: settle the expensive calls while context is
+cheap, before thousands of lines exist. Rigor sets how many boundaries are
+**hard human gates** (keel-v2 HEAVY §2.2 approve-before-code / §2.4
+stop-for-verification apply *at each*):
+
+- **HEAVY** — hard gates after **0·Align → 2·Spec**, **2·Spec → 3·Decompose**,
+  and **3·Decompose → 4·Build**, plus the always-on **7·Ship** gate. At each,
+  stop and get the human's explicit approval before advancing.
+- **FAST** — no mid-pipeline gates; only the **Ship** gate (keel-v2 §1.4:
+  never auto-commit). Don't bureaucratize no-surface work.
+
+**Compact at every gate.** Before advancing, consolidate the decisions of the
+phase you're leaving into its doc (product/spec/CONTEXT.md/tickets) and record
+approval in `00-status.md` — then the doc *is* the context; a fresh session
+resumes from files, not from the transcript. Calls you're not confident about
+go in `00-status.md` → `Open decisions` so a human resolves them, never a
+silent guess.
+
 ## Rules (the locked decisions)
 1. **One spine.** Power-tools never auto-fire alongside the spine — reach for
    them by name. No coin-flip between three methodologies.
@@ -51,7 +70,9 @@ deliberate exception.
 3. **Execution leash.** `implement` is default; the superpowers executor is
    opt-in and runs *within* an approved plan but stops at keel-v2 gates.
 4. **State lives in files** — `.scratch/<feat>/issues/NN.md` tracer-bullet
-   tickets + `CONTEXT.md` glossary. See `conventions/tickets-and-context.md`.
+   tickets + `CONTEXT.md` glossary + `00-status.md` gate/slice ledger (the
+   single "where are we, what's approved" resume file). See
+   `conventions/tickets-and-context.md`.
 
 ## Token economy (7 levers)
 1. this conductor is user-invoked (0 description tax) · 2. progressive
