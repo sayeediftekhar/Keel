@@ -54,7 +54,49 @@ Merely *reading* `CONTEXT.md` for vocabulary is a one-line pointer, not the
 `domain-modeling` skill — that skill is the active build/sharpen discipline
 (challenge terms, edge-case scenarios, write ADRs, update `CONTEXT.md` inline).
 
+## 3. Gate ledger — `.scratch/<feature-slug>/00-status.md`
+
+One file per feature that answers **"where are we and what's approved"** in a
+single read. Tickets (`NN.md`) hold the *work*; `CONTEXT.md` holds the
+*language*; `00-status.md` holds the *state* — so a cold session resumes from
+one file instead of replaying a transcript. (Adapted from the Software Factory
+Playbook's `00-status.md`; keel-dev owns the phases, this is just their ledger.)
+
+It tracks two things: which **phase gates** are approved (see keel-dev §Gates),
+and which **slices** are done. Human approval is recorded here, by the human's
+say-so — an agent never marks a gate `approved` on its own.
+
+```
+# <Feature> — Status
+
+**Rigor:** FAST | HEAVY — <one-line reason from keel-v2 scan>
+**Current phase:** <n · name>   **Blocked on:** <human approval | ticket NN | nothing>
+
+## Gates
+- [x] G1 Product   — approved 2026-08-08 (doc: 00-product.md)
+- [x] G2 Spec/Arch — approved 2026-08-08 (docs: CONTEXT.md, spec.md)
+- [ ] G3 Design    — awaiting approval (doc: issues/)
+- [ ] Ship         — not reached
+
+## Slices
+- [x] 01 — <title>
+- [ ] 02 — <title>  ← frontier
+
+## Open decisions
+- <uncertain call not yet made, and who/what resolves it>
+```
+
+Rules: **one ledger per feature**, updated at every gate boundary and slice
+completion. FAST features keep it to a stub (rigor line + slice checklist +
+ship gate) — don't bureaucratize no-surface work. The `Open decisions` list is
+where a phase parks calls it isn't confident about, so they surface for a human
+instead of being silently guessed (the Software Factory "uncertain decisions"
+habit).
+
 ## Handoff
 To continue big work across sessions, capture state with Pocock `handoff` (or
 `keel-ops` claude-mem) — and for work larger than one context, map it with
 `wayfinder` as investigation tickets on the same `.scratch/` convention.
+`00-status.md` is the lightweight always-on ledger; `handoff` is the richer
+session-boundary snapshot — the ledger points at the latest handoff, it doesn't
+replace it.
