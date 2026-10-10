@@ -1,0 +1,11 @@
+{
+  "name": "keel",
+  "owner": { "name": "Sayeed Iftekhar" },
+  "plugins": [
+    {
+      "name": "keel",
+      "source": "./plugin",
+      "description": "Keel v3 (alpha): governance gates for AI coding agents. One policy file compiled into hooks, permission rules, CODEOWNERS, CI and a GitHub ruleset; `keel doctor` proves each gate blocks."
+    }
+  ]
+}
