@@ -30,3 +30,12 @@ Evidence base: read-only audits of three private projects (reports kept private)
 Positioning: Keel = the control plane above Claude Code built-ins and upstream packs —
 decides what may happen, enforces it, records it, learns from it. "Strongest" is measured by
 KeelBench (red-team block rate, erosion over iterations, portfolio audit deltas, human minutes per change).
+
+## M1 spec decisions
+
+| # | Decision | Implication |
+|---|---|---|
+| D12 | Policy file is JSON + published JSON Schema | `keel.policy.json`; zero-dependency parsing in hooks (supersedes the `.yaml` name in D10) |
+| D13 | Gate scripts are dependency-free Node scripts | Revisit Claude Code mods once they mature |
+| D14 | Keel v3 lives in this repo | Lands as a new major version; Model B layout migrates in place |
+| D15 | Agent identity is a GitHub App | Fine-grained per-repo permissions, short-lived tokens, never a repo admin |
