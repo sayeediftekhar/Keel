@@ -34,7 +34,7 @@ export function denyRules(policy) {
   if (g.deploy.mode === 'approver') for (const c of g.deploy.commands) out.push(`Bash(${c}:*)`);
   if (g.governance.mode === 'block') {
     for (const p of ['keel.policy.json', '.keel/policy.lock.json', '.claude/settings.json', '.claude/settings.local.json', '.github/CODEOWNERS', '.github/workflows/keel.yml']) {
-      out.push(`Edit(./${p})`, `Write(./${p})`);
+      out.push(`Edit(./${p})`); // Edit(path) rules cover every file-editing tool; Write(path) rules are ignored
     }
   }
   return [...new Set(out)];
