@@ -1,8 +1,7 @@
 # Keel v3 · Milestone 1 — policy compiler + `keel doctor`
 
-**Status:** spec — open decisions resolved; awaiting maintainer approval to build. No code is written until
-this spec is approved (it is HEAVY: it ships enforcement code that runs inside
-other people's agents).
+**Status:** approved 2026-10-10; implemented in `plugin/` (alpha), pending
+review. HEAVY: it ships enforcement code that runs inside other people's agents.
 
 **Rigor:** HEAVY — surfaces 4 (access: it decides what an agent may do),
 5 (agent surface: hooks read tool input an agent produced), 6 (irreversible:

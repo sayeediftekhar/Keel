@@ -1,0 +1,29 @@
+{
+  "description": "Keel v3 gates: block pushes to protected branches, immediate merges, unapproved live migrations, credential reads, governance-file edits and production deploys. Each gate fails closed.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [{ "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/gate.mjs\"", "timeout": 15, "onFailure": "block" }]
+      },
+      {
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit|Read|Grep",
+        "hooks": [{ "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/gate.mjs\"", "timeout": 15, "onFailure": "block" }]
+      },
+      {
+        "matcher": "^mcp__.*__(merge_pull_request|push_files|create_or_update_file|delete_file|apply_migration|execute_sql)$",
+        "hooks": [{ "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/gate.mjs\"", "timeout": 15, "onFailure": "block" }]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [{ "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/receipt.mjs\"", "timeout": 15 }]
+      },
+      {
+        "matcher": "^mcp__.*__apply_migration$",
+        "hooks": [{ "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/receipt.mjs\"", "timeout": 15 }]
+      }
+    ]
+  }
+}
