@@ -28,8 +28,8 @@ A consuming project gets, from **one** policy file, enforcement in every place
 an action can happen — and a command that proves each gate actually blocks.
 
 ```
-keel.policy.json  ──keel compile──▶  .claude/settings.json   (hooks + permission deny/ask rules)
-                                     .keel/policy.lock.json  (normalized policy the hooks read)
+keel.policy.json  ──keel compile──▶  .claude/settings.json   (permission deny rules)
+                                     .keel/policy.lock.json  (normalized policy the plugin's hooks read)
                                      .github/CODEOWNERS      (danger paths → approver)
                                      .github/workflows/keel.yml (required checks + rigor check)
                                      .keel/github-protection.json (ruleset to apply; owner applies it)
@@ -92,8 +92,8 @@ JSON (with a published JSON Schema) rather than YAML: hooks must parse it with
 
 | Target | Produced from | Enforces |
 |---|---|---|
-| **Claude Code hooks** (`.claude/settings.json` → `hooks.PreToolUse`) | `gates`, `environments` | Blocks, regardless of permission mode: (a) push to protected branches; (b) PR merge by the agent when the PR touches a danger path or carries a HEAVY rigor record — via Bash (`gh pr merge`, `git merge` + push) **and** MCP (`mcp__github__merge_pull_request`, any `*merge_pull_request*`); (c) migration apply to live via Bash (`supabase db push`, `prisma migrate deploy`, `psql` against a live marker) **and** MCP (`*apply_migration*`, `*execute_sql*` with DDL) unless the file hashes match an unexpired approved batch; (d) reading live-credential markers (`printenv DATABASE_URL`, `cat .env`). Hook commands are `node` scripts with no dependencies. |
-| **Permission rules** (`permissions.deny` / `ask`) | `environments`, `gates` | Second layer under the hooks (two-layer rule): deny credential reads and direct pushes to protected branches even if a hook is disabled. |
+| **Claude Code hooks** — shipped in the plugin's `hooks/hooks.json` (merged automatically; a user can't disable one plugin hook without disabling the plugin), reading the project's `.keel/policy.lock.json` | `gates`, `environments` | `PreToolUse` gates that block (exit 2) in default and auto mode: (a) push to protected branches; (b) PR merge by the agent when the PR touches a danger path or carries a HEAVY rigor record — via Bash (`gh pr merge`, `git merge` + push) **and** MCP (matcher `^mcp__.*__merge_pull_request$`); (c) migration apply to live via Bash (`supabase db push`, `prisma migrate deploy`, `psql` against a live marker) **and** MCP (matcher `^mcp__.*__(apply_migration\|execute_sql)$`) unless the file hashes match an unexpired approved batch; (d) reading live-credential markers (`printenv DATABASE_URL`, `cat .env`). Every gate hook sets **`"onFailure": "block"`** and a short `timeout` — by default a crashing or timed-out hook does **not** block. Hook commands are dependency-free `node` scripts. |
+| **Permission rules** (`permissions.deny`) in the project's `.claude/settings.json` (plugin `settings.json` can't carry them) | `environments`, `gates` | Second layer: deny rules win over any allow and over a hook "allow", in every mode including `bypassPermissions`. Deny credential reads, `mcp__*__apply_migration` when the live target is configured without batches, and direct pushes. |
 | **CODEOWNERS** | `surfaces` paths + `approver` | GitHub requires the approver's review on any PR touching a danger path. |
 | **CI workflow** `keel.yml` | `checks`, `backPressure` | Runs the ladder; a `keel/rigor` job reads the PR's rigor record and fails if it says HEAVY without an approver review, or if the diff touches a danger path while the record says LIGHT. Also: token-budget check (D11) and phantom check (docs naming paths that don't exist). |
 | **Ruleset JSON** | `gates.push`, `gates.merge`, checks | The exact GitHub ruleset (required checks, no direct push, required CODEOWNER review, bypass list empty) for a repo admin to apply with one `gh api` call printed by the compiler. |
@@ -113,6 +113,29 @@ sha256 matches, order is respected, not expired, target matches, and the
 test-DB-first receipt exists. It writes a receipt line to
 `.keel/receipts.jsonl` after the call.
 
+### 5a. What each layer can and can't stop (verified against Claude Code docs, Oct 2026)
+
+Hooks and permission rules match **command text**. Claude Code's docs say
+plainly that Bash rules are not a security boundary: `sh -c '…'`,
+`/usr/bin/gh …`, or a script that calls the GitHub API directly can slip past
+text matching. So the layers are ordered by strength:
+
+| Layer | Stops | Can be bypassed by |
+|---|---|---|
+| **GitHub ruleset + CODEOWNERS + bot identity** | A HEAVY merge or direct push, whatever tool the agent uses | Only a repo admin. The bot account must not be one. **This is the wall.** |
+| **Database credentials** | Live writes from anything without the live credential | Whoever holds the credential — so the agent's environment holds only the migration role, used through the batch-gated tool |
+| **Permission deny rules** | Named tools and commands, in every mode | Command-text tricks (Bash) |
+| **Hooks** | Early, explained blocks before anything happens; MCP tools by name | Command-text tricks; a mod's `tool.check` can override a hook decision unless the hook is in managed settings; `disableAllHooks`; disabling the plugin |
+
+Hooks are the **fast, friendly** layer (they stop the action with a reason the
+agent can act on). GitHub-side rules and credentials are the **hard** layer.
+Both must be present (Keel's two-layer law).
+
+Unverified in the docs, so the doctor must test them live and report
+`UNPROVEN` until it has: whether a hook deny holds in `bypassPermissions`, and
+whether hooks fire for Workflow-tool agents. (They do fire for subagents and
+teammates; events carry `agent_id` / `agent_type`.)
+
 ## 6. `keel doctor`
 
 Two passes, both read-only toward anything real:
@@ -120,8 +143,12 @@ Two passes, both read-only toward anything real:
 **Pass 1 — configuration:** policy present and valid; lock hash matches;
 settings contain every compiled hook; CODEOWNERS/workflow match the policy;
 GitHub (via `gh api`, if authenticated) has the ruleset active with required
-checks and no bypass; agent identity ≠ approver identity; test DB guard
-present. Missing GitHub read permission → `UNPROVEN`, never `ENFORCED`.
+checks and no bypass; agent identity ≠ approver identity and the agent
+identity is not a repo admin; test DB guard present; every gate hook has
+`onFailure: "block"`; Keel plugin enabled and `disableAllHooks` not set at any
+scope; `disableBypassPermissionsMode` recommended; any installed mod with a
+`tool.check` handler flagged (it can override hooks). Missing GitHub read
+permission → `UNPROVEN`, never `ENFORCED`.
 
 **Pass 2 — proof by planted violation:** for each hook gate, feed the hook the
 exact JSON a real tool call would produce (a synthetic PreToolUse event for
@@ -139,7 +166,9 @@ exit non-zero unless every required gate is `ENFORCED`. Runnable in CI.
 ## 7. Laws this must preserve (Keel's own)
 
 - **Fail closed.** Hook error, missing lock, unparsable input → block with a
-  clear message, never allow.
+  clear message, never allow. Claude Code's default is fail-open (a crashing
+  or timed-out hook lets the action through), so every gate sets
+  `onFailure: "block"` and the doctor checks it.
 - **Least privilege.** The compiler and doctor never need admin tokens; they
   print what an admin must apply.
 - **No network in hooks.** Hooks decide from local files only (fast,
@@ -153,8 +182,14 @@ exit non-zero unless every required gate is `ENFORCED`. Runnable in CI.
 
 1. Hook unit tests: table of synthetic PreToolUse events × expected decision
    (≥ 30 cases: Bash variants incl. `git push --force origin HEAD:main`,
-   `gh pr merge --admin`, chained commands `cd x && gh pr merge`, MCP
-   name variants, approved/expired/tampered batches, missing lock).
+   `gh pr merge --admin`, chained commands `cd x && gh pr merge`, wrapped
+   commands `sh -c "gh pr merge 3"` and `/usr/bin/gh`, env-prefixed commands,
+   MCP name variants incl. plugin-bundled `mcp__plugin_<p>_<s>__<tool>`,
+   approved/expired/tampered batches, missing lock, a hook that crashes —
+   must still block via `onFailure`). Cases the hooks are known not to catch
+   (e.g. a script calling the GitHub API) are listed as expected-pass for the
+   hook and expected-block for the GitHub layer, so the gap is documented,
+   not hidden.
 2. Compiler golden tests: fixture policies → expected settings/CODEOWNERS/
    workflow/ruleset outputs.
 3. Doctor tests: a fixture repo with each gate removed in turn → doctor
