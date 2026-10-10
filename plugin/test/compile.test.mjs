@@ -58,6 +58,12 @@ test('deny rules cover each gate', () => {
   }
 });
 
+test('no Write(path) deny rules: Claude Code only honors Edit(path) for file tools', () => {
+  // Found in a live run on Claude Code 2.1.296, which warned and ignored them.
+  const rules = denyRules(normalizePolicy(BASE_POLICY));
+  assert.ok(!rules.some((r) => r.startsWith('Write(')));
+});
+
 test('ruleset: code-owner review, both keel checks, no bypass, no force push', () => {
   const rs = rulesetJson(normalizePolicy(BASE_POLICY));
   assert.deepEqual(rs.bypass_actors, []);

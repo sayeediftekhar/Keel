@@ -1,6 +1,9 @@
 {
   "name": "keel",
-  "owner": { "name": "Sayeed Iftekhar" },
+  "description": "Keel: governance for AI coding agents — a rigor router plus enforced, self-testing gates.",
+  "owner": {
+    "name": "Sayeed Iftekhar"
+  },
   "plugins": [
     {
       "name": "keel",

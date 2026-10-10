@@ -208,7 +208,7 @@ export function doctor(projectDir, { offline = false, gate: gateScript = GATE } 
   items.push(policy.backPressure.length
     ? item('back-pressure', false, 'OK', `CI runs: ${policy.backPressure.join(' → ')}`)
     : item('back-pressure', false, 'MISSING', 'no backPressure checks configured; keel-checks proves nothing yet'));
-  items.push(item('live-only', false, 'UNPROVEN', 'not testable offline: whether a hook block holds in bypassPermissions mode, and whether hooks fire for Workflow-tool agents. Set permissions.disableBypassPermissionsMode to "disable" to remove the first question.'));
+  items.push(item('live-only', false, 'UNPROVEN', 'not testable offline: whether hooks fire for Workflow-tool agents. (A hook block holding in bypassPermissions mode was observed live on Claude Code 2.1.296.)'));
   return items;
 }
 
