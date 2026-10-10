@@ -16,14 +16,15 @@ import { compile } from '../lib/compile.mjs';
 import { doctor, exitCode, formatReport } from '../lib/doctor.mjs';
 import { readPolicyFile, PolicyError, POLICY_FILE } from '../lib/policy.mjs';
 import { contentSha } from '../lib/hash.mjs';
-import { projectRoot, readApprovals, readReceipts, defaultRef } from '../lib/runtime.mjs';
+import { gitToplevel, fetchGithubRemote, readReceipts } from '../lib/runtime.mjs';
+import { loadLock } from '../lib/policy.mjs';
 
 const args = process.argv.slice(2);
 const flag = (name) => { const i = args.indexOf(name); if (i < 0) return false; args.splice(i, 1); return true; };
 const opt = (name) => { const i = args.indexOf(name); if (i < 0) return undefined; const v = args[i + 1]; args.splice(i, 2); return v; };
 
 const dirOpt = opt('--dir');
-const projectDir = path.resolve(dirOpt ?? projectRoot(process.cwd()));
+const projectDir = path.resolve(dirOpt ?? gitToplevel(process.cwd()) ?? process.cwd());
 const [cmd, sub, ...rest] = args;
 
 function die(msg, code = 1) { console.error(msg); process.exit(code); }
@@ -89,8 +90,10 @@ try {
       } else if (sub === 'status') {
         const receipts = readReceipts(projectDir);
         const applied = (t, sha) => receipts.some((r) => r.target === t && r.sha256 === sha);
-        const batches = readApprovals(projectDir, policy);
-        console.log(`Approved batches on ${defaultRef(projectDir, policy)}: ${batches.length || 'none'}`);
+        const lock = loadLock(projectDir);
+        if (lock.state !== 'ok' || !lock.github) die('Need a compiled lock with a GitHub repository; run `keel compile`.');
+        const { approvals: batches } = await fetchGithubRemote(lock.github, policy.defaultBranch, policy);
+        console.log(`Approved batches on github.com/${lock.github.owner}/${lock.github.repo}@${policy.defaultBranch}: ${batches.length || 'none'}`);
         for (const b of batches) {
           const expired = Date.parse(b.expires) <= Date.now();
           console.log(`\n${b.batch}  target=${b.target}  expires=${b.expires}${expired ? '  (EXPIRED)' : ''}`);

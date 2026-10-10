@@ -1,7 +1,7 @@
 # Keel v3 · Milestone 1 — policy compiler + `keel doctor`
 
-**Status:** approved 2026-10-10; implemented in `plugin/` (alpha), pending
-review. HEAVY: it ships enforcement code that runs inside other people's agents.
+**Status:** approved 2026-10-10; implemented in `plugin/` (alpha); adversarial
+review done and its findings fixed (see `plugin/test/redteam.test.mjs`). HEAVY: it ships enforcement code that runs inside other people's agents.
 
 **Rigor:** HEAVY — surfaces 4 (access: it decides what an agent may do),
 5 (agent surface: hooks read tool input an agent produced), 6 (irreversible:
@@ -130,10 +130,14 @@ Hooks are the **fast, friendly** layer (they stop the action with a reason the
 agent can act on). GitHub-side rules and credentials are the **hard** layer.
 Both must be present (Keel's two-layer law).
 
-Unverified in the docs, so the doctor must test them live and report
-`UNPROVEN` until it has: whether a hook deny holds in `bypassPermissions`, and
-whether hooks fire for Workflow-tool agents. (They do fire for subagents and
-teammates; events carry `agent_id` / `agent_type`.)
+Verified live on Claude Code 2.1.296: a hook deny holds in
+`bypassPermissions`. Still unverified: whether hooks fire for Workflow-tool
+agents (they do fire for subagents and teammates; events carry `agent_id` /
+`agent_type`).
+
+**Threat model.** The hooks target an honest-but-fallible or prompt-injected
+agent. A deliberately malicious program running as the user can rewrite local
+state; GitHub and credentials are the layers that hold against that.
 
 ## 6. `keel doctor`
 
@@ -170,8 +174,11 @@ exit non-zero unless every required gate is `ENFORCED`. Runnable in CI.
   `onFailure: "block"` and the doctor checks it.
 - **Least privilege.** The compiler and doctor never need admin tokens; they
   print what an admin must apply.
-- **No network in hooks.** Hooks decide from local files only (fast,
-  deterministic, unspoofable by a remote).
+- **No network in hooks — one exception.** Hooks decide from local files,
+  except that a *live migration* fetches its approvals from GitHub over TLS
+  (local refs are writable by the agent; GitHub's default branch only changes
+  through a reviewed merge). Unreachable GitHub → blocked. *(Amended after
+  the adversarial review, which forged a local approval end to end.)*
 - **Instruction files are code.** Everything here passes CODEOWNERS review;
   releases are tagged; consumers pin a tag.
 - **Token budget (D11).** M1 adds zero always-on context: hooks and CI cost no

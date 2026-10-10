@@ -13,6 +13,7 @@ export const BASE_POLICY = {
   version: 1,
   approver: { github: 'owner-human' },
   agentIdentity: { github: 'owner-agent' },
+  github: { owner: 'example-owner', repo: 'example-repo' },
   surfaces: { value: ['lib/money/**'], schema: ['supabase/migrations/**'] },
   environments: {
     live: { markers: ['DATABASE_URL'], supabaseProjectIds: ['liveproj'] },
@@ -69,3 +70,22 @@ export function mergeToOriginMain(dir) {
 }
 
 export { git };
+
+/** Stand-in for GitHub: read approvals and migration blob ids from the bare origin's main. */
+export function fakeGithub(origin) {
+  return async (slug, branch, policy) => {
+    const ls = sh(origin, 'git', ['ls-tree', '-r', branch]).split('\n').filter(Boolean);
+    const remoteBlobs = new Map(); const approvals = [];
+    const dirs = policy.migrations.dirs.map((d) => `${d}/`);
+    for (const line of ls) {
+      const [meta, file] = line.split('\t');
+      const sha = meta.split(' ')[2];
+      if (dirs.some((d) => file.startsWith(d)) && file.endsWith('.sql')) remoteBlobs.set(file, sha);
+      if (file.startsWith('.keel/approvals/') && file.endsWith('.json')) approvals.push(JSON.parse(sh(origin, 'git', ['show', `${branch}:${file}`])));
+    }
+    return { approvals, remoteBlobs };
+  };
+}
+
+/** Every test process gets its own Keel registry, never the real ~/.claude/keel. */
+process.env.KEEL_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'keel-home-'));

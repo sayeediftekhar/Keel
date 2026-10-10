@@ -9,10 +9,12 @@ import { makeRepo } from './helpers.mjs';
 import { doctor, exitCode } from '../lib/doctor.mjs';
 
 const status = (items, id) => items.find((i) => i.id === id)?.status;
+const installed = () => [{ name: 'keel@keel', enabled: true }];
+const doc = (dir, opts = {}) => doctor(dir, { offline: true, pluginList: installed, ...opts });
 
 test('healthy fixture: every local item OK/ENFORCED; GitHub UNPROVEN offline', () => {
   const { dir } = makeRepo();
-  const items = doctor(dir, { offline: true });
+  const items = doc(dir);
   for (const i of items.filter((x) => x.required && !['github-ruleset', 'agent-identity'].includes(x.id))) {
     assert.ok(['OK', 'ENFORCED'].includes(i.status), `${i.id}: ${i.status} — ${i.detail}`);
   }
@@ -28,7 +30,7 @@ test('a sabotaged gate script is caught: every gate reports BROKEN', () => {
   const { dir } = makeRepo();
   const fake = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'keel-fake-')), 'gate.mjs');
   fs.writeFileSync(fake, 'process.exit(0);\n'); // a "gate" that allows everything
-  const items = doctor(dir, { offline: true, gate: fake });
+  const items = doc(dir, { gate: fake });
   for (const g of ['gate:push', 'gate:merge', 'gate:migration', 'gate:secrets', 'gate:governance', 'gate:deploy']) {
     assert.equal(status(items, g), 'BROKEN', g);
   }
@@ -47,11 +49,18 @@ const removals = [
 for (const [id, remove, expected] of removals) {
   test(`removing ${id} turns exactly that item red`, () => {
     const { dir } = makeRepo();
-    const before = doctor(dir, { offline: true });
+    const before = doc(dir);
     remove(dir);
-    const after = doctor(dir, { offline: true });
+    const after = doc(dir);
     assert.equal(status(after, id), expected, `${id} → ${expected}`);
     const newlyRed = after.filter((i) => i.required && ['OK', 'ENFORCED'].includes(status(before, i.id)) && !['OK', 'ENFORCED'].includes(i.status)).map((i) => i.id);
     if (id !== 'lock') assert.deepEqual(newlyRed, [id], `only ${id} went red, got ${newlyRed}`);
   });
 }
+
+test('the plugin not being installed in Claude Code is BROKEN, not OK', () => {
+  const { dir } = makeRepo();
+  assert.equal(status(doc(dir, { pluginList: () => [] }), 'plugin-installed'), 'BROKEN');
+  assert.equal(status(doc(dir, { pluginList: () => [{ name: 'keel@keel', enabled: false }] }), 'plugin-installed'), 'BROKEN');
+  assert.equal(status(doc(dir, { pluginList: () => { throw new Error('no claude'); } }), 'plugin-installed'), 'UNPROVEN');
+});

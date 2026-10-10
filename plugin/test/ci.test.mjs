@@ -21,10 +21,18 @@ test('rigor: LIGHT touching a danger path fails and names it', () => {
 test('rigor: LIGHT touching a governance file fails', () => {
   assert.equal(rigorVerdict(['.github/CODEOWNERS'], 'Rigor: LIGHT', policy).ok, false);
 });
-test('rigor: HEAVY passes and points to the approver review', () => {
-  const v = rigorVerdict(['supabase/migrations/0001.sql'], '- `Rigor: HEAVY — surface 8`', policy);
-  assert.equal(v.ok, true);
-  assert.match(v.message, /@owner-human/);
+test('rigor: HEAVY fails until the approver approves', () => {
+  const body = '- `Rigor: HEAVY — surface 8`';
+  const v = rigorVerdict(['supabase/migrations/0001.sql'], body, policy, []);
+  assert.equal(v.ok, false);
+  assert.match(v.message, /waiting for @owner-human/);
+  const approved = [{ user: { login: 'owner-agent' }, state: 'APPROVED' }, { user: { login: 'Owner-Human' }, state: 'APPROVED' }];
+  assert.equal(rigorVerdict(['supabase/migrations/0001.sql'], body, policy, approved).ok, true);
+  const revoked = [...approved, { user: { login: 'owner-human' }, state: 'CHANGES_REQUESTED' }];
+  assert.equal(rigorVerdict(['supabase/migrations/0001.sql'], body, policy, revoked).ok, false);
+});
+test('rigor: an approval from someone else does not count', () => {
+  assert.equal(rigorVerdict(['lib/money/a.ts'], 'Rigor: HEAVY', policy, [{ user: { login: 'owner-agent' }, state: 'APPROVED' }]).ok, false);
 });
 
 test('budget: the 16,701-character line is caught even under a line-count cap', () => {

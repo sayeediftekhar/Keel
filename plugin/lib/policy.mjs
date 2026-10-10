@@ -18,6 +18,7 @@ const DEFAULT_GOVERNANCE = [
   '.github/workflows/keel.yml',
   '~/.claude/settings.json',
   '~/.claude/settings.local.json',
+  '~/.claude/keel/projects.json',
 ];
 
 const DEFAULT_DEPLOY = [
@@ -25,7 +26,7 @@ const DEFAULT_DEPLOY = [
   'railway up', 'fly deploy', 'flyctl deploy', 'supabase functions deploy',
 ];
 
-const TOP_KEYS = new Set(['$schema', 'version', 'approver', 'agentIdentity', 'defaultBranch', 'protectedBranches',
+const TOP_KEYS = new Set(['$schema', 'version', 'approver', 'agentIdentity', 'github', 'defaultBranch', 'protectedBranches',
   'surfaces', 'governancePaths', 'environments', 'migrations', 'gates', 'backPressure', 'checks', 'budget', 'ci']);
 
 export class PolicyError extends Error {}
@@ -57,6 +58,12 @@ export function normalizePolicy(raw) {
   if (g.deploy?.commands !== undefined && !strArr(g.deploy.commands)) errs.push('gates.deploy.commands must be an array of strings');
   if (raw.backPressure !== undefined && !strArr(raw.backPressure)) errs.push('backPressure must be an array of check names');
   for (const name of raw.backPressure ?? []) if (!isStr(raw.checks?.[name])) errs.push(`backPressure lists "${name}" but checks.${name} has no command`);
+  if (raw.github !== undefined && !(isStr(raw.github?.owner) && isStr(raw.github?.repo))) errs.push('"github" must be {"owner": "...", "repo": "..."}');
+  // Values below end up in generated YAML; keep them to safe characters.
+  for (const b of raw.protectedBranches ?? []) if (!/^[A-Za-z0-9._/-]+$/.test(b)) errs.push(`protectedBranches: "${b}" has characters Keel won't put in a workflow file`);
+  if (raw.defaultBranch !== undefined && !/^[A-Za-z0-9._/-]+$/.test(raw.defaultBranch)) errs.push('defaultBranch has unsupported characters');
+  for (const n of raw.backPressure ?? []) if (!/^[A-Za-z0-9_-]+$/.test(n)) errs.push(`backPressure: "${n}" must be letters, digits, - or _`);
+  if (raw.ci?.node !== undefined && !/^[0-9]+(\.[0-9x]+)*$/.test(String(raw.ci.node))) errs.push('ci.node must be a version like "20"');
   if (errs.length) throw new PolicyError(errs.join('\n'));
 
   const defaultBranch = raw.defaultBranch ?? 'main';
@@ -66,6 +73,7 @@ export function normalizePolicy(raw) {
     version: 1,
     approver: { github: raw.approver.github },
     agentIdentity: { github: raw.agentIdentity.github },
+    github: raw.github ? { owner: raw.github.owner, repo: raw.github.repo } : null,
     defaultBranch,
     protectedBranches: raw.protectedBranches ?? [defaultBranch],
     surfaces,
@@ -149,5 +157,5 @@ export function loadLock(projectDir) {
       return { state: 'broken', reason: `${POLICY_FILE} changed since the lock was built — run \`keel compile\`` };
     }
   }
-  return { state: 'ok', policy: lock.policy };
+  return { state: 'ok', policy: lock.policy, github: lock.github ?? lock.policy.github ?? null };
 }
