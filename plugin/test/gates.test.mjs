@@ -50,6 +50,7 @@ function ctx(over = {}) {
     ],
     pkgScripts: () => ({ 'db:deploy': 'prisma migrate deploy', build: 'next build' }),
     now: () => NOW,
+    prismaUsesDirectUrl: () => false,
     ...over,
   };
   return { policy, projectDir: '/repo', env };

@@ -35,8 +35,8 @@ export function globToRegExp(pattern) {
   return new RegExp(`^${re}$`);
 }
 
-/** Pure: given changed files, a PR body and the policy, return {ok, message}. */
-export function rigorVerdict(changed, body, policy) {
+/** Pure: given changed files, a PR body, the policy and the PR's reviews, return {ok, message}. */
+export function rigorVerdict(changed, body, policy, reviews = []) {
   const rec = /^[\s>*-]*`?\s*Rigor:\s*(FAST|LIGHT|HEAVY)\b/im.exec(body ?? '');
   if (!rec) return { ok: false, message: 'The PR description needs a rigor record line, e.g. "Rigor: LIGHT — surfaces 1-11 scanned, all no." or "Rigor: HEAVY — surface 8 (schema)."' };
   const level = rec[1].toUpperCase();
@@ -47,7 +47,13 @@ export function rigorVerdict(changed, body, policy) {
       if (globs.some((g) => globToRegExp(g).test(f))) { danger.push(`${f} (${s})`); break; }
     }
   }
-  if (level === 'HEAVY') return { ok: true, message: `HEAVY: GitHub requires @${policy.approver.github}'s review before this merges.` };
+  if (level === 'HEAVY') {
+    // Latest review per reviewer; the approver's must be APPROVED.
+    const latest = new Map();
+    for (const r of reviews) if (r?.user?.login && ['APPROVED', 'CHANGES_REQUESTED', 'DISMISSED'].includes(r.state)) latest.set(r.user.login.toLowerCase(), r.state);
+    if (latest.get(policy.approver.github.toLowerCase()) === 'APPROVED') return { ok: true, message: `HEAVY: approved by @${policy.approver.github}.` };
+    return { ok: false, message: `HEAVY: waiting for @${policy.approver.github} to approve. This check re-runs when they review.` };
+  }
   if (danger.length) return { ok: false, message: `The rigor record says ${level}, but this PR changes danger paths:\n  ${danger.join('\n  ')}\nMark it "Rigor: HEAVY — <surfaces>" so the approver reviews it.` };
   return { ok: true, message: `${level}: no danger paths changed.` };
 }
@@ -57,7 +63,14 @@ function rigor() {
   const base = process.env.BASE_SHA; const head = process.env.HEAD_SHA;
   if (!base || !head) fail('BASE_SHA/HEAD_SHA not set; run this from the keel workflow on a pull_request.');
   const changed = execFileSync('git', ['diff', '--name-only', `${base}...${head}`], { encoding: 'utf8' }).split('\n').filter(Boolean);
-  const v = rigorVerdict(changed, process.env.PR_BODY ?? '', policy);
+  let reviews = [];
+  if (process.env.PR_NUMBER && process.env.GITHUB_REPOSITORY) {
+    try {
+      const out = execFileSync('gh', ['api', '--paginate', `repos/${process.env.GITHUB_REPOSITORY}/pulls/${process.env.PR_NUMBER}/reviews`], { encoding: 'utf8' });
+      reviews = JSON.parse(`[${out.replace(/\]\s*\[/g, ',').replace(/^\[|\]$/g, '')}]`);
+    } catch (e) { console.log(`::warning::couldn't read reviews: ${e.message}`); }
+  }
+  const v = rigorVerdict(changed, process.env.PR_BODY ?? '', policy, reviews);
   if (!v.ok) fail(v.message);
   console.log(v.message);
 }

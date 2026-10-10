@@ -79,7 +79,7 @@ test('workflow runs the back-pressure ladder and the rigor check, with PR body p
   compile(dir, { write: true });
   const y = fs.readFileSync(path.join(dir, '.github/workflows/keel.yml'), 'utf8');
   assert.match(y, /name: keel-checks/);
-  assert.match(y, /run: npm ci/);
+  assert.match(y, /- name: install\n\s+run: \|\n\s+npm ci/);
   assert.match(y, /- name: unit\n\s+run: \|\n\s+npm test/);
   assert.match(y, /PR_BODY: \$\{\{ github\.event\.pull_request\.body \}\}/);
   assert.ok(!/run:.*github\.event\.pull_request\.body/.test(y), 'PR body never interpolated into a shell line');

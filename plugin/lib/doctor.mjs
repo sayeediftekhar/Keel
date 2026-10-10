@@ -87,6 +87,22 @@ function sameFile(projectDir, rel, expected) {
   return fs.readFileSync(abs, 'utf8') === expected ? 'OK' : 'BROKEN';
 }
 
+function defaultPluginList() {
+  const r = spawnSync('claude', ['plugin', 'list', '--json'], { encoding: 'utf8', timeout: 30000 });
+  if (r.status !== 0) throw new Error((r.stderr || r.error?.message || 'claude plugin list failed').trim().split('\n')[0]);
+  return JSON.parse(r.stdout || '[]');
+}
+
+function pluginInstalled(pluginList) {
+  let list;
+  try { list = pluginList(); } catch (e) { return item('plugin-installed', true, 'UNPROVEN', `couldn't ask Claude Code which plugins are installed: ${e.message}`); }
+  const entries = Array.isArray(list) ? list : Object.values(list ?? {}).flat();
+  const keel = entries.find((e) => /^keel(@|$)/.test(String(e?.name ?? e?.id ?? e?.plugin ?? '')));
+  if (!keel) return item('plugin-installed', true, 'BROKEN', 'the Keel plugin is not installed in Claude Code, so none of these hooks run. Install it: /plugin marketplace add sayeediftekhar/Keel, then /plugin install keel@keel');
+  if (keel.enabled === false) return item('plugin-installed', true, 'BROKEN', 'the Keel plugin is installed but disabled');
+  return item('plugin-installed', true, 'OK', `Claude Code has ${keel.name ?? keel.id} enabled`);
+}
+
 function hooksEnabled(projectDir) {
   const files = [path.join(os.homedir(), '.claude', 'settings.json'), path.join(projectDir, '.claude', 'settings.json'), path.join(projectDir, '.claude', 'settings.local.json')];
   for (const f of files) {
@@ -139,7 +155,9 @@ function githubChecks(projectDir, policy, offline) {
       const rules = rs.rules ?? [];
       const pr = rules.find((x) => x.type === 'pull_request')?.parameters;
       const checks = (rules.find((x) => x.type === 'required_status_checks')?.parameters?.required_status_checks ?? []).map((c) => c.context);
-      const coversDefault = (rs.conditions?.ref_name?.include ?? []).some((x) => x === '~DEFAULT_BRANCH' || x === '~ALL' || x === `refs/heads/${policy.defaultBranch}`);
+      const inc = rs.conditions?.ref_name?.include ?? []; const exc = rs.conditions?.ref_name?.exclude ?? [];
+      const names = ['~DEFAULT_BRANCH', '~ALL', `refs/heads/${policy.defaultBranch}`];
+      const coversDefault = inc.some((x) => names.includes(x)) && !exc.some((x) => names.includes(x) || x.includes('*'));
       if (rs.enforcement === 'active' && coversDefault && pr?.require_code_owner_review && rules.some((x) => x.type === 'non_fast_forward')
         && checks.includes('keel-checks') && checks.includes('keel-rigor') && !(rs.bypass_actors ?? []).length) { good = rs; break; }
     }
@@ -178,7 +196,7 @@ function testDbGuard(projectDir, policy) {
     : item('test-db-guard', true, 'BROKEN', `${guard} lacks the keel-test-db-guard check (see \`keel guard-snippet\`)`);
 }
 
-export function doctor(projectDir, { offline = false, gate: gateScript = GATE } = {}) {
+export function doctor(projectDir, { offline = false, gate: gateScript = GATE, pluginList = defaultPluginList } = {}) {
   const items = [];
   let policy;
   try { policy = readPolicyFile(projectDir); items.push(item('policy', true, 'OK', 'keel.policy.json is valid')); }
@@ -194,12 +212,18 @@ export function doctor(projectDir, { offline = false, gate: gateScript = GATE } 
   const deny = settings?.permissions?.deny ?? [];
   const absent = wanted.filter((r) => !deny.includes(r));
   items.push(!settings ? item('deny-rules', true, 'MISSING', `${SETTINGS} not found`)
+    : !wanted.length ? item('deny-rules', true, 'BROKEN', 'the lock records no Keel deny rules — run `keel compile`')
     : absent.length ? item('deny-rules', true, 'BROKEN', `${absent.length} Keel deny rule(s) missing from ${SETTINGS}`) : item('deny-rules', true, 'OK', `${wanted.length} deny rules present`));
   for (const [id, rel] of [['codeowners', CODEOWNERS], ['workflow', WORKFLOW], ['ci-script', CI_SCRIPT_DST]]) {
     const st = sameFile(projectDir, rel, expected[rel]);
     items.push(item(id, true, st, st === 'OK' ? `${rel} matches the policy` : st === 'MISSING' ? `${rel} is missing — run \`keel compile\`` : `${rel} differs from what the policy compiles to — run \`keel compile\``));
   }
+  items.push(pluginInstalled(pluginList));
   items.push(hooksEnabled(projectDir));
+  const bypassOff = [path.join(os.homedir(), '.claude', 'settings.json'), path.join(projectDir, SETTINGS)].some((f) => readJson(f)?.permissions?.disableBypassPermissionsMode === 'disable');
+  items.push(bypassOff ? item('bypass-mode', false, 'OK', 'bypassPermissions mode is disabled')
+    : item('bypass-mode', false, 'MISSING', 'consider permissions.disableBypassPermissionsMode: "disable" (gates held in bypass mode in our live test, but removing the mode removes the question)'));
+  items.push(item('mods', false, 'UNPROVEN', 'Claude Code mods with a tool.check handler can override hook decisions unless hooks are in managed settings; review installed mods'));
   items.push(failClosed());
   if (lock.state === 'ok') items.push(...provenGates(projectDir, lock.policy, gateScript));
   else items.push(item('gates', true, 'UNPROVEN', 'fix the lock first; gates run in strict fallback mode until then'));

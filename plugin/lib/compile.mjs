@@ -98,7 +98,7 @@ export function workflowYaml(projectDir, policy) {
     '- uses: actions/checkout@v4',
     `- uses: actions/setup-node@v4\n  with:\n    node-version: '${node}'`,
   ];
-  if (install) steps.push(`- name: install\n  run: ${install}`);
+  if (install) steps.push(`- name: install\n  run: |\n${indent(install, 4)}`);
   for (const name of policy.backPressure) {
     steps.push(`- name: ${name}\n  run: |\n${indent(policy.checks[name], 4)}`);
   }
@@ -112,10 +112,13 @@ name: keel
 on:
   pull_request:
     types: [opened, synchronize, reopened, edited]
+  pull_request_review:
+    types: [submitted, dismissed]
   push:
     branches: [${branches}]
 permissions:
   contents: read
+  pull-requests: read
 concurrency:
   group: keel-\${{ github.ref }}
   cancel-in-progress: true
@@ -138,8 +141,10 @@ ${indent(steps.join('\n'), 6)}
         with:
           node-version: '${node}'
       - name: rigor record matches the diff
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' || github.event_name == 'pull_request_review'
         env:
+          GH_TOKEN: \${{ github.token }}
+          PR_NUMBER: \${{ github.event.pull_request.number }}
           PR_BODY: \${{ github.event.pull_request.body }}
           BASE_SHA: \${{ github.event.pull_request.base.sha }}
           HEAD_SHA: \${{ github.event.pull_request.head.sha }}
@@ -197,7 +202,8 @@ export function compile(projectDir, { write = false } = {}) {
   const policy = readPolicyFile(projectDir);
   const prevLock = readJson(path.join(projectDir, LOCK_FILE), null);
   const settings = settingsJson(projectDir, policy, prevLock?.managedDeny ?? []);
-  const lock = { ...buildLock(policy), managedDeny: settings.managed };
+  const gh = policy.github ?? githubRepo(projectDir);
+  const lock = { ...buildLock(policy), github: gh, managedDeny: settings.managed };
   const files = {
     [LOCK_FILE]: `${JSON.stringify(lock, null, 2)}\n`,
     [SETTINGS]: settings.content,
@@ -211,7 +217,7 @@ export function compile(projectDir, { write = false } = {}) {
   if (!Object.keys(policy.surfaces).length) notes.push('No danger paths in "surfaces": every PR will count as LIGHT and auto-merge on green.');
   if (!policy.backPressure.length) notes.push('No "backPressure" checks: the keel-checks job proves nothing until you add typecheck/test/build commands.');
   if (settings.risky.length) notes.push(`.claude/settings.json pre-allows risky commands: ${settings.risky.join(', ')}. Deny rules win, but remove these allows.`);
-  const gh = githubRepo(projectDir);
+  if (!gh) notes.push('No GitHub repository found (origin isn\'t on github.com and keel.policy.json has no "github"). Live-migration approvals are verified on GitHub, so live migrations will stay blocked.');
   const repoArg = gh ? `repos/${gh.owner}/${gh.repo}` : 'repos/<owner>/<repo>';
   notes.push(`A repo admin applies the ruleset once: gh api -X POST ${repoArg}/rulesets --input ${RULESET}`);
   if (write) {
