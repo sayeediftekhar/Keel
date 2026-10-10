@@ -1,6 +1,6 @@
 # Keel v3 · Milestone 1 — policy compiler + `keel doctor`
 
-**Status:** DRAFT spec — awaiting maintainer approval. No code is written until
+**Status:** spec — open decisions resolved; awaiting maintainer approval to build. No code is written until
 this spec is approved (it is HEAVY: it ships enforcement code that runs inside
 other people's agents).
 
@@ -201,16 +201,13 @@ exit non-zero unless every required gate is `ENFORCED`. Runnable in CI.
    score = % blocked. Target for M1: 100% of these named cases.
 5. CI: all of the above run on every PR to Keel.
 
-## 9. Open decisions (need the maintainer)
+## 9. Decisions (resolved 2026-10-10)
 
-1. JSON instead of YAML for the policy file (§4) — approve the deviation?
-2. Hook runtime: `node` scripts (all current consumer projects are Node) vs
-   Claude Code **mods** (in-process TS handlers, no external runtime, but
-   shipped only Oct 1 2026). Recommendation: node now, mods later.
-3. Where M1 lives: in this repo under `keel/` (recommended, keeps history) or a
-   new repo for the merged plugin.
-4. Bot identity: GitHub App (fine-grained, recommended) vs machine user account.
-5. Pilot project for M1: Project A (smallest, lowest risk) — confirm.
+1. Policy file: **JSON + JSON Schema** (D12).
+2. Hook runtime: **dependency-free Node scripts**; mods later (D13).
+3. Home: **this repo**, as Keel v3 (D14).
+4. Agent identity: **GitHub App**, never a repo admin (D15).
+5. Pilot: **Project A** (smallest, lowest risk).
 
 ## 10. Done means
 
