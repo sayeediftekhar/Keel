@@ -21,6 +21,7 @@ Conductor: **Pocock spine + power-tools** (see `skills/keel-dev/SKILL.md`).
 | antfu/skills | adjunct | plugin | antfu/skills | Vue/Vite/Nuxt/Pinia/Vitest skills, auto-synced from docs |
 | agent-browser | adjunct | mcp | vercel-labs/agent-browser | Token-efficient browser automation via a11y-tree snapshots |
 | graphify | comprehension | local | ~/.claude/skills/graphify | Codebase knowledge graph (query/path/explain) — the graphify-first default over grep |
+| supabase-agent-skills | stack (opt-in) | plugin | supabase/agent-skills @ `c9be0e9` | Official Supabase skills: `supabase` (products, CLI/MCP, migrations, debugging, security checklist) and `supabase-postgres-best-practices` (Postgres schema/query/RLS rules). Pinned; install only on Supabase/Postgres projects. |
 
 ## keel-design — Design/UI
 | Item | Type | Repo / source | What it does |

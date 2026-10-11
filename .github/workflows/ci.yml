@@ -20,6 +20,7 @@ jobs:
         run: |
           jq empty manifest.json
           jq empty .mcp.json.template
+          jq empty .claude-plugin/marketplace.json plugin/.claude-plugin/plugin.json plugin/hooks/hooks.json plugin/schema/keel.policy.schema.json
 
       - name: Shell syntax
         run: |
@@ -45,3 +46,20 @@ jobs:
             exit 1
           fi
           echo "no obvious secrets"
+
+  plugin:
+    # Keel v3 gates: decision table, end-to-end hooks, compiler, doctor.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Every gate hook fails closed
+        run: |
+          jq -e '[.hooks.PreToolUse[].hooks[] | select(.onFailure != "block")] | length == 0' plugin/hooks/hooks.json
+
+      - name: Plugin tests
+        run: node --test plugin/test/*.test.mjs

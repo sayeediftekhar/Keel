@@ -14,6 +14,13 @@ See **[HOWTO.md](HOWTO.md)** for the simple per-project/per-session workflow,
 for the model, **[catalog.md](catalog.md)** for the upstreams, and
 **[manifest.json](manifest.json)** for the machine map.
 
+> **Keel v3 (alpha):** governance gates that are *enforced* and *proven*, not just
+> described: one policy file compiled into Claude Code hooks, deny rules,
+> CODEOWNERS, CI and a GitHub ruleset, plus `keel doctor`. See
+> [plugin/README.md](plugin/README.md), the usage guide
+> [docs/v3/GUIDE.md](docs/v3/GUIDE.md), and how Keel fits with Claude Code's own
+> harness: [docs/v3/HARNESS-OVERLAP.md](docs/v3/HARNESS-OVERLAP.md).
+
 ## The three layers
 
 - **L1 — Arbiter:** [`keel-v2`](skills/keel-v2/) — the rigor router (nine danger
