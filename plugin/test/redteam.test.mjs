@@ -55,6 +55,8 @@ const BLOCK = {
     T('mcp__supabase__execute_sql', { project_id: 'liveproj', query: "select setval('s', 1), pg_terminate_backend(1)" }),
     T('mcp__supabase__execute_sql', { project_id: 'liveproj', query: 'explain analyze delete from t' }),
     T('mcp__supabase__merge_branch', { branch_id: 'x' }),
+    'supabase db query "alter table fees add column x int"', 'supabase db query --linked "drop table users"',
+    'supabase db query -f supabase/migrations/0099.sql',
   ],
   deploy: [
     T('mcp__supabase__deploy_edge_function', { project_id: 'liveproj' }),
@@ -85,6 +87,7 @@ const ALLOW = [
   'npx prisma migrate dev --name add_fees', 'npx drizzle-kit push', 'npx knex migrate:latest', 'npm run db:migrate',
   'psql -h localhost -d app -c "create table t(x int)"', 'gh pr merge 3 --auto=true', 'supabase db push --local',
   "psql \"$DATABASE_URL\" -c \"select * from audit where action='create'\"", 'git reset --hard origin/main', 'git stash -u',
+  'supabase db query --local "alter table fees add column x int"', 'supabase db query "select count(*) from fees"',
   'git checkout -- keel.policy.json', 'prisma migrate deploy --schema prisma/schema.prisma', 'rg DATABASE_URL src', 'echo x; "gh pr merge 3"', "echo 'a;gh pr merge 3'",
   T('mcp__supabase__execute_sql', { project_id: 'liveproj', query: "select * from orders where status='update'" }),
   T('mcp__supabase__execute_sql', { project_id: 'liveproj', query: 'select count(*), max(created_at) from orders' }),
