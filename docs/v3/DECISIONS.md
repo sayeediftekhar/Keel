@@ -39,3 +39,9 @@ KeelBench (red-team block rate, erosion over iterations, portfolio audit deltas,
 | D13 | Gate scripts are dependency-free Node scripts | Revisit Claude Code mods once they mature |
 | D14 | Keel v3 lives in this repo | Lands as a new major version; Model B layout migrates in place |
 | D15 | Agent identity is a GitHub App | Fine-grained per-repo permissions, short-lived tokens, never a repo admin |
+
+## Upstream decisions
+
+| # | Decision | Implication |
+|---|---|---|
+| D16 | Add supabase/agent-skills as a pinned, opt-in stack upstream | Pinned to c9be0e9; installed only on Supabase/Postgres projects; keel-dev and keel-secure name it explicitly (its own evals show ~60% auto-activation); Keel's gates still govern live data. Prompted the `supabase db query` gate. |

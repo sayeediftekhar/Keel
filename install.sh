@@ -50,7 +50,7 @@ list() {
     opt=$(jq -r --arg l "$l" '.lanes[$l].optional // false' "$MANIFEST")
     tag=""; [ "$opt" = "true" ] && tag="  (optional vertical)"
     echo "  • $l$tag"
-    jq -r --arg l "$l" '.lanes[$l].upstreams[] | "      - \(.name)  [\(.type)]  \(.repo)\(if .ref then "  @" + .ref[0:7] else "" end)\(if .optional then "  (parked)" else "" end)"' "$MANIFEST"
+    jq -r --arg l "$l" '.lanes[$l].upstreams[] | "      - \(.name)  [\(.type)]  \(.repo)\(if .ref then "  @" + .ref[0:7] else "" end)\(if .optional then "  (parked)" else "" end)\(if .when then "  (opt-in: " + .when + ")" else "" end)"' "$MANIFEST"
   done
   echo
   echo "Install:  ./install.sh <lane|upstream> [...]   |   all   |   mcp   |   arbiter   |   check   |   pin"
@@ -353,8 +353,9 @@ check_host() {
 # `set -e` and abort the rest of the install.
 install_item() {
     local lane="$1" i="$2"
-    local name type repo plugin setup note install marketplace ref
+    local name type repo plugin setup note install marketplace ref when
     ref=$(jq -r --arg l "$lane" --argjson i "$i" '.lanes[$l].upstreams[$i].ref // empty' "$MANIFEST")
+    when=$(jq -r --arg l "$lane" --argjson i "$i" '.lanes[$l].upstreams[$i].when // empty' "$MANIFEST")
     name=$(jq -r --arg l "$lane" --argjson i "$i" '.lanes[$l].upstreams[$i].name' "$MANIFEST")
     type=$(jq -r --arg l "$lane" --argjson i "$i" '.lanes[$l].upstreams[$i].type' "$MANIFEST")
     repo=$(jq -r --arg l "$lane" --argjson i "$i" '.lanes[$l].upstreams[$i].repo' "$MANIFEST")
@@ -389,9 +390,15 @@ install_item() {
           [ -n "$marketplace" ] && echo "         claude plugin marketplace add $marketplace"
           echo "         claude plugin install $plugin --scope project"
           [ -n "$setup" ] && echo "         then, once per repo, in Claude Code:  $setup"
+        elif [ -n "$ref" ]; then
+          # Pinned plugin bundle: install from a checkout at the reviewed commit, never from HEAD.
+          echo "» $name: PLUGIN, pinned to ${ref:0:12}${when:+ — only for $when} — from your project root run:"
+          echo "         git clone $repo .claude/keel/vendor/$name && git -C .claude/keel/vendor/$name checkout -q $ref"
+          echo "         claude plugin marketplace add ./.claude/keel/vendor/$name"
+          jq -r --arg l "$lane" --argjson i "$i" '.lanes[$l].upstreams[$i].plugins // [] | .[] | "         claude plugin install \(.) --scope project"' "$MANIFEST"
         else
           echo "» $name: PLUGIN — install via the Claude Code plugin marketplace,"
-          echo "         or:  git clone $repo  into your .claude/plugins${ref:+   (pinned: $ref)}"
+          echo "         or:  git clone $repo  into your .claude/plugins"
         fi ;;
       mcp)
         if [ -n "$install" ]; then

@@ -26,6 +26,7 @@ present."
 | When the task is… | Dispatch to | Type | Source |
 |---|---|---|---|
 | Write/review code for vulnerabilities (injection, authz, secrets, SSRF, XSS) | `VibeSec-Skill` | skill | BehiSecc/VibeSec-Skill |
+| Supabase auth, RLS, views, `SECURITY DEFINER`, storage policies, API keys/tokens — run its **Security checklist** in addition to VibeSec | `supabase` (opt-in, pinned) | plugin | supabase/agent-skills |
 
 ## Two moments, not one
 **Design time (G2 Spec).** Security enters before tickets exist: keel-dev's
