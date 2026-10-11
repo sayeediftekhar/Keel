@@ -43,6 +43,21 @@ deliberate exception.
 | 8 · Debug | `diagnosing-bugs` | superpowers `systematic-debugging` / gstack `/investigate` | as needed |
 | 9 · Arch health | `improve-codebase-architecture` + `codebase-design` (deep modules) | — | periodic |
 
+## Stack specialists (opt-in · pinned · name them explicitly)
+Install only in projects on that stack (`./install.sh dev` prints the pinned
+install). Don't rely on them auto-triggering: Supabase's own evals show its
+skill activates in roughly 60% of relevant tasks, so **name it** at the phases below.
+
+| Stack | Specialist | Use at |
+|---|---|---|
+| Supabase | `supabase` (supabase/agent-skills) | 2 · Spec and 4 · Build for any schema, RLS, auth, storage, Edge Function or CLI/MCP work; 8 · Debug (it requires reading Supabase's debugging docs first) |
+| Postgres (any host) | `supabase-postgres-best-practices` | 2 · Spec for schema/index/RLS design; 5 · Review for queries, migrations, locking, pooling |
+
+They teach *how* to do it correctly; Keel's gates still decide *whether* it may
+touch live data. In particular, iterate with `execute_sql`/`supabase db query`
+on a **test or local** database only — the migration gate blocks writes to live
+unless they arrive as an approved batch.
+
 ## Gates (approval boundaries · keel-v2 decides how hard)
 The pipeline is decision-first: settle the expensive calls while context is
 cheap, before thousands of lines exist. Rigor sets how many boundaries are

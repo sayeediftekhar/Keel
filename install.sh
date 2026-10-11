@@ -33,7 +33,7 @@ list() {
     opt=$(jq -r --arg l "$l" '.lanes[$l].optional // false' "$MANIFEST")
     tag=""; [ "$opt" = "true" ] && tag="  (optional vertical)"
     echo "  • $l$tag"
-    jq -r --arg l "$l" '.lanes[$l].upstreams[] | "      - \(.name)  [\(.type)]  \(.repo)"' "$MANIFEST"
+    jq -r --arg l "$l" '.lanes[$l].upstreams[] | "      - \(.name)  [\(.type)]  \(.repo)\(if .ref then "@" + .ref[0:7] else "" end)\(if .when then "  (opt-in: " + .when + ")" else "" end)"' "$MANIFEST"
   done
   echo
   echo "Install:  ./install.sh <lane> [lane...]   |   all   |   mcp   |   arbiter"
@@ -162,8 +162,18 @@ install_lane() {
           echo "+ $name: cloning skill -> vendor/$name"; git clone --depth 1 "$repo" "$VENDOR/$name"
         fi ;;
       plugin)
-        echo "» $name: PLUGIN — install via the Claude Code plugin marketplace,"
-        echo "         or:  git clone $repo  into your .claude/plugins" ;;
+        ref=$(jq -r --arg l "$lane" --argjson i "$i" '.lanes[$l].upstreams[$i].ref // empty' "$MANIFEST")
+        when=$(jq -r --arg l "$lane" --argjson i "$i" '.lanes[$l].upstreams[$i].when // empty' "$MANIFEST")
+        if [ -n "$ref" ]; then
+          # Pinned plugin: install from a checkout at the reviewed commit, not from HEAD.
+          echo "» $name: PLUGIN, pinned to ${ref:0:12}${when:+ — only for $when}"
+          echo "         git clone $repo vendor/$name && git -C vendor/$name checkout -q $ref"
+          echo "         claude plugin marketplace add ./vendor/$name"
+          jq -r --arg l "$lane" --argjson i "$i" '.lanes[$l].upstreams[$i].plugins // [] | .[] | "         claude plugin install \(.)"' "$MANIFEST"
+        else
+          echo "» $name: PLUGIN — install via the Claude Code plugin marketplace,"
+          echo "         or:  git clone $repo  into your .claude/plugins"
+        fi ;;
       mcp)
         echo "» $name: MCP — add credentials to .mcp.json (see .mcp.json.template). Source: $repo" ;;
       local)
