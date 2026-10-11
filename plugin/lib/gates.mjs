@@ -296,6 +296,19 @@ export function classifyMigrationCommand(cmd, ctx) {
     const db = effective('DATABASE_URL', cmd, ctx);
     return db === undefined ? 'live' : classifyUrl(db, cmd, ctx);
   };
+  if (prog === 'supabase' && has('db', 'query')) {
+    // `supabase db query "<sql>"` (CLI 2.79+) runs SQL directly. Read-only SQL is fine anywhere;
+    // anything else needs an explicit local/test target. Unknown target = live (fail closed).
+    const qi = a.indexOf('query');
+    const file = flagValue(a, ['-f', '--file']);
+    const sql = a.slice(qi + 1).find((x) => !x.startsWith('-') && x !== file);
+    if (file === undefined && sql !== undefined && isReadOnlySql(sql)) return null;
+    const what = 'supabase db query';
+    if (a.includes('--local')) return { target: 'test', what };
+    const url = flagValue(a, ['--db-url']);
+    if (url !== undefined) return { target: classifyUrl(url, cmd, ctx), what };
+    return { target: 'live', what: `${what} (add --local for the local database)` };
+  }
   if (prog === 'supabase') {
     const isPush = has('db', 'push'); const isReset = has('db', 'reset');
     const isUp = has('migration', 'up') || has('migration', 'repair');

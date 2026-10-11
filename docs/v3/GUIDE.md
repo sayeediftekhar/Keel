@@ -126,6 +126,30 @@ Claude Code's defaults are cautious: commit or push only when asked, and in clou
 - Never use --admin, never push to main, never deploy to production.
 ```
 
+### 1.6b Say which rules win
+
+Keel is the main system; Claude Code's built-ins do the work. Add this too:
+
+```markdown
+## Precedence (Keel)
+- Keel governs process: rigor (LIGHT/HEAVY), laws, gates and approvals.
+  Where these rules differ from Claude Code's default behavior, follow Keel.
+- Keel's gates are final. If a hook blocks an action, don't retry it another
+  way; take the path the message names, or stop and ask.
+- For the work itself, use Claude Code's built-ins by default: plan mode for
+  HEAVY plans, /code-review and /security-review for review, Workflows or
+  /loop for parallel or unattended runs. Use a Keel lane's specialist only
+  when the lane names one and it's installed; otherwise fall back to the
+  built-in.
+```
+
+How the two layers combine: **locks** (Keel's hooks and deny rules, Claude
+Code's permission checks, GitHub rules, managed settings) all apply, and the
+strictest one wins; Keel can block but never grants. **Instructions** in
+CLAUDE.md and skills override Claude Code's *default behaviors* (that's what
+makes the standing authorization work), but not its safety rules, the
+environment's own hooks, or the locks.
+
 ### 1.7 Prove it
 
 ```bash
