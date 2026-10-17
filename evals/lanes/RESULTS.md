@@ -1,5 +1,16 @@
 # Lane-triggering eval — results
 
+## Run 2 — 2026-10-17, Haiku
+
+- One fresh agent per case, Haiku (harness `haiku` alias — Claude Haiku 5.5
+  in this environment), given the lane's real `SKILL.md` + one task.
+- **Correct dispatch: 7 / 7 (100%)**, rigor 7/7 FAST. The collision rule
+  (D1→fused-landing, D2→impeccable, D3→frontend-design) and the SEO
+  precedence rule (M2→claude-seo, M4→marketingskills) both held on the cheap
+  model. Single trial.
+
+## Run 1 — 2026-07-15, Opus 4.8
+
 - **Date:** 2026-07-15
 - **Cases:** 7 (`cases.jsonl`) — 3 design, 4 marketing
 - **Classifier:** one fresh agent per case (Opus 4.8), given the lane's real `SKILL.md` router + one task
