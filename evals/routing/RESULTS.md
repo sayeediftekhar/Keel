@@ -1,5 +1,33 @@
 # keel-v2 routing eval — results
 
+## 2026-10-17 — `writing-for-agents` pass on the arbiter (before / after)
+
+`skills/keel-v2/CLAUDE.md` was rewritten to Pocock's `writing-for-agents` rules
+(process over output, checkable "done when", positive phrasing, one source of
+truth, prune no-ops, pointers that say what's there and when to open them). The
+routing rules were meant to keep the same meaning; this run checks that.
+
+- **Classifier:** one fresh, independent agent per case (Sonnet), 14 + 14 runs.
+  Each agent read one file: the arbiter **as written** plus the unchanged LAWS.md
+  surface definitions. It saw no gold labels and no other cases.
+- **Size:** 1035 → 827 words (−20%), 7113 → 5403 bytes (−24%); loaded every session.
+
+| | routing (FAST/HEAVY) | surface ID (exact) |
+|--|--|--|
+| before (old arbiter) | **14 / 14** | 14 / 14 |
+| after (new arbiter)  | **14 / 14** | 14 / 14 |
+
+Every case returned the same lane and the same primary surface before and
+after, including **T1** (the ONE-SHOT FAST declaration is still voided → HEAVY)
+and **T2** (the bounded map still routes FAST). All 28 replies were bare JSON (no
+fences). Caveats are the same as below: one trial per case, 14 cases. A
+different classifier model and the full arbiter as context mean these numbers
+can't be compared one-to-one with the 2026-07-15 run.
+
+---
+
+## 2026-07-15 — first run
+
 - **Date:** 2026-07-15
 - **Cases:** 14 (`cases.jsonl`)
 - **Classifier:** one fresh, independent agent per case (Opus 4.8), router rules only
