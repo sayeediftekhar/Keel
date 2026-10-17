@@ -96,7 +96,23 @@ const ALLOW = [
 ];
 
 // Hooks read text; these are covered by the GitHub ruleset / credentials instead.
-const KNOWN_GAPS = ['node scripts/merge.js 3', 'git checkout old-branch', 'bash ./do-merge.sh'];
+const KNOWN_GAPS = ['node scripts/merge.js 3', 'git checkout old-branch', 'bash ./do-merge.sh',
+  // the ledger gate reads tool input; a script that rewrites the ledger itself is invisible to it
+  'node scripts/approve.js invoicing G3'];
+
+// Ledger gate probes (no ledger on disk is needed for the gate-box rule).
+BLOCK.ledger = [
+  "sed -i 's/\\[ \\] G3/[x] G3/' .scratch/invoicing/00-status.md", "bash -c \"sed -i 's/x/y/' .scratch/f/00-status.md\"",
+  'echo "- [x] Ship" >> .scratch/f/00-status.md', 'cat new.md > .scratch/f/00-status.md', 'tee .scratch/f/00-status.md < new.md',
+  'cd .scratch/f && mv ../../new.md 00-status.md', 'perl -pi -e "s/\\[ \\]/[x]/" .scratch/f/00-status.md',
+  'keel approve f G1 "ok"', 'K=keel; $K approve f G2 ok', 'node /x/plugin/bin/keel.mjs approve f Ship "ship it"', 'npx keel approve f G3 y',
+  T('Edit', { file_path: '/proj/.scratch/f/00-status.md', old_string: '- [ ] G2 Spec', new_string: '- [x] G2 Spec' }),
+  T('Write', { file_path: '/proj/.scratch/f/00-status.md', content: '**Rigor:** HEAVY\n- [x] G1 Align\n' }),
+  T('MultiEdit', { file_path: '/proj/.scratch/f/00-status.md', edits: [{ old_string: '- [ ] Ship', new_string: '- [X] Ship' }] }),
+];
+ALLOW.push('cat .scratch/f/00-status.md', 'keel doctor', 'keel batch create b1 x.sql', 'git add .scratch/f/00-status.md',
+  T('Edit', { file_path: '/proj/.scratch/f/00-status.md', old_string: '- [ ] 02 — tax', new_string: '- [x] 02 — tax' }),
+  T('Edit', { file_path: '/proj/.scratch/f/00-status.md', old_string: '- [x] G1 Align — approved', new_string: '- [x] G1 Align — approved (docs: 00-product.md)' }));
 
 for (const [gate, cases] of Object.entries(BLOCK)) {
   for (const c of cases) {

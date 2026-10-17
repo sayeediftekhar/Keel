@@ -18,7 +18,7 @@ test('healthy fixture: every local item OK/ENFORCED; GitHub UNPROVEN offline', (
   for (const i of items.filter((x) => x.required && !['github-ruleset', 'agent-identity'].includes(x.id))) {
     assert.ok(['OK', 'ENFORCED'].includes(i.status), `${i.id}: ${i.status} — ${i.detail}`);
   }
-  for (const g of ['gate:push', 'gate:merge', 'gate:migration', 'gate:secrets', 'gate:governance', 'gate:deploy']) {
+  for (const g of ['gate:push', 'gate:merge', 'gate:migration', 'gate:secrets', 'gate:governance', 'gate:deploy', 'gate:ledger']) {
     assert.equal(status(items, g), 'ENFORCED', g);
   }
   assert.equal(status(items, 'github-ruleset'), 'UNPROVEN');
@@ -31,7 +31,7 @@ test('a sabotaged gate script is caught: every gate reports BROKEN', () => {
   const fake = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'keel-fake-')), 'gate.mjs');
   fs.writeFileSync(fake, 'process.exit(0);\n'); // a "gate" that allows everything
   const items = doc(dir, { gate: fake });
-  for (const g of ['gate:push', 'gate:merge', 'gate:migration', 'gate:secrets', 'gate:governance', 'gate:deploy']) {
+  for (const g of ['gate:push', 'gate:merge', 'gate:migration', 'gate:secrets', 'gate:governance', 'gate:deploy', 'gate:ledger']) {
     assert.equal(status(items, g), 'BROKEN', g);
   }
 });

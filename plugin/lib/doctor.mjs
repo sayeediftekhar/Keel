@@ -60,6 +60,18 @@ export function plantedCases(policy, projectDir) {
   if (g.secrets.mode === 'block') cases.secrets = [[...(marker ? [bash(`printenv ${marker}`)] : []), bash('printenv'), { tool_name: 'Read', tool_input: { file_path: abs('.env') } }], [bash('printenv HOME')]];
   if (g.governance.mode === 'block') cases.governance = [[{ tool_name: 'Edit', tool_input: { file_path: abs('keel.policy.json') } }, { tool_name: 'Write', tool_input: { file_path: abs('.claude/settings.json') } }, bash('rm -f .keel/policy.lock.json')], [{ tool_name: 'Edit', tool_input: { file_path: abs('src/keel-doctor-probe.ts') } }]];
   if (g.deploy.mode === 'approver' && g.deploy.commands.length) cases.deploy = [[bash(g.deploy.commands[0])], [bash('echo deploy')]];
+  if (g.ledger.mode === 'block') {
+    const ledger = abs(`${g.ledger.dir}/keel-doctor-probe/00-status.md`);
+    cases.ledger = [[
+      { tool_name: 'Edit', tool_input: { file_path: ledger, old_string: '- [ ] G3 Plan — awaiting approval', new_string: '- [x] G3 Plan — approved' } },
+      { tool_name: 'Write', tool_input: { file_path: ledger, content: '# Probe — Status\n\n**Rigor:** HEAVY\n\n## Gates\n- [x] Ship — approved\n' } },
+      bash(`keel approve keel-doctor-probe G3 "probe"`),
+      bash(`sed -i 's/\\[ \\] G3/[x] G3/' ${g.ledger.dir}/keel-doctor-probe/00-status.md`),
+    ], [
+      { tool_name: 'Edit', tool_input: { file_path: ledger, old_string: '- [ ] 01 — totals', new_string: '- [x] 01 — totals' } },
+      bash(`cat ${g.ledger.dir}/keel-doctor-probe/00-status.md`),
+    ]];
+  }
   return cases;
 }
 

@@ -227,6 +227,8 @@ Every block says which gate and what to do instead. The common ones:
 | `[migration] … verified on GitHub, and that failed` | Check network and `gh auth status`; the gate fails closed when it can't see GitHub. |
 | `[secrets] …` | Use a test credential; don't print or read the live one. |
 | `[governance] …` | Only the approver changes Keel's files: edit the policy, `keel compile`, PR. |
+| `[ledger] gate G3 … can only be approved by the human` | Review the spec/tickets, then `keel approve <feature> G3 "<why>"` in your terminal. |
+| `[ledger] … Blocked on: human approval` | Approve the gate (above), or park the feature by setting `**Blocked on:** paused` in its ledger. |
 | `Keel policy problem: … run keel compile` | The policy changed or the lock is missing; recompile and merge. Until then the strictest rules apply. |
 
 False positive? Note the exact command and open an issue. If it blocks real work, adjust the policy (and recompile) rather than working around the gate.

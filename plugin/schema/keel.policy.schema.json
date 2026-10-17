@@ -73,7 +73,12 @@
           "properties": { "mode": { "enum": ["approver", "off"] }, "commands": { "type": "array", "items": { "type": "string" } } }
         },
         "secrets": { "type": "object", "additionalProperties": false, "properties": { "mode": { "enum": ["block", "off"] } } },
-        "governance": { "type": "object", "additionalProperties": false, "properties": { "mode": { "enum": ["block", "off"] } } }
+        "governance": { "type": "object", "additionalProperties": false, "properties": { "mode": { "enum": ["block", "off"] } } },
+        "ledger": {
+          "description": "Feature ledgers (<dir>/<feature>/00-status.md, Keel conventions §3). block: an agent cannot check a gate box (G1/G2/G3/Ship) and cannot write product code while a HEAVY ledger says 'Blocked on: human approval'. The human flips gates with `keel approve`.",
+          "type": "object", "additionalProperties": false,
+          "properties": { "mode": { "enum": ["block", "off"] }, "dir": { "type": "string", "default": ".scratch" } }
+        }
       }
     },
     "backPressure": { "description": "Ordered check names CI must pass (each needs a command in `checks`).", "type": "array", "items": { "type": "string" } },
