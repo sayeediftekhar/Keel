@@ -113,10 +113,22 @@ function budget() {
   console.log(`Always-on context ~${tokens} tokens; no over-long lines.`);
 }
 
-/** Pure: find backticked repo paths in doc text that don't exist. */
+/** Keel's managed CLAUDE.md blocks (rules, standing authorization) name Keel's own files, not the project's. */
+export function stripManagedBlocks(text) {
+  const out = [];
+  let skip = false;
+  for (const line of String(text ?? '').split('\n')) {
+    if (!skip && /^# >>> keel.*>>>\s*$/.test(line)) { skip = true; continue; }
+    if (skip && /^# <<< keel.*<<<\s*$/.test(line)) { skip = false; continue; }
+    if (!skip) out.push(line);
+  }
+  return out.join('\n');
+}
+
+/** Pure: find backticked repo paths in doc text that don't exist (Keel's managed blocks are skipped). */
 export function phantomRefs(text, exists) {
   const missing = new Set();
-  for (const m of text.matchAll(/`([^`\n]+)`/g)) {
+  for (const m of stripManagedBlocks(text).matchAll(/`([^`\n]+)`/g)) {
     const s = m[1].trim().replace(/^\.\//, '');
     if (!/^[\w.\-/@]+$/.test(s) || s.startsWith('/') || s.startsWith('@') || s.includes('://')) continue;
     if (!(s.includes('/') || /\.(md|json|ts|tsx|js|mjs|cjs|sql|sh|ya?ml|prisma|toml)$/.test(s))) continue;

@@ -58,3 +58,17 @@ test('the CI glob matches the hook glob on the same cases', () => {
     assert.equal(ciGlob(g).test(p), want, `ci ${g} ~ ${p}`);
   }
 });
+
+test('phantom: Keel\'s managed CLAUDE.md blocks are skipped (they name Keel\'s files, not the project\'s)', () => {
+  const text = [
+    'See `docs/ARCHITECTURE.md`.',
+    '# >>> keel-v2 arbiter (managed by Keel — keel init / install.sh arbiter) — do not edit between markers >>>',
+    'Full rules in `MEMORY-CONTRACT.md`; load `memory.md`, not `graphify-out/`; ledger `.scratch/<feat>/00-status.md`.',
+    '# <<< keel-v2 arbiter <<<',
+    '# >>> keel standing authorization (managed by `keel init`) — do not edit between markers >>>',
+    '`keel batch create <id> <files>`',
+    '# <<< keel standing authorization <<<',
+    'And `lib/gone.ts`.',
+  ].join('\n');
+  assert.deepEqual(phantomRefs(text, (p) => p === 'docs/ARCHITECTURE.md'), ['lib/gone.ts']);
+});
