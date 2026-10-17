@@ -21,6 +21,11 @@ const ALLOW = Object.freeze({ allow: true });
 const block = (gate, reason) => ({ allow: false, gate, reason });
 
 const ENV_FILE = /^(\.env(rc)?(\.(?!example$|sample$|template$|dist$|test$|ci$)[\w.-]+)?|\.dev\.vars)$/i;
+// Credential literals that must never be written into a file or typed into a
+// command: once in source, docs or the transcript they are leaked. Shapes with
+// a vendor prefix and enough entropy that a false positive is unlikely; public
+// keys that look like JWTs (Supabase anon keys) are deliberately NOT here.
+const SECRET_LITERAL = /(sk-(?:proj-|ant-|live-)?[A-Za-z0-9_-]{20,}|sk_live_[A-Za-z0-9]{10,}|AKIA[0-9A-Z]{16}|-----BEGIN (?:[A-Z]+ )?PRIVATE KEY-----|xox[baprs]-[A-Za-z0-9-]{10,}|ghp_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{22,}|glpat-[A-Za-z0-9_-]{20,})/;
 const ENV_PROBES = ['.env', '.env.local', '.env.production', '.envrc', '.dev.vars'];
 const READERS = new Set(['cat', 'less', 'more', 'head', 'tail', 'grep', 'egrep', 'fgrep', 'rg', 'ag', 'awk', 'sed', 'bat',
   'strings', 'xxd', 'od', 'hexdump', 'base64', 'nl', 'cut', 'sort', 'uniq', 'diff', 'tac', 'jq', 'yq', 'curl', 'nc',
@@ -54,6 +59,8 @@ export function decide(event, ctx) {
   if (['Edit', 'Write', 'MultiEdit', 'NotebookEdit'].includes(name)) {
     const g = governance([input.file_path ?? input.notebook_path], cwd, ctx);
     if (!g.allow) return g;
+    const s = secretsWrite(name, input, ctx);
+    if (!s.allow) return s;
     return ledgerEdit(name, input, cwd, ctx);
   }
   if (name === 'Read' || name === 'Grep' || name === 'Glob') {
@@ -283,6 +290,28 @@ function secretsBlock(what) {
   return block('secrets', `${what} would expose live credentials in the transcript. If a task needs the database, use a test DATABASE_URL; live access goes through the batch-approved migration gate.`);
 }
 
+/** The text a file tool would write. */
+function writtenText(tool, input) {
+  if (tool === 'Write') return String(input.content ?? '');
+  if (tool === 'Edit') return String(input.new_string ?? '');
+  if (tool === 'MultiEdit') return (input.edits ?? []).map((e) => String(e.new_string ?? '')).join('\n');
+  if (tool === 'NotebookEdit') return String(input.new_source ?? '');
+  return '';
+}
+
+// No credential literal goes into a file. Real env files (.env, .env.local, …)
+// are the one place a local credential belongs and are exempt; .env.example
+// and everything else — source, docs, tests, config — are not.
+function secretsWrite(tool, input, ctx) {
+  if (ctx.policy.gates.secrets.mode !== 'block') return ALLOW;
+  const file = input.file_path ?? input.notebook_path;
+  if (file && ENV_FILE.test(base(file))) return ALLOW;
+  const m = SECRET_LITERAL.exec(writtenText(tool, input));
+  if (!m) return ALLOW;
+  const shape = m[0].slice(0, 8);
+  return block('secrets', `the text being written to ${file ? base(file) : 'this file'} contains what looks like a live credential (${shape}…). Keep it out of source and docs: read it from an environment variable, and put the value only in a local env file.`);
+}
+
 function isEnvArg(a) {
   const b = base(String(a).replace(/^@/, '').replace(/^[^:]*:(?=\.)/, '')); // git show HEAD:.env → .env
   if (ENV_FILE.test(b)) return true;
@@ -308,6 +337,9 @@ function secretsBash(cmd, ctx) {
     const whole = /process\.env(?!\s*(\.\s*[A-Za-z_]|\[))|os\.environ(?!\s*(\[|\.get\b))|\bENV(?!\s*\[)\b(?=.*(puts|p |print|inspect|to_h))|%ENV|getenv\(\s*\)/;
     if (['node', 'python', 'python3', 'ruby', 'perl', 'deno', 'bun', 'php'].includes(prog) && args.some((a) => whole.test(a))) return secretsBlock(`\`${prog}\` printing the whole environment`);
   }
+  // A credential literal typed into a command is already in the transcript, and
+  // usually on its way into a file or a request header. Use the env var instead.
+  if (cmd.argv.some((a) => SECRET_LITERAL.test(a)) || (cmd.stdinText && SECRET_LITERAL.test(cmd.stdinText))) return secretsBlock(`\`${prog}\` with a credential literal in the command (use an environment variable)`);
   if (cmd.inputs.some(isEnvArg)) return secretsBlock(`\`${prog} < env file\``);
   if (prog === 'dd' && args.some((a) => a.startsWith('if=') && isEnvArg(a.slice(3)))) return secretsBlock('`dd` on an env file');
   if (prog === 'git' && ['show', 'cat-file', 'log', 'diff', 'grep'].includes(args[0]) && args.some((a) => /:.*\.env|^\.env/.test(a) && isEnvArg(a))) return secretsBlock(`\`git ${args[0]}\` on an env file`);

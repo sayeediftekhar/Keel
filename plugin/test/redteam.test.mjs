@@ -100,6 +100,15 @@ const KNOWN_GAPS = ['node scripts/merge.js 3', 'git checkout old-branch', 'bash 
   // the ledger gate reads tool input; a script that rewrites the ledger itself is invisible to it
   'node scripts/approve.js invoicing G3'];
 
+// Credential literals written or typed (assembled at run time; see secrets-write.test.mjs).
+const FAKE_AWS = `AK${'IA'}0123456789ABCDEF`;
+BLOCK.secrets.push(
+  `printf '%s' '${FAKE_AWS}' > config.json`, `AWS_SECRET=1 node -e "fs.writeFileSync('k', '${FAKE_AWS}')"`, `bash -c "echo ${FAKE_AWS} >> notes.md"`,
+  T('Write', { file_path: '/proj/README.md', content: `key: ${FAKE_AWS}` }),
+  T('Edit', { file_path: '/proj/.env.example', old_string: 'AWS_KEY=', new_string: `AWS_KEY=${FAKE_AWS}` }),
+);
+ALLOW.push(T('Write', { file_path: '/proj/.env.local', content: `AWS_KEY=${FAKE_AWS}` }), T('Write', { file_path: '/proj/src/a.ts', content: 'const id = process.env.AWS_KEY' }));
+
 // Ledger gate probes (no ledger on disk is needed for the gate-box rule).
 BLOCK.ledger = [
   "sed -i 's/\\[ \\] G3/[x] G3/' .scratch/invoicing/00-status.md", "bash -c \"sed -i 's/x/y/' .scratch/f/00-status.md\"",
