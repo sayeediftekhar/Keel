@@ -1,4 +1,4 @@
-# Keel — upstream catalog (28 items)
+# Keel — upstream catalog (30 items: 27 upstreams + 3 locals)
 
 The external skills/plugins/MCP servers Keel routes to. Kept **unmodified**;
 Keel's lane routers (see `ARCHITECTURE.md`) point at them. `type` decides how
@@ -14,12 +14,12 @@ Conductor: **Pocock spine + power-tools** (see `skills/keel-dev/SKILL.md`).
 | Item | Role | Type | Repo / source | What it does |
 |------|------|------|---------------|--------------|
 | mattpocock-skills | **spine** | plugin | mattpocock/skills (`mattpocock-skills@claude-plugins-official`, self-updating) | 27 skills. The backbone pipeline: grill-with-docs → to-spec → to-tickets → implement → two-axis code-review; domain-modeling (`GLOSSARY.md`), codebase-design (deep modules), diagnosing-bugs, tdd |
-| superpowers | power-tool | plugin | obra/superpowers | Autonomous TDD executor: subagent-driven dev, strict red-green-refactor, systematic-debugging (~14 skills) |
-| gstack | power-tool | plugin | garrytan/gstack | Product studio: design-shotgun/html, real-browser /qa, /review, /cso security, /ship+deploy (23 roles + tools) |
-| codex-plugin-cc | power-tool | plugin | openai/codex-plugin-cc | Official OpenAI bridge — cross-model review / hand-off to Codex |
-| hyperframes | adjunct | skill | heygen-com/hyperframes | Agent-native HTML/CSS/JS → deterministic MP4 video |
-| antfu/skills | adjunct | plugin | antfu/skills | Vue/Vite/Nuxt/Pinia/Vitest skills, auto-synced from docs |
-| agent-browser | adjunct | mcp | vercel-labs/agent-browser | Token-efficient browser automation via a11y-tree snapshots |
+| vercel | deploy | plugin | vercel/vercel-plugin (`vercel@claude-plugins-official`) | Vercel-hosted projects only: deploy, promote, instant rollback, logs — the Ship and Incident steps |
+| keel-qa | qa | local | this repo | Real-browser QA procedure on Claude Code's own browsers; evidence per acceptance criterion |
+| hyperframes | **parked** | skill | heygen-com/hyperframes | Agent-native HTML/CSS/JS → deterministic MP4 video. ~162 MB clone — `./install.sh hyperframes` only in projects that make video |
+| antfu/skills | **parked** | plugin | antfu/skills | Vue/Vite/Nuxt/Pinia/Vitest skills, auto-synced from docs — `./install.sh antfu-skills` only in Vue-stack projects |
+| agent-browser | qa | cli | vercel-labs/agent-browser | Headless browser CLI — keel-qa's browser for terminal/cloud sessions; run from the shell, no per-session tool cost |
+| sentry | errors | mcp | mcp.sentry.dev | Hosted Sentry MCP (OAuth) — the Maintain loop's error-triage input; already used by taleem-central, careon, image-erp, image-erp-clinical |
 | graphify | comprehension | local | ~/.claude/skills/graphify | Codebase knowledge graph (query/path/explain) — the graphify-first default over grep |
 
 ## keel-design — Design/UI
@@ -80,9 +80,20 @@ Conductor: **Pocock spine + power-tools** (see `skills/keel-dev/SKILL.md`).
 - **mattpocock-skills** — ✅ re-verified 2026-10-17: 27 skills, now shipped in
   `claude-plugins-official` and self-updating, so it drifts without a version
   bump here. Since 2026-07: `grill` → `grill-with-docs` (+ `grill-me`,
-  `grilling`); `domain-modeling` writes `GLOSSARY.md`. Present but not yet routed
-  by keel-dev: `wayfinder`, `pr`, `retro`, `triage`, `prototype`,
-  `implement-spec`, `research`, `writing-for-agents`.
+  `grilling`); `domain-modeling` writes `GLOSSARY.md`. keel-dev now also routes
+  `wayfinder`, `pr`, `retro`, `triage`, `prototype`, `implement-spec`,
+  `research`, `wizard`; `writing-for-agents` is the authoring standard
+  (CONTRIBUTING.md). The full list lives in `manifest.json` → `routes`, checked
+  by `evals/upstream-drift.sh`.
+- **gstack**, **superpowers** — ❌ removed 2026-10-17. gstack had grown to ~60
+  skills, installs into `~/.claude/skills`, and its setup steers the agent away
+  from other browsers (team mode adds blocking hooks); superpowers' jobs are now
+  covered by the spine + Claude Code sessions/worktrees. Reasons and
+  replacements: ARCHITECTURE.md → *Which upstreams earn a route*.
+- **codex-plugin-cc** — ❌ removed 2026-10-17. It drives OpenAI's Codex CLI and
+  needs an OpenAI account; Keel's workflows don't use Codex, so it never earned
+  its install (and keel-dev's `/codex` was never a real command — they are
+  `/codex:review` etc.). Second-pass review is now the built-in `/code-review`.
 - **social-media-skills** — ✅ confirmed `charlie947` (Charlie Hills content OS,
   17 skills incl. reels/captions/carousels). Not blacktwist.
 - **claude-skills** — ✅ confirmed `alirezarezvani` (changelog shows 263→264

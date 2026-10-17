@@ -157,10 +157,10 @@ Notes:
 2. **Use the one-shot FAST block** for anything safe. Don't pay the
    plan→ask→build tax on a landing page.
 3. **Curate per project — don't install every lane.** Each lane taxes every turn.
-4. **Verify, don't trust.** At the human gate, drive the real flow (`/qa`, the
-   `verify` skill) before "done."
-5. **Encode every correction once** — into `CONTEXT.md` or a skill — so you never
-   re-explain it.
+4. **Verify, don't trust.** At the human gate, drive the real flow (`/keel-qa`,
+   the `verify` skill) before "done."
+5. **Encode every correction once** — in its one home (MEMORY-CONTRACT →
+   *Where a lesson goes*) — so you never re-explain it.
 
 ---
 

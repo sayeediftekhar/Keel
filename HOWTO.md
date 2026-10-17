@@ -19,12 +19,25 @@ you reach for them by name.
    ```
    Re-run `./install.sh arbiter` any time you update the submodule — it replaces
    the managed block in place instead of duplicating it.
-3. **Build the graph.** Run graphify on the repo so comprehension is cheap
+3. **Install the dev spine** (Matt Pocock's skills) — `./install.sh dev` prints
+   this; run it from the project root, then the setup once in Claude Code:
+   ```bash
+   claude plugin install mattpocock-skills@claude-plugins-official --scope project
+   ```
+   `/setup-matt-pocock-skills` → pick **local files** (tickets in `.scratch/`)
+   or **GitHub/GitLab** (needed for parallel or cloud agents — see below).
+   Project scope keeps its skills out of your other projects' sessions.
+4. **Write your coding standards.** Copy
+   `.claude/skills/conventions/CODING_STANDARDS.template.md` to
+   `CODING_STANDARDS.md` and keep the rules that fit —
+   `mattpocock-skills:code-review` enforces it (the bare `/code-review` is
+   Claude Code's built-in bug hunt, which doesn't read the file).
+5. **Build the graph.** Run graphify on the repo so comprehension is cheap
    later (`graphify-out/` persists). Vendored upstreams are **not** host code —
    `install.sh` already adds the ignore entries (`.gitignore` / `.graphifyignore`
-   / `.claudeignore`) so your code index skips `.claude/skills/keel/vendor/`.
+   / `.claudeignore`) so your code index skips `.claude/skills/vendor/`.
    Never index vendored third-party code as your own; it drowns real queries.
-4. **Capture shared language** in `GLOSSARY.md` as terms emerge, and track
+6. **Capture shared language** in `GLOSSARY.md` as terms emerge, and track
    gate/slice state in `.scratch/<feat>/00-status.md` so any session resumes
    from one file (see [conventions](conventions/tickets-and-context.md)).
 
@@ -49,6 +62,13 @@ One-time only: if this project still has an old hand-pasted keel-v2 block in
 `CLAUDE.md` (from before `./install.sh arbiter` existed), delete it once — the
 managed block replaces it going forward.
 
+One-time catch-ups for projects set up before 2026-10:
+- **Spine not installed?** `claude plugin list` — if `mattpocock-skills` is
+  missing, do setup step 3. Until then keel-dev only imitates those skills.
+- **Glossary inside `CONTEXT.md`?** Move that section to `GLOSSARY.md`; the
+  context/brand/rules part stays in `CONTEXT.md`.
+- **No `CODING_STANDARDS.md`?** Setup step 4.
+
 ---
 
 ## Every session (the loop)
@@ -57,15 +77,47 @@ managed block replaces it going forward.
    `Rigor: FAST` (safe) or `Rigor: HEAVY` (auth/money/data/migrations).
 2. **Reach for the tool** by name: `/keel-dev`, `/keel-design`, `/keel-marketing`…
    keel-v2 will name the right one if you're unsure.
-3. **Let the pipeline run** (dev example): grill-with-docs → to-spec → to-tickets →
-   implement (`tdd` at seams) → code-review → verify. Use **graphify** to
-   navigate the code, not grep.
-4. **Reach for a power-tool by name** when you want it: `/qa` (real browser),
-   `/cso` (security), the superpowers autonomous executor for a big approved plan.
+3. **Let the pipeline run** (dev example): grill-with-docs → (wayfinder, for
+   epics) → to-spec (`prototype` to settle a state model) → to-tickets →
+   implement (`tdd` at seams) → mattpocock-skills:code-review → keel-qa / verify
+   → pr → retro. Use **graphify** to navigate the code, not grep.
+4. **Reach for a second pass by name** when you want one: `/code-review`
+   (built-in correctness bug hunt, alongside Pocock's standards/spec review),
+   `/security-review` (built-in second security pass).
 5. **Stop at the gate.** keel-v2 stops before commit / deploy / send. **You**
    commit — Keel never auto-commits.
 6. **Capture & hand off.** Note learnings; if you'll continue later, write a
    `handoff` doc so the next session picks up clean.
+
+---
+
+## Running agents in parallel
+
+Tickets are the unit of parallel work. Any tickets whose blockers are all done
+(the **frontier**) can run at the same time — one agent session each, in its own
+worktree. A `wayfinder` epic works the same way, one session per decision
+ticket. For this, use **tracker mode**: every session, local or cloud, sees one
+shared board, while `.scratch/` files only reach sessions on your machine.
+Each agent still stops at keel-v2's gates; you approve, merge and commit.
+
+---
+
+## Keeping a production app healthy
+
+Once a project ships, set up keel-dev's **Maintain** loop once — each job is a
+scheduled routine (`/schedule`) that ends at a PR, a ticket or a step for you:
+
+- **Weekly:** dependency + security updates → a PR you merge.
+- **On an alert:** `diagnosing-bugs` on the Sentry issue (connect once:
+  `claude mcp add --transport http --scope project sentry https://mcp.sentry.dev/mcp/<org>/<project>`)
+  → a fix PR or a ticket.
+- **When production breaks:** roll back first (Vercel apps: instant rollback via
+  the Vercel plugin — you confirm the target), then diagnose, then `retro` as
+  the postmortem.
+- **Monthly:** `improve-codebase-architecture` → tickets.
+
+Full table: [keel-dev → Maintain](skills/keel-dev/SKILL.md). Mark any job you
+don't need as *not needed* in `CONTEXT.md` so nobody re-asks.
 
 ---
 
@@ -87,11 +139,18 @@ managed block replaces it going forward.
 | Move fast on safe work | Name your Authority + one-shot FAST block |
 | Build something risky | Just describe it — keel-v2 forces HEAVY |
 | Understand the codebase | graphify (`query`/`path`/`explain`) |
-| Test a live app | `/qa` (gstack power-tool) |
-| Security-check a diff | `/keel-secure` → VibeSec (+ `/cso`) |
-| Run a big plan hands-off | superpowers autonomous executor (stops at gates) |
+| Test a live app | `/keel-qa` (real browser, evidence per criterion) |
+| Security-check a diff | `/keel-secure` → VibeSec (+ built-in `/security-review`) |
+| Run a big plan hands-off | `implement-spec` on the approved tickets, or one session per frontier ticket (both stop at gates) |
+| Keep a shipped app healthy | keel-dev → *Maintain* loop (scheduled, ends at PRs) |
+| Roll back a bad deploy | Vercel plugin instant rollback — you confirm the target |
+| Plan an epic (more than one session) | `wayfinder` |
+| Split work across agents | tracker mode + one session per frontier ticket |
+| Do steps only I can (secrets, dashboards) | `wizard` |
+| Learn from a session | `retro` |
 | Design/UI | `/keel-design` (impeccable) |
-| Add a capability | `./install.sh <lane>` |
+| Add a capability | `./install.sh <lane>` (parked extras skipped) |
+| Add one parked extra (e.g. video) | `./install.sh hyperframes` |
 
 Deeper reference: [RECIPES.md](RECIPES.md) (per-project cookbook) ·
 [MEMORY-CONTRACT.md](MEMORY-CONTRACT.md) (how the memory layers compose) ·

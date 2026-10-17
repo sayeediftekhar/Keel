@@ -1,18 +1,21 @@
 {
-  "$comment": "Machine-readable map of Keel lanes → upstreams. Consumed by install.sh. type: plugin|skill|mcp|local. Optional on plugins: plugin (exact plugin@marketplace id → install.sh prints the real install command) and setup (one-time per-repo command). See catalog.md for prose, ARCHITECTURE.md for the model.",
+  "$comment": "Machine-readable map of Keel lanes → upstreams. Consumed by install.sh. type: plugin|skill|mcp|cli|local. Optional on plugins: plugin (exact plugin@marketplace id → install.sh prints the real install command), marketplace (added first, when not the official one), setup (one-time per-repo command), note (when to install it) and routes. Optional on mcp/cli: install (the exact command to run). Any upstream may set optional: true (parked) — lane installs skip it; `./install.sh <name>` installs it alone (every upstream skill Keel docs name — checked by evals/upstream-drift.sh). See catalog.md for prose, ARCHITECTURE.md for the model.",
   "version": 1,
   "lanes": {
     "dev": {
       "router": "keel-dev",
       "spine": "mattpocock-skills",
       "upstreams": [
-        { "name": "mattpocock-skills", "type": "plugin", "role": "spine",      "repo": "https://github.com/mattpocock/skills", "plugin": "mattpocock-skills@claude-plugins-official", "setup": "/setup-matt-pocock-skills" },
-        { "name": "superpowers",       "type": "plugin", "role": "power-tool", "repo": "https://github.com/obra/superpowers" },
-        { "name": "gstack",            "type": "plugin", "role": "power-tool", "repo": "https://github.com/garrytan/gstack" },
-        { "name": "codex-plugin-cc",   "type": "plugin", "role": "power-tool", "repo": "https://github.com/openai/codex-plugin-cc" },
-        { "name": "hyperframes",       "type": "skill",  "role": "adjunct",    "repo": "https://github.com/heygen-com/hyperframes" },
-        { "name": "antfu-skills",      "type": "plugin", "role": "adjunct",    "repo": "https://github.com/antfu/skills" },
-        { "name": "agent-browser",     "type": "mcp",    "role": "adjunct",    "repo": "https://github.com/vercel-labs/agent-browser" },
+        { "name": "mattpocock-skills", "type": "plugin", "role": "spine",      "repo": "https://github.com/mattpocock/skills", "plugin": "mattpocock-skills@claude-plugins-official", "setup": "/setup-matt-pocock-skills",
+          "routes": ["triage", "grill-with-docs", "grill-me", "wayfinder", "domain-modeling", "to-spec", "prototype", "to-tickets",
+                     "implement", "implement-spec", "tdd", "code-review", "pr", "wizard", "diagnosing-bugs",
+                     "improve-codebase-architecture", "codebase-design", "retro", "research", "handoff", "writing-for-agents"] },
+        { "name": "vercel",            "type": "plugin", "role": "deploy",     "repo": "https://github.com/vercel/vercel-plugin", "plugin": "vercel@claude-plugins-official", "note": "Vercel-hosted projects only — deploy, promote, instant rollback, logs", "routes": ["deployments-cicd"] },
+        { "name": "sentry",            "type": "mcp",    "role": "errors",     "repo": "https://mcp.sentry.dev", "install": "claude mcp add --transport http --scope project sentry https://mcp.sentry.dev/mcp/<org>/<project>", "note": "production apps on Sentry — OAuth on first connect, no token stored; scope it to one project" },
+        { "name": "keel-qa",           "type": "local",  "role": "qa",         "repo": "skills/keel-qa" },
+        { "name": "hyperframes",       "type": "skill",  "role": "adjunct",    "repo": "https://github.com/heygen-com/hyperframes", "optional": true, "note": "parked — HTML/CSS/JS → MP4 video; ~162 MB clone, so only for projects that make video" },
+        { "name": "antfu-skills",      "type": "plugin", "role": "adjunct",    "repo": "https://github.com/antfu/skills",           "optional": true, "note": "parked — Vue/Vite/Nuxt/Pinia; only for Vue-stack projects" },
+        { "name": "agent-browser",     "type": "cli",    "role": "qa",         "repo": "https://github.com/vercel-labs/agent-browser", "install": "npm install -g agent-browser   (or: brew install agent-browser)", "note": "keel-qa's headless browser for terminal and cloud sessions, which have no browser pane" },
         { "name": "graphify",          "type": "local",  "role": "comprehension", "repo": "~/.claude/skills/graphify" }
       ]
     },

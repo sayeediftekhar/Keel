@@ -26,6 +26,18 @@ perspective — not a layer-by-layer implementation list.
 - [ ] Acceptance criterion 2
 ```
 
+**Where tickets live.** `/setup-matt-pocock-skills` asks once per repo:
+
+- **Local files (default)** — tickets in `.scratch/` as above. Zero setup, works
+  offline; only sessions on this machine see them.
+- **Tracker (GitHub/GitLab)** — `to-tickets` publishes one issue per ticket with
+  the `ready-for-agent` label and native blocking links; `triage` and
+  `wayfinder` work the same board. Pick this when several agents or cloud
+  sessions work in parallel, or a collaborator needs to see the queue.
+
+Either way `00-status.md` (§3) stays a local file in `.scratch/<feature-slug>/`;
+in tracker mode its slice list names issue numbers instead of `NN`.
+
 Rules: no stale file paths/snippets in tickets (they rot) — describe behaviour.
 **Wide refactors** (one mechanical change with codebase-wide blast radius) are
 the exception to vertical slicing — sequence them **expand → migrate-in-batches
