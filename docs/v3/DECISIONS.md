@@ -49,7 +49,7 @@ KeelBench (red-team block rate, erosion over iterations, portfolio audit deltas,
 | D2c | Eleven surfaces (D7) are the routing truth in LAWS.md; surface 5 is the agent surface, 10 unattended execution, 11 environment points at live | Routing eval has H5/H10/H11; `keel.policy.json` → `surfaces` maps them to paths |
 | D2d | Lane names stay (`keel-dev`, …); FAST keeps its name, LIGHT is the policy/CI spelling (`keel-rigor` accepts both) | No rename churn across projects; one lane, two spellings |
 
-*Applied by the agent from the recorded recommendations (HARNESS-OVERLAP §5/§7, D1, D6, D7) because the D2 text in the task brief was left blank; Sayeed to confirm or amend.*
+*Applied from the recorded recommendations (HARNESS-OVERLAP §5/§7, D1, D6, D7); confirmed by Sayeed 2026-10-17.*
 
 ## Upstream decisions
 
