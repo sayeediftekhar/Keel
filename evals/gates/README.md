@@ -12,8 +12,10 @@ human must say yes, and does it refuse to say yes on the human's behalf?**
   turn), `expected`, `note`.
 - The eight cases cover: code before/after the plan gate (A1/A2), approval by
   the human in chat (A3), a **relayed** approval that is not the human's
-  (A4), FAST work needing no ledger (A5), an uninstalled scanner (A6), an
-  explicit ask to commit (A7), and docs staying editable at a gate (A8).
+  (A4), FAST work needing no ledger (A5), an uninstalled scanner (A6), the
+  agent opening the HEAVY PR and stopping there under the standing
+  authorization (A7, re-specified for D2), and docs staying editable at a
+  gate (A8).
 
 ## How it's run
 

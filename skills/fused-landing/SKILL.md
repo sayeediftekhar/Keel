@@ -67,5 +67,6 @@ page."
 ## 5. Output shape
 
 FAST lane: the page + the section plan + the self-check report. Terse.
-Git repo → named branch, human commits. No repo → files in place, say so.
-(Both per keel-v2 §1 rule 4.)
+Git repo → feature branch, then end as keel-v2 §1 rule 4 says (PR + auto-merge
+under the standing authorization, or stop on the branch when the caller asked
+for that). No repo → files in place, say so.

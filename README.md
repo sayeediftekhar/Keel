@@ -23,7 +23,7 @@ for the model, **[catalog.md](catalog.md)** for the upstreams, and
 
 ## The three layers
 
-- **L1 — Arbiter:** [`keel-v2`](skills/keel-v2/) — the rigor router (nine danger
+- **L1 — Arbiter:** [`keel-v2`](skills/keel-v2/) — the rigor router (eleven danger
   surfaces, FAST vs HEAVY). Everything defers to it.
 - **L2 — Lane routers:** thin index skills, one per domain, that dispatch to L3.
 - **L3 — Upstreams:** the external skills/plugins/MCP servers, vendored as-is.

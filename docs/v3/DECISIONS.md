@@ -40,6 +40,17 @@ KeelBench (red-team block rate, erosion over iterations, portfolio audit deltas,
 | D14 | Keel v3 lives in this repo | Lands as a new major version; Model B layout migrates in place |
 | D15 | Agent identity is a GitHub App | Fine-grained per-repo permissions, short-lived tokens, never a repo admin |
 
+## D2 applied (2026-10-17)
+
+| # | Decision | Implication |
+|---|---|---|
+| D2a | Who decides rigor: the agent records FAST and proceeds; HEAVY is the human's to confirm, and only the human may downgrade | keel-v2 §0, §2.1. The card-set's model, as HARNESS-OVERLAP §5 recommended; D6 kept |
+| D2b | How work ends: FAST → PR with the rigor record, auto-merge on green; HEAVY → PR, the approver reviews on GitHub, auto-merge completes it; deploys/sends/live migrations stay human (batch or explicit go) | keel-v2 §1.4, §2.4-2.5; keel-dev Ship gate. Depends on the *Standing authorization* block `keel init` writes; without it the router falls back to "stop on the branch, the human commits" |
+| D2c | Eleven surfaces (D7) are the routing truth in LAWS.md; surface 5 is the agent surface, 10 unattended execution, 11 environment points at live | Routing eval has H5/H10/H11; `keel.policy.json` → `surfaces` maps them to paths |
+| D2d | Lane names stay (`keel-dev`, …); FAST keeps its name, LIGHT is the policy/CI spelling (`keel-rigor` accepts both) | No rename churn across projects; one lane, two spellings |
+
+*Applied by the agent from the recorded recommendations (HARNESS-OVERLAP §5/§7, D1, D6, D7) because the D2 text in the task brief was left blank; Sayeed to confirm or amend.*
+
 ## Upstream decisions
 
 | # | Decision | Implication |

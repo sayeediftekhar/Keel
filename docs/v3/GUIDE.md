@@ -4,7 +4,7 @@ Keel has two parts. Read this first so the steps make sense.
 
 | Part | What it is | Where | State |
 |---|---|---|---|
-| **Keel rules** | Instructions the agent reads: the rigor router (FAST/LIGHT vs HEAVY), laws, the dev pipeline, lane routers | `skills/` (keel-v2, "Model B") or a project's own card-set (`route`, `laws`, `spec`, `verify-fact`, `review`, …) | Stable. Merging the two into one rule set is the next milestone (D2), not done yet. |
+| **Keel rules** | Instructions the agent reads: the rigor router (FAST/LIGHT vs HEAVY), laws, the dev pipeline, lane routers | `skills/`, shipped by the plugin as `/keel:<lane>`; the always-on router + LAWS go into `CLAUDE.md` via `keel init` | Merged (D2, 2026-10-17): the card-set's governance (human confirms HEAVY, eleven surfaces, laws) + Model B's lanes and FAST economy, one rule set. |
 | **Keel gates** (v3) | Enforcement the agent can't talk past: hooks, deny rules, CODEOWNERS, CI, a GitHub ruleset, `keel doctor` | `plugin/` (a Claude Code plugin) | **Alpha.** Tested (258 tests, adversarial review, live runs), not yet piloted on a real project. |
 
 Keep using whichever rules your project has. Add the gates on top.
@@ -195,7 +195,7 @@ Keep the card-set; it's stricter than keel-v2 and matches the v3 decisions. Then
 2. Map each **Enforced** law in `LAWS.md` to `surfaces` paths, so CODEOWNERS and `keel-rigor` cover the files that law protects.
 3. Keep your existing CI workflow; add its job names to the ruleset as extra required checks (GitHub UI), or move its commands into `backPressure`.
 4. Your `CLAUDE.md` probably says "never commit without the human's go-ahead". You can keep that (Keel's gates are compatible with a stricter rule) or switch to the standing authorization in 1.6 to get LIGHT auto-merge.
-5. Record which Keel version the vendored copy came from in `CONTEXT.md`; until D2 lands it can't be updated by submodule.
+5. The vendored copy is now redundant: `keel init` writes the merged router + LAWS into `CLAUDE.md` and the plugin ships the lanes as `/keel:<lane>`. Delete the project copies of `route`, `laws`, `spec`, … once the block is in place (they collide with the account-level `anthropic-skills:route` and friends).
 
 ### 2.3 Order that keeps things safe
 
@@ -237,7 +237,6 @@ False positive? Note the exact command and open an issue. If it blocks real work
 
 ## 5. Not built yet
 
-- One merged rule set (card-set + Model B) — D2.
 - Live migrations applied from CI with a secret the agent never sees (the strongest form of D5).
 - The forge (decision log), Keel console, KeelBench, the context router.
 

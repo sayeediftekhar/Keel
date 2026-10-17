@@ -91,7 +91,7 @@ ARB_BEGIN="# >>> keel-v2 arbiter (managed by keel/install.sh) — do not edit be
 ARB_END="# <<< keel-v2 arbiter <<<"
 
 # The block carries BOTH keel-v2 files: CLAUDE.md (the router) and LAWS.md (the
-# nine surface definitions, the invariants, the /review tripwires). The router
+# surface definitions, the invariants, the /review tripwires). The router
 # cites LAWS.md throughout; without LAWS in the host the agent only ever sees
 # the surface *names*. It also records where Keel lives in the host so the
 # agent can find the lane routers and MEMORY-CONTRACT.md by path.

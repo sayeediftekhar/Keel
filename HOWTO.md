@@ -101,10 +101,12 @@ One-time catch-ups for projects set up before 2026-10:
 4. **Reach for a second pass by name** when you want one: `/code-review`
    (built-in correctness bug hunt, alongside Pocock's standards/spec review),
    `/security-review` (built-in second security pass).
-5. **Stop at the gate.** keel-v2 stops before commit / deploy / send. **You**
-   commit — Keel never auto-commits. On HEAVY work the gates G1/G2/G3 in
-   `00-status.md` are yours to flip (`.claude/keel/bin/keel-approve <feature> G3
-   "<why>"`), never the agent's.
+5. **Stop at the gate.** FAST work ends as a PR that auto-merges on green
+   (the standing authorization `keel init` wrote into `CLAUDE.md`); skim a few
+   a day. HEAVY work ends as a PR that waits for **your** review — the
+   `keel-rigor` check stays red until you approve. The gates G1/G2/G3/Ship in
+   `00-status.md` are yours to flip (`keel approve <feature> G3 "<why>"`),
+   never the agent's. Deploys, sends and live migrations are never automatic.
 6. **Capture & hand off.** Note learnings; if you'll continue later, write a
    `handoff` doc so the next session picks up clean.
 
@@ -142,7 +144,7 @@ don't need as *not needed* in `CONTEXT.md` so nobody re-asks.
 
 ## The rules that never bend
 - **keel-v2 wins.** Rigor, a11y, design conformance, security, human gates —
-  above every shortcut and every tool.
+  above every shortcut and every tool. Eleven danger surfaces; any one → HEAVY.
 - **FAST = minimal, HEAVY = complete.** Rigor decides how much you build.
 - **graphify-first** for understanding code; grep only for exact known strings.
 - **One spine, power-tools opt-in.** No coin-flip between methodologies.

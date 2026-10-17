@@ -51,21 +51,22 @@ ONE-SHOT (FAST):
   Rigor: FAST — static marketing page.
   Authorities: DESIGN.md, my-hero-comp.png
   Authorization: build end-to-end this turn; no plan-first; no divergence.
-  Commit: do NOT commit — leave on branch feat/landing for review.
+  Commit: PR + auto-merge per the standing authorization.
   Review: run tripwires and report inline.
 
 Task: build the hero + pricing + CTA landing page for <brand>.
 ```
 
-→ Reads your tokens, builds the whole page, self-reviews, stops on a branch. One
-turn. You review and commit.
+→ Reads your tokens, builds the whole page, self-reviews, opens the PR; GitHub
+merges it on green. One turn. You skim it later (or say "leave on branch" to
+review first).
 
 ---
 
 ## Recipe 2 — ERPs (almost all HEAVY — respect it)
 
 Rigor reality: **HEAVY nearly everywhere.** An ERP is money, logins, roles,
-multi-tenant data, DB migrations, PII — 6 of the 9 danger surfaces. **Do not try
+multi-tenant data, DB migrations, PII, a live database — 7 of the 11 danger surfaces. **Do not try
 to one-shot ERP features.** This is where Keel earns its keep by slowing you down
 correctly.
 
@@ -78,8 +79,9 @@ Grill me on the invoicing module: tenancy model, who sees what, rounding rules, 
 ```
 
 Then let the HEAVY flow run per feature: **grill → spec → tickets → plan (you
-approve) → build + review → keel-secure gate → verify → you commit.** It stops for
-your plan approval before writing code. That's the feature, not a bug.
+approve) → build + review → keel-secure gate → verify → PR → you approve on
+GitHub.** It stops for your plan approval before writing code, and the PR stays
+red until you review it. That's the feature, not a bug.
 
 Invariants it enforces for you (LAWS.md): exact-money (never floats), server-side
 auth checks (not just UI), tenant ID from the session (never the request),
@@ -167,6 +169,7 @@ Notes:
 
 ## One-line version
 
-**Grill → name your Authority → let keel-v2 pick the rigor → call the lane → stop
-at the gate and commit yourself.** FAST for anything safe (landing pages), HEAVY
-for anything with money/auth/data (ERPs), route apps piece by piece.
+**Grill → name your Authority → let keel-v2 pick the rigor → call the lane →
+FAST merges itself on green, HEAVY waits for your review.** FAST for anything
+safe (landing pages), HEAVY for anything with money/auth/data/live targets
+(ERPs), route apps piece by piece.

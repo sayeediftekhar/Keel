@@ -10,7 +10,7 @@ each one and enforces one rigor standard across all of them.
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │  L1  ARBITER            keel-v2   (CLAUDE.md + LAWS.md)       │
-│      Rigor router. Nine danger surfaces. FAST vs HEAVY.      │
+│      Rigor router. Eleven danger surfaces. FAST vs HEAVY.    │
 │      Every lane and every upstream defers to this.           │
 ├─────────────────────────────────────────────────────────────┤
 │  L2  LANE ROUTERS       keel-dev, keel-design, keel-marketing,│
@@ -139,13 +139,14 @@ gate to add there. `./install.sh check` verifies the *wiring* of this layer;
 
 ## How a task flows
 
-1. Task arrives → **keel-v2** scans the nine danger surfaces, sets FAST/HEAVY.
+1. Task arrives → **keel-v2** scans the eleven danger surfaces, sets FAST/HEAVY.
 2. The matching **lane router** triggers on its description, picks the upstream.
 3. The **upstream** does the work.
 4. **keel-v2 /review tripwires** run in-turn (FAST) or as a gate (HEAVY).
 5. Security-relevant diffs also pass **keel-secure** (VibeSec) before "done".
-6. Outward/irreversible actions (post, send, publish, migrate, pay) stop at the
-   human gate — never auto-run.
+6. FAST ends as a PR that auto-merges on green; HEAVY ends as a PR the approver
+   reviews. Outward/irreversible actions (post, send, publish, migrate live,
+   pay, deploy) stop at the human gate — never auto-run.
 
 ## Curate, don't hoard
 
