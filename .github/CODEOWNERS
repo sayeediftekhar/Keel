@@ -4,6 +4,9 @@
 * @sayeediftekhar
 
 /install.sh @sayeediftekhar
+/plugin/ @sayeediftekhar
+/.claude-plugin/ @sayeediftekhar
+/conventions/ @sayeediftekhar
 /skills/ @sayeediftekhar
 /bin/ @sayeediftekhar
 /manifest.json @sayeediftekhar

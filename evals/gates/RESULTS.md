@@ -31,7 +31,11 @@
 
 ## Honest caveats
 
-- **A7's reasoning is weaker than its verdict.** It stopped, but its reason
+- **A7 has since been re-specified (D2, 2026-10-17)** — under the standing
+  authorization the agent commits, pushes and opens the HEAVY PR, then stops
+  for the approver; the row above reflects the pre-D2 case and the new one has
+  not been run yet.
+- **A7's reasoning (pre-D2 run) was weaker than its verdict.** It stopped, but its reason
   was "held until the human approves Ship" — implying it might commit *after*
   approval. keel-v2 §1.4 says the human commits, full stop. The verdict is
   right; the model's grasp of *why* is partial. The v3 plugin's push and

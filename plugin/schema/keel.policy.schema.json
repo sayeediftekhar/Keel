@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/sayeediftekhar/Keel/main/plugin/schema/keel.policy.schema.json",
+  "title": "Keel policy",
+  "description": "One file that `keel compile` turns into Claude Code hooks' policy lock, permission deny rules, CODEOWNERS, a CI workflow and a GitHub ruleset.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "approver", "agentIdentity"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "version": { "const": 1 },
+    "approver": {
+      "description": "The human who approves HEAVY work and live migration batches.",
+      "type": "object", "required": ["github"], "additionalProperties": false,
+      "properties": { "github": { "type": "string", "minLength": 1 } }
+    },
+    "agentIdentity": {
+      "description": "The agent's own GitHub identity (a GitHub App is recommended). Must differ from the approver and must not be a repo admin.",
+      "type": "object", "required": ["github"], "additionalProperties": false,
+      "properties": { "github": { "type": "string", "minLength": 1 } }
+    },
+    "defaultBranch": { "type": "string", "default": "main" },
+    "protectedBranches": { "type": "array", "items": { "type": "string" } },
+    "surfaces": {
+      "description": "Danger surfaces mapped to repo path globs. A PR touching any of them is HEAVY and needs the approver's review.",
+      "type": "object",
+      "additionalProperties": { "type": "array", "items": { "type": "string" } },
+      "examples": [{ "value": ["lib/money/**"], "schema": ["supabase/migrations/**"], "access": ["lib/auth/**"] }]
+    },
+    "governancePaths": { "description": "Extra files the agent may not edit (added to Keel's defaults).", "type": "array", "items": { "type": "string" } },
+    "environments": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "live": {
+          "type": "object", "additionalProperties": false,
+          "properties": {
+            "markers": { "description": "Environment variables that hold live credentials.", "type": "array", "items": { "type": "string" } },
+            "supabaseProjectIds": { "type": "array", "items": { "type": "string" } },
+            "dbUrlPatterns": { "description": "Regexes that identify a live database URL.", "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "test": {
+          "type": "object", "additionalProperties": false,
+          "properties": {
+            "supabaseProjectIds": { "description": "Projects the agent may migrate freely. Any other project is treated as live.", "type": "array", "items": { "type": "string" } },
+            "dbNamePattern": { "type": "string", "default": "(_test|_ci)$" },
+            "hosts": { "type": "array", "items": { "type": "string" } },
+            "guardFile": { "description": "Test setup file that carries the keel-test-db-guard check.", "type": ["string", "null"] }
+          }
+        }
+      }
+    },
+    "migrations": {
+      "type": "object", "additionalProperties": false,
+      "properties": { "dirs": { "type": "array", "items": { "type": "string" } } }
+    },
+    "gates": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "push": { "type": "object", "additionalProperties": false, "properties": { "mode": { "enum": ["block", "off"] } } },
+        "merge": { "type": "object", "additionalProperties": false, "properties": { "agent": { "enum": ["auto-merge-only", "deny", "allow"] } } },
+        "migration": {
+          "type": "object", "additionalProperties": false,
+          "properties": {
+            "live": { "enum": ["batch-authorized", "deny", "allow"] },
+            "batchExpiryHours": { "type": "number", "exclusiveMinimum": 0 },
+            "requireTestFirst": { "type": "boolean" },
+            "liveSql": { "enum": ["read-only", "deny", "allow"] }
+          }
+        },
+        "deploy": {
+          "type": "object", "additionalProperties": false,
+          "properties": { "mode": { "enum": ["approver", "off"] }, "commands": { "type": "array", "items": { "type": "string" } } }
+        },
+        "secrets": { "type": "object", "additionalProperties": false, "properties": { "mode": { "enum": ["block", "off"] } } },
+        "governance": { "type": "object", "additionalProperties": false, "properties": { "mode": { "enum": ["block", "off"] } } },
+        "ledger": {
+          "description": "Feature ledgers (<dir>/<feature>/00-status.md, Keel conventions §3). block: an agent cannot check a gate box (G1/G2/G3/Ship) and cannot write product code while a HEAVY ledger says 'Blocked on: human approval'. The human flips gates with `keel approve`.",
+          "type": "object", "additionalProperties": false,
+          "properties": { "mode": { "enum": ["block", "off"] }, "dir": { "type": "string", "default": ".scratch" } }
+        }
+      }
+    },
+    "backPressure": { "description": "Ordered check names CI must pass (each needs a command in `checks`).", "type": "array", "items": { "type": "string" } },
+    "checks": { "type": "object", "additionalProperties": { "type": "string" } },
+    "budget": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "alwaysOnTokens": { "type": ["integer", "null"], "minimum": 1 },
+        "maxLineChars": { "type": "integer", "minimum": 40, "default": 400 }
+      }
+    },
+    "ci": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "node": { "type": ["string", "number"] },
+        "install": { "type": ["string", "null"] },
+        "postgres": { "type": "boolean" },
+        "phantom": { "enum": ["warn", "fail"] }
+      }
+    }
+  }
+}

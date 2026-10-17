@@ -2,55 +2,76 @@
 
 Your workflow for every project and every session. Keel is the **toolbox**;
 keel-v2 is always-on and tells you which tool fits. Lanes are user-invoked —
-you reach for them by name.
+you reach for them by name (`/keel:keel-dev` with the plugin, `/keel-dev` in
+the submodule layout).
 
 ---
+
+## Once per machine
+
+```
+/plugin install keel --marketplace sayeediftekhar/Keel
+```
+
+and an alias for the CLI (`/plugin` shows the plugin directory):
+`alias keel='node <plugin>/plugin/bin/keel.mjs'`. Create the agent's GitHub
+App once ([docs/v3/GUIDE.md §0](docs/v3/GUIDE.md)).
 
 ## Once per project (setup)
 
 1. **Grill first.** Before any code, run a grill session — get interrogated
    about what you're actually building until it's clear. (`grill-with-docs` for
    code work, `grill-me` for anything else.)
-2. **Install Keel + the lanes you'll use.**
-   ```bash
-   git submodule add https://github.com/sayeediftekhar/Keel .claude/keel
-   (cd .claude/keel && ./install.sh arbiter)      # keel-v2 router + LAWS → CLAUDE.md (idempotent)
-   (cd .claude/keel && ./install.sh dev design)   # only the lanes you need; links them into .claude/skills/
-   (cd .claude/keel && ./install.sh check)        # verify the wiring
-   ```
-   Then open a fresh session and run `/skills` — the lanes you installed must
-   be listed. Re-run `./install.sh arbiter` any time you update the submodule;
-   it replaces the managed block in place instead of duplicating it.
-3. **Install the dev spine** (Matt Pocock's skills) — `./install.sh dev` prints
-   this; run it from the project root, then the setup once in Claude Code:
+2. **`keel init`** (or `/keel:keel-setup` in a session). It writes
+   `keel.policy.json`, the keel-v2 router + LAWS block and the standing
+   authorization into `CLAUDE.md`, and scaffolds `CONTEXT.md`, `GLOSSARY.md`,
+   `CODING_STANDARDS.md`, `DESIGN.md` and `.scratch/` — only the ones you don't
+   have. Fill the policy (approver, the App's bot login, your danger paths,
+   the checks CI must pass) and run `keel init` again; fill the scaffolds
+   (`DESIGN.md` + `CONTEXT.md` are the brand — see [RECIPES.md](RECIPES.md)).
+3. **`keel compile`**, one PR marked `Rigor: HEAVY — governance`, merged by
+   you. Apply the ruleset it printed (repo admin, once). **`keel doctor`**
+   until every required line is `ENFORCED` or `OK`.
+4. **Install the dev spine** (Matt Pocock's skills) — `./install.sh dev` from
+   the plugin directory prints this; run it from the project root, then the
+   setup once in Claude Code:
    ```bash
    claude plugin install mattpocock-skills@claude-plugins-official --scope project
    ```
    `/setup-matt-pocock-skills` → pick **local files** (tickets in `.scratch/`)
    or **GitHub/GitLab** (needed for parallel or cloud agents — see below).
-   Project scope keeps its skills out of your other projects' sessions.
-4. **Write your coding standards.** Copy
-   `.claude/keel/conventions/CODING_STANDARDS.template.md` to
-   `CODING_STANDARDS.md` and keep the rules that fit —
-   `mattpocock-skills:code-review` enforces it (the bare `/code-review` is
-   Claude Code's built-in bug hunt, which doesn't read the file).
+   Project scope keeps its skills out of your other projects' sessions. Other
+   lanes' upstreams install the same way: `./install.sh design`, `… secure`.
 5. **Build the graph.** Run graphify on the repo so comprehension is cheap
-   later (`graphify-out/` persists). Vendored upstreams are **not** host code —
-   `install.sh` adds the ignore entries (`.gitignore` / `.graphifyignore`) and
-   a `permissions.deny` Read rule for vendor noise in `.claude/settings.json`,
-   so your code index and Claude's search skip `.claude/keel/vendor/`.
-   (`.claudeignore` has no effect in Claude Code; Keel no longer writes it.)
-   Never index vendored third-party code as your own; it drowns real queries.
+   later (`graphify-out/` persists). In the submodule layout, vendored
+   upstreams are **not** host code — `install.sh` adds the ignore entries
+   (`.gitignore` / `.graphifyignore`) and a `permissions.deny` Read rule for
+   vendor noise in `.claude/settings.json`, so your code index and Claude's
+   search skip `.claude/keel/vendor/`. Never index vendored third-party code
+   as your own; it drowns real queries.
 6. **Capture shared language** in `GLOSSARY.md` as terms emerge, and track
    gate/slice state in `.scratch/<feat>/00-status.md` (committed) so any
    session resumes from one file (see [conventions](conventions/tickets-and-context.md)).
+
+**Submodule layout instead of the plugin** (still supported, same files):
+```bash
+git submodule add https://github.com/sayeediftekhar/Keel .claude/keel
+(cd .claude/keel && ./install.sh arbiter)      # keel-v2 router + LAWS → CLAUDE.md (the block keel init writes)
+(cd .claude/keel && ./install.sh dev design)   # only the lanes you need; links them into .claude/skills/
+(cd .claude/keel && ./install.sh check)        # verify the wiring; then /skills in a fresh session
+node .claude/keel/plugin/bin/keel.mjs init     # gates: same CLI, same files
+```
 
 ---
 
 ## Updating an existing project (when you want Keel's latest)
 
-Projects pin Keel to a commit — they don't auto-update. When you want new
-improvements, in the consuming project:
+**Plugin:** `/plugin update keel@keel` (or reinstall), then `keel init` in each
+project to refresh the two managed `CLAUDE.md` blocks, and `keel compile` +
+`keel doctor` if the plugin added a gate (the doctor says so).
+
+**Submodule layout:** projects pin Keel to a commit — they don't auto-update.
+When you want new improvements, in the consuming project:
 
 ```bash
 git submodule update --remote .claude/keel          # pull latest Keel
@@ -101,10 +122,12 @@ One-time catch-ups for projects set up before 2026-10:
 4. **Reach for a second pass by name** when you want one: `/code-review`
    (built-in correctness bug hunt, alongside Pocock's standards/spec review),
    `/security-review` (built-in second security pass).
-5. **Stop at the gate.** keel-v2 stops before commit / deploy / send. **You**
-   commit — Keel never auto-commits. On HEAVY work the gates G1/G2/G3 in
-   `00-status.md` are yours to flip (`.claude/keel/bin/keel-approve <feature> G3
-   "<why>"`), never the agent's.
+5. **Stop at the gate.** FAST work ends as a PR that auto-merges on green
+   (the standing authorization `keel init` wrote into `CLAUDE.md`); skim a few
+   a day. HEAVY work ends as a PR that waits for **your** review — the
+   `keel-rigor` check stays red until you approve. The gates G1/G2/G3/Ship in
+   `00-status.md` are yours to flip (`keel approve <feature> G3 "<why>"`),
+   never the agent's. Deploys, sends and live migrations are never automatic.
 6. **Capture & hand off.** Note learnings; if you'll continue later, write a
    `handoff` doc so the next session picks up clean.
 
@@ -142,7 +165,7 @@ don't need as *not needed* in `CONTEXT.md` so nobody re-asks.
 
 ## The rules that never bend
 - **keel-v2 wins.** Rigor, a11y, design conformance, security, human gates —
-  above every shortcut and every tool.
+  above every shortcut and every tool. Eleven danger surfaces; any one → HEAVY.
 - **FAST = minimal, HEAVY = complete.** Rigor decides how much you build.
 - **graphify-first** for understanding code; grep only for exact known strings.
 - **One spine, power-tools opt-in.** No coin-flip between methodologies.
@@ -171,7 +194,8 @@ don't need as *not needed* in `CONTEXT.md` so nobody re-asks.
 | Add a capability | `./install.sh <lane>` (parked extras skipped) |
 | Add one parked extra (e.g. video) | `./install.sh hyperframes` |
 | Prove a change before calling it done | `keel-verify` (paste the real output) |
-| Approve a HEAVY gate | `.claude/keel/bin/keel-approve <feature> <G1\|G2\|G3\|Ship> "<why>"` |
+| Approve a HEAVY gate | `keel approve <feature> <G1\|G2\|G3\|Ship> "<why>"` (or `bin/keel-approve`) |
+| Set up / refresh a project | `keel init` → `keel compile` → `keel doctor` (`/keel:keel-setup` in a session) |
 
 Deeper reference: [RECIPES.md](RECIPES.md) (per-project cookbook) ·
 [MEMORY-CONTRACT.md](MEMORY-CONTRACT.md) (how the memory layers compose) ·

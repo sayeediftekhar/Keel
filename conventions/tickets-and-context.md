@@ -1,7 +1,8 @@
 # Keel conventions — tickets & shared language
 
 Two per-project files keel-dev relies on. Both live in the **consuming project**,
-not in Keel. Tracker-agnostic, zero external dependency. (Adapted from Pocock's
+not in Keel (`keel init` scaffolds `GLOSSARY.md` and `.scratch/README.md`).
+Tracker-agnostic, zero external dependency. (Adapted from Pocock's
 `to-tickets` + `domain-modeling`, made ours.)
 
 ## 1. Tracer-bullet tickets — `.scratch/<feature-slug>/issues/NN-slug.md`

@@ -10,7 +10,7 @@ each one and enforces one rigor standard across all of them.
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │  L1  ARBITER            keel-v2   (CLAUDE.md + LAWS.md)       │
-│      Rigor router. Nine danger surfaces. FAST vs HEAVY.      │
+│      Rigor router. Eleven danger surfaces. FAST vs HEAVY.    │
 │      Every lane and every upstream defers to this.           │
 ├─────────────────────────────────────────────────────────────┤
 │  L2  LANE ROUTERS       keel-dev, keel-design, keel-marketing,│
@@ -110,7 +110,18 @@ discipline), **lazy-loop** (`/lazy` — code/prose thrift, wraps caveman +
 ponytail), **keel-qa** (real-browser QA procedure on Claude Code's own
 browsers) and **keel-verify** (evidence-before-done). All defer to keel-v2.
 
-## Four install mechanisms (they are not the same)
+## How Keel reaches a project
+
+Keel is **one plugin** (`.claude-plugin/plugin.json` at the repo root,
+marketplace source `.`): `skills/` ship as `/keel:<name>`; `plugin/hooks/`
+are the gates; `keel init` writes the always-on keel-v2 router + LAWS and the
+standing authorization into the project's `CLAUDE.md` (a plugin cannot carry
+always-on instructions itself) and scaffolds `CONTEXT.md`, `GLOSSARY.md`,
+`CODING_STANDARDS.md`, `DESIGN.md`, `.scratch/`. The submodule layout
+(`.claude/keel/` + `install.sh`) writes the same block and links the same
+skills; both are supported.
+
+## Four install mechanisms for the upstreams (they are not the same)
 
 The upstreams reach Claude four different ways — see `catalog.md` for the
 per-item mapping and `install.sh` for the tooling:
@@ -128,24 +139,27 @@ per-item mapping and `install.sh` for the tooling:
 
 ## Enforcement is a separate layer
 
-Everything above is instructions the agent reads. The Keel **v3 plugin**
-(`docs/v3/`, `plugin/`) is the part the agent cannot talk past: hooks that
+Everything above is instructions the agent reads. The Keel **v3 engine**
+(`docs/v3/`, `plugin/`, shipped in the same plugin) is the part the agent
+cannot talk past: hooks that
 block pushes to protected branches, immediate merges, unapproved live
 migrations, credential reads, governance-file edits and production deploys,
 plus a GitHub ruleset and a `keel doctor` that proves each gate by planting a
-violation. The ledger's human-only gate boxes (conventions §3) are the next
-gate to add there. `./install.sh check` verifies the *wiring* of this layer;
+violation; the ledger gate makes the human-only gate boxes (conventions §3)
+mechanical, and the secrets-write check stops credential literals landing in
+files. `./install.sh check` verifies the *wiring* of this layer;
 `keel doctor` verifies the *gates*.
 
 ## How a task flows
 
-1. Task arrives → **keel-v2** scans the nine danger surfaces, sets FAST/HEAVY.
+1. Task arrives → **keel-v2** scans the eleven danger surfaces, sets FAST/HEAVY.
 2. The matching **lane router** triggers on its description, picks the upstream.
 3. The **upstream** does the work.
 4. **keel-v2 /review tripwires** run in-turn (FAST) or as a gate (HEAVY).
 5. Security-relevant diffs also pass **keel-secure** (VibeSec) before "done".
-6. Outward/irreversible actions (post, send, publish, migrate, pay) stop at the
-   human gate — never auto-run.
+6. FAST ends as a PR that auto-merges on green; HEAVY ends as a PR the approver
+   reviews. Outward/irreversible actions (post, send, publish, migrate live,
+   pay, deploy) stop at the human gate — never auto-run.
 
 ## Curate, don't hoard
 

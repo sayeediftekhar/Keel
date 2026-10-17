@@ -102,6 +102,19 @@
           "type": "local",
           "role": "verification",
           "repo": "skills/keel-verify"
+        },
+        {
+          "name": "supabase-agent-skills",
+          "type": "plugin",
+          "role": "stack",
+          "optional": true,
+          "when": "projects that use Supabase or Postgres",
+          "repo": "https://github.com/supabase/agent-skills",
+          "ref": "c9be0e931b7930f7d02126d04774d904c381e7d7",
+          "plugins": [
+            "supabase@supabase-agent-skills",
+            "postgres-best-practices@supabase-agent-skills"
+          ]
         }
       ]
     },

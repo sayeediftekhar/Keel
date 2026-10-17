@@ -1,0 +1,14 @@
+{
+  "name": "keel-governance",
+  "version": "3.0.0-alpha.2",
+  "description": "Keel: a rigor router, lane skills and enforced gates for AI coding agents. The `keel` CLI scaffolds, compiles and proves a project's governance policy.",
+  "private": true,
+  "license": "MIT",
+  "repository": "github:sayeediftekhar/Keel",
+  "engines": { "node": ">=20" },
+  "bin": { "keel": "plugin/bin/keel.mjs" },
+  "scripts": {
+    "test": "node --test plugin/test/*.test.mjs",
+    "evals": "bash evals/install-regression.sh && bash evals/keel-approve-regression.sh"
+  }
+}

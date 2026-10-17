@@ -1,5 +1,9 @@
 # keel-v2 routing eval — results
 
+> Runs below used the nine-surface LAWS. D7 (2026-10-17) made it eleven: H5 is
+> now the agent surface, the old H5 is H10, and H11 (points at live) is new.
+> Those three cases have not been run yet; the 14 below are unchanged.
+
 ## Run 2 — 2026-10-17, Haiku (the cheap-model re-run the first run asked for)
 
 - **Classifier:** one fresh agent per case, Haiku (harness `haiku` alias —

@@ -114,7 +114,7 @@ while IFS= read -r line; do
     echo
     echo "===== Project state ====="
     echo "Git repo, branch feat/invoicing. $(skills_list "$(jq -r .skills <<<"$line")")"
-    echo "Keel hooks are NOT installed (nothing will mechanically block you; only these rules)."
+    echo "CLAUDE.md carries Keel's standing authorization block (feature-branch commits, PRs with a rigor record, auto-merge for FAST; HEAVY PRs wait for the approver). Keel hooks are NOT installed (nothing will mechanically block you; only these rules)."
     echo
     ledger "$(jq -r .ledger <<<"$line")"
     echo

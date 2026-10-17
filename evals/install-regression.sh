@@ -116,16 +116,17 @@ echo "[5] arbiter sync carries the router AND the laws into the host CLAUDE.md"
 printf '# Host project\n\nExisting house rules stay.\n' > "$H1/CLAUDE.md"
 drive_sync "$H1/.claude/keel" >/dev/null
 assert_line  "$H1/CLAUDE.md" "Existing house rules stay."  "pre-existing CLAUDE.md content preserved"
-assert_count "$H1/CLAUDE.md" "# >>> keel-v2 arbiter (managed by keel/install.sh) — do not edit between markers >>>" 1 "managed block begins once"
+assert_count "$H1/CLAUDE.md" "# >>> keel-v2 arbiter (managed by Keel — keel init / install.sh arbiter) — do not edit between markers >>>" 1 "managed block begins once"
 assert_count "$H1/CLAUDE.md" "# <<< keel-v2 arbiter <<<" 1 "managed block ends once"
 if grep -q "^## 0. Two lanes, one router" "$H1/CLAUDE.md"; then ok "router (keel-v2/CLAUDE.md) present"; else bad "router content missing from host CLAUDE.md"; fi
 if grep -q "Server enforces, not the UI" "$H1/CLAUDE.md"; then ok "LAWS invariants present"; else bad "LAWS.md content missing from host CLAUDE.md (the router cites it)"; fi
 if grep -q "^## /review tripwires" "$H1/CLAUDE.md"; then ok "LAWS /review tripwires present"; else bad "LAWS tripwires missing from host CLAUDE.md"; fi
 if grep -q "Keel is installed at .claude/keel/" "$H1/CLAUDE.md"; then ok "locator line names Keel's path in the host"; else bad "locator line missing"; fi
 
-echo "[6] arbiter sync is idempotent — re-run replaces the block, never duplicates it"
+echo "[6] arbiter sync is idempotent — re-run replaces the block, never duplicates it (an older-marker block too)"
+sed -i.bak "s/^# >>> keel-v2 arbiter (managed by Keel — keel init \/ install.sh arbiter)/# >>> keel-v2 arbiter (managed by keel\/install.sh)/" "$H1/CLAUDE.md" && rm -f "$H1/CLAUDE.md.bak"
 drive_sync "$H1/.claude/keel" >/dev/null
-assert_count "$H1/CLAUDE.md" "# >>> keel-v2 arbiter (managed by keel/install.sh) — do not edit between markers >>>" 1 "still exactly one managed block"
+assert_count "$H1/CLAUDE.md" "# >>> keel-v2 arbiter (managed by Keel — keel init / install.sh arbiter) — do not edit between markers >>>" 1 "still exactly one managed block"
 c=$(grep -c "Server enforces, not the UI" "$H1/CLAUDE.md"); if [ "$c" -eq 1 ]; then ok "LAWS appears exactly once after re-run"; else bad "LAWS duplicated ($c copies)"; fi
 assert_line  "$H1/CLAUDE.md" "Existing house rules stay."  "host content still preserved after re-run"
 
@@ -164,6 +165,13 @@ if drive_fn "$H1/.claude/keel" check_host >/dev/null; then bad "check should fai
 rm -f "$H1/.claude/skills/dangling"; rmdir "$H1/.claude/skills/bogus-link-target"
 out="$(drive_fn "$H1/.claude/keel" check_host)"
 if printf '%s' "$out" | grep -q "ok   /keel-secure"; then ok "check lists /keel-secure as discoverable"; else bad "check output should list /keel-secure"; fi
+
+# ---------------------------------------------------------------------------
+echo "[9] outside a submodule the shipped script explains instead of dying (set -e vs host_root)"
+out="$(cd "$S" && bash ./install.sh arbiter 2>&1)"; rc=$?
+if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q "isn't a submodule"; then ok "arbiter standalone exits 0 with the skip note"; else bad "arbiter standalone: rc=$rc out='$out'"; fi
+out="$(cd "$S" && bash ./install.sh check 2>&1)"; rc=$?
+if [ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q "runs from a consuming project"; then ok "check standalone exits 1 with its message"; else bad "check standalone: rc=$rc out='$out'"; fi
 
 echo
 echo "----------------------------------------"

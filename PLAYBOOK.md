@@ -38,11 +38,12 @@ it on judgment. Delegate everything else.
         human gate ◀─ tripwires/verify ◀─┘  (specialist does the work)
 ```
 
-1. **Rigor** — keel-v2 scans the nine danger surfaces → FAST or HEAVY.
+1. **Rigor** — keel-v2 scans the eleven danger surfaces → FAST or HEAVY.
 2. **Route** — the lane router triggers, picks the upstream specialist.
 3. **Work** — the specialist does it; keel-v2 /review tripwires run in-turn.
-4. **Gate** — security-relevant diffs pass keel-secure; outward/irreversible
-   actions stop for a human yes. Verify before "done."
+4. **Gate** — security-relevant diffs pass keel-secure; FAST ends as a PR
+   that merges on green, HEAVY as a PR that waits for your review; deploys,
+   sends and live migrations stop for a human yes. Verify before "done."
 
 ---
 
@@ -111,4 +112,6 @@ where outsized gains actually come from.
   `.gitignore`/`.graphifyignore` (root/ancestor only), so the entry must stay at
   the host root — not inside the submodule.
 - Re-explaining a constraint you've hit before → encode it instead.
-- Auto-committing / auto-sending / auto-migrating → always stop at the human gate.
+- Merging HEAVY work yourself, auto-sending, auto-deploying, migrating live
+  outside an approved batch → always stop at the human gate. (FAST commits and
+  auto-merges on green by design; that is the authorization, not a bypass.)

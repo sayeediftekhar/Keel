@@ -15,7 +15,7 @@ no product code itself — the phase skills do that.
 opt-in power-tools. keel-v2 governs everything.**
 
 ## Deference — keel-v2 is the arbiter
-Scan the nine danger surfaces first, record the lane line
+Scan the eleven danger surfaces first, record the lane line
 (`Rigor: FAST/HEAVY — …`). keel-v2's /review tripwires, a11y, design
 conformance, and human gates outrank every phase and every power-tool. A
 power-tool's own ethos is subordinate to keel-v2.
@@ -44,7 +44,7 @@ built-in `/code-review` hunts bugs in a diff but has no Standards/Spec axes.
 | 1 · Language | `domain-modeling` → `GLOSSARY.md` + ADRs | — | optional, compounding |
 | 2 · Spec | `to-spec` (synthesize conversation → `spec.md`) **+ §Architecture** (components, data flow, trust boundaries, failure modes; ADRs) **+ §Threat model** (per trust boundary, STRIDE-lite, each threat mapped to a LAWS invariant and the slice that carries the mitigation) — shapes in conventions §4; `prototype` for a throwaway spike when a state model, logic or UI shape is still in doubt | — | HEAVY |
 | 3 · Decompose | `to-tickets` → `.scratch/<feat>/issues/NN.md` (or tracker issues), tracer-bullet slices + blocking edges (+ expand/contract for wide refactors) | — | HEAVY |
-| 4 · Build | `implement` — ticket-by-ticket, `tdd` at seams; `implement-spec` to run the whole approved ticket set | parallel Claude Code sessions, one per frontier ticket, each in its own worktree | HEAVY→strict red-green-refactor; FAST→pragmatic. Autonomy **stops at** commit/deploy gates |
+| 4 · Build | `implement` — ticket-by-ticket, `tdd` at seams; `implement-spec` to run the whole approved ticket set | parallel Claude Code sessions, one per frontier ticket, each in its own worktree | HEAVY→strict red-green-refactor; FAST→pragmatic. Autonomy **stops at** the merge and deploy gates (FAST commits and opens its PR under the standing authorization; HEAVY merges wait for the approver) |
 | 5 · Review | `mattpocock-skills:code-review` — two-axis (Standards = the project's `CODING_STANDARDS.md` over a Fowler baseline / Spec), parallel subagents | built-in `/code-review` as a second pass (correctness bugs — a different axis) | always |
 | 5b · Security | → **keel-secure** (VibeSec) over the diff, **checked against §Threat model** — every listed threat shows its mitigation landed | built-in `/security-review` as a second pass | mandatory on trust-boundary diffs (keel-v2 tripwire) |
 | 6 · Verify/QA | **keel-qa** (UI: real browser, evidence per acceptance criterion); **keel-verify** (non-UI: run the real checks, show the output, then claim) | design questions → **keel-design** | always (in-turn on FAST) |
@@ -64,6 +64,21 @@ built-in `/code-review` hunts bugs in a diff but has no Standards/Spec axes.
 - **Verify/QA:** every acceptance criterion has pass/fail evidence (the keel-qa report; `keel-verify` output for non-UI).
 - **Ship:** every Ship-checklist line has evidence; the human has approved; nothing deploys on an agent's say-so.
 
+## Stack specialists (opt-in · pinned · name them explicitly)
+Install only in projects on that stack (`./install.sh supabase-agent-skills`;
+it is parked, so a lane install skips it). Don't rely on them auto-triggering: Supabase's own evals show its
+skill activates in roughly 60% of relevant tasks, so **name it** at the phases below.
+
+| Stack | Specialist | Use at |
+|---|---|---|
+| Supabase | `supabase` (supabase/agent-skills) | 2 · Spec and 4 · Build for any schema, RLS, auth, storage, Edge Function or CLI/MCP work; 8 · Debug (it requires reading Supabase's debugging docs first) |
+| Postgres (any host) | `supabase-postgres-best-practices` | 2 · Spec for schema/index/RLS design; 5 · Review for queries, migrations, locking, pooling |
+
+They teach *how* to do it correctly; Keel's gates still decide *whether* it may
+touch live data. In particular, iterate with `execute_sql`/`supabase db query`
+on a **test or local** database only — the migration gate blocks writes to live
+unless they arrive as an approved batch.
+
 ## Gates (approval boundaries · keel-v2 decides how hard)
 The pipeline is decision-first: settle the expensive calls while context is
 cheap, before thousands of lines exist. Four named gates; rigor decides how
@@ -75,13 +90,15 @@ ledger (`00-status.md`) uses them verbatim, and tooling parses them.
 | **G1 Align** | 0 · Align, 0b · Map (epics), and 1 · Language when it ran (Language is part of alignment; its `GLOSSARY.md` terms are approved here) | `00-product.md` + `GLOSSARY.md` terms/ADRs + the resolved decision tickets | hard gate | skipped |
 | **G2 Spec** | 2 · Spec | `spec.md` — behaviour **+ §Architecture + §Threat model** (conventions §4) | hard gate | skipped |
 | **G3 Plan** | 3 · Decompose | `issues/NN.md` — the tickets **are** the approved plan in keel-v2 §2.2 terms. No product code before G3. | hard gate | skipped |
-| **Ship** | 6 · Verify → 7 · Ship | the **Ship checklist** (below) with `keel-verify` / `keel-qa` evidence; then the human commits/deploys (keel-v2 §1.4, §2.5) | hard gate | hard gate |
+| **Ship** | 6 · Verify → 7 · Ship | the **Ship checklist** (below) with `keel-verify` / `keel-qa` evidence; then keel-v2 §1.4 / §2.4-2.5 decide the ending: FAST → the PR with its `Rigor: FAST` line auto-merges on green; HEAVY → the PR with its `Rigor: HEAVY` line waits for the approver's GitHub review, then auto-merge completes it. Deploys to production, sends and live migrations stay the human's (approved batch, explicit go) | hard gate (approver reviews the PR) | auto on green (audited later) |
 
 How keel-v2's HEAVY rules map onto these gates: §2.1 route-first is the
 `Rigor:` line at the top of the ledger; §2.2 plan-before-code is satisfied by
 G3 (approved tickets), not by a separate per-ticket plan round-trip; §2.4
-build-then-stop-for-verification is the Ship gate; §2.5 (no irreversible
-action without approval) holds at every gate.
+build-then-PR-then-stop is the Ship gate: the PR carrying the `Rigor:` line
+is the Ship request, the approver's GitHub review is the approval (the v3
+`keel-rigor` check keeps a HEAVY PR red until it exists); §2.5 (nothing
+irreversible without the approver) holds at every gate.
 
 **Approval has provenance.** A gate flips to `[x]` only on the human's say-so,
 and the line records the date, the approver and their words. The agent writes

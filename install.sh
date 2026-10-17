@@ -50,7 +50,7 @@ list() {
     opt=$(jq -r --arg l "$l" '.lanes[$l].optional // false' "$MANIFEST")
     tag=""; [ "$opt" = "true" ] && tag="  (optional vertical)"
     echo "  • $l$tag"
-    jq -r --arg l "$l" '.lanes[$l].upstreams[] | "      - \(.name)  [\(.type)]  \(.repo)\(if .ref then "  @" + .ref[0:7] else "" end)\(if .optional then "  (parked)" else "" end)"' "$MANIFEST"
+    jq -r --arg l "$l" '.lanes[$l].upstreams[] | "      - \(.name)  [\(.type)]  \(.repo)\(if .ref then "  @" + .ref[0:7] else "" end)\(if .optional then "  (parked)" else "" end)\(if .when then "  (opt-in: " + .when + ")" else "" end)"' "$MANIFEST"
   done
   echo
   echo "Install:  ./install.sh <lane|upstream> [...]   |   all   |   mcp   |   arbiter   |   check   |   pin"
@@ -69,7 +69,11 @@ keel_rel_path() { # <host-root>
 host_root() {
   local h
   h="$(git -C "$ROOT" rev-parse --show-superproject-working-tree 2>/dev/null || true)"
-  [ -n "$h" ] && (cd "$h" && pwd -P)
+  # Prints nothing but still returns 0 when Keel is not a submodule: callers
+  # assign `host="$(host_root)"` under set -e, so a non-zero return would abort
+  # the script before their "~ not a submodule" message.
+  if [ -n "$h" ]; then (cd "$h" && pwd -P); fi
+  return 0
 }
 
 scaffold_mcp() {
@@ -87,11 +91,11 @@ scaffold_mcp() {
 # which DUPLICATES the whole block every time Keel updates. Instead we write it
 # between markers and replace-in-place, so re-running is idempotent — that's how
 # a consuming project picks up an updated arbiter without hand-editing.
-ARB_BEGIN="# >>> keel-v2 arbiter (managed by keel/install.sh) — do not edit between markers >>>"
+ARB_BEGIN="# >>> keel-v2 arbiter (managed by Keel — keel init / install.sh arbiter) — do not edit between markers >>>"
 ARB_END="# <<< keel-v2 arbiter <<<"
 
 # The block carries BOTH keel-v2 files: CLAUDE.md (the router) and LAWS.md (the
-# nine surface definitions, the invariants, the /review tripwires). The router
+# surface definitions, the invariants, the /review tripwires). The router
 # cites LAWS.md throughout; without LAWS in the host the agent only ever sees
 # the surface *names*. It also records where Keel lives in the host so the
 # agent can find the lane routers and MEMORY-CONTRACT.md by path.
@@ -110,8 +114,8 @@ sync_arbiter() {
   tmp="$(mktemp)"
   # Drop any existing managed block (markers included), keep everything else.
   if [ -f "$target" ]; then
-    awk -v b="$ARB_BEGIN" -v e="$ARB_END" '
-      $0==b {skip=1; next}
+    awk -v e="$ARB_END" '
+      !skip && /^# >>> keel-v2 arbiter .*>>>[[:space:]]*$/ {skip=1; next}
       skip && $0==e {skip=0; next}
       !skip {print}
     ' "$target" > "$tmp"
@@ -315,7 +319,7 @@ check_host() {
   echo "Keel check — $host"
   if [ "$rel" = ".claude/keel" ]; then echo "  ok   submodule at .claude/keel"
   else echo "  warn submodule at '$rel' — supported layout is .claude/keel (see HOWTO.md → Updating)"; fi
-  if [ -f "$host/CLAUDE.md" ] && grep -qxF -- "$ARB_BEGIN" "$host/CLAUDE.md"; then
+  if [ -f "$host/CLAUDE.md" ] && grep -qE -- "^# >>> keel-v2 arbiter .*>>>" "$host/CLAUDE.md"; then
     if grep -q "Server enforces, not the UI" "$host/CLAUDE.md"; then echo "  ok   CLAUDE.md has the managed keel-v2 block (router + LAWS)"
     else echo "  FAIL CLAUDE.md block is from an older Keel — missing LAWS. Re-run: ./install.sh arbiter"; bad=1; fi
   else echo "  FAIL CLAUDE.md has no managed keel-v2 block. Run: ./install.sh arbiter"; bad=1; fi
@@ -353,8 +357,9 @@ check_host() {
 # `set -e` and abort the rest of the install.
 install_item() {
     local lane="$1" i="$2"
-    local name type repo plugin setup note install marketplace ref
+    local name type repo plugin setup note install marketplace ref when
     ref=$(jq -r --arg l "$lane" --argjson i "$i" '.lanes[$l].upstreams[$i].ref // empty' "$MANIFEST")
+    when=$(jq -r --arg l "$lane" --argjson i "$i" '.lanes[$l].upstreams[$i].when // empty' "$MANIFEST")
     name=$(jq -r --arg l "$lane" --argjson i "$i" '.lanes[$l].upstreams[$i].name' "$MANIFEST")
     type=$(jq -r --arg l "$lane" --argjson i "$i" '.lanes[$l].upstreams[$i].type' "$MANIFEST")
     repo=$(jq -r --arg l "$lane" --argjson i "$i" '.lanes[$l].upstreams[$i].repo' "$MANIFEST")
@@ -389,9 +394,15 @@ install_item() {
           [ -n "$marketplace" ] && echo "         claude plugin marketplace add $marketplace"
           echo "         claude plugin install $plugin --scope project"
           [ -n "$setup" ] && echo "         then, once per repo, in Claude Code:  $setup"
+        elif [ -n "$ref" ]; then
+          # Pinned plugin bundle: install from a checkout at the reviewed commit, never from HEAD.
+          echo "» $name: PLUGIN, pinned to ${ref:0:12}${when:+ — only for $when} — from your project root run:"
+          echo "         git clone $repo .claude/keel/vendor/$name && git -C .claude/keel/vendor/$name checkout -q $ref"
+          echo "         claude plugin marketplace add ./.claude/keel/vendor/$name"
+          jq -r --arg l "$lane" --argjson i "$i" '.lanes[$l].upstreams[$i].plugins // [] | .[] | "         claude plugin install \(.) --scope project"' "$MANIFEST"
         else
           echo "» $name: PLUGIN — install via the Claude Code plugin marketplace,"
-          echo "         or:  git clone $repo  into your .claude/plugins${ref:+   (pinned: $ref)}"
+          echo "         or:  git clone $repo  into your .claude/plugins"
         fi ;;
       mcp)
         if [ -n "$install" ]; then
