@@ -54,7 +54,8 @@ export function normalizePolicy(raw) {
   oneOf(g.migration?.live, ['batch-authorized', 'deny', 'allow'], 'gates.migration.live');
   oneOf(g.migration?.liveSql, ['read-only', 'deny', 'allow'], 'gates.migration.liveSql');
   oneOf(g.deploy?.mode, ['approver', 'off'], 'gates.deploy.mode');
-  for (const k of ['push', 'secrets', 'governance']) oneOf(g[k]?.mode, ['block', 'off'], `gates.${k}.mode`);
+  for (const k of ['push', 'secrets', 'governance', 'ledger']) oneOf(g[k]?.mode, ['block', 'off'], `gates.${k}.mode`);
+  if (g.ledger?.dir !== undefined && !/^[A-Za-z0-9._-]+(\/[A-Za-z0-9._-]+)*$/.test(g.ledger.dir)) errs.push('gates.ledger.dir must be a relative directory like ".scratch"');
   if (g.deploy?.commands !== undefined && !strArr(g.deploy.commands)) errs.push('gates.deploy.commands must be an array of strings');
   if (raw.backPressure !== undefined && !strArr(raw.backPressure)) errs.push('backPressure must be an array of check names');
   for (const name of raw.backPressure ?? []) if (!isStr(raw.checks?.[name])) errs.push(`backPressure lists "${name}" but checks.${name} has no command`);
@@ -104,6 +105,9 @@ export function normalizePolicy(raw) {
       deploy: { mode: g.deploy?.mode ?? 'approver', commands: g.deploy?.commands ?? DEFAULT_DEPLOY },
       secrets: { mode: g.secrets?.mode ?? 'block' },
       governance: { mode: g.governance?.mode ?? 'block' },
+      // Feature ledgers (.scratch/<feature>/00-status.md): gate boxes are human-only,
+      // and no product code while a HEAVY feature waits at a gate.
+      ledger: { mode: g.ledger?.mode ?? 'block', dir: g.ledger?.dir ?? '.scratch' },
     },
     backPressure: raw.backPressure ?? [],
     checks: raw.checks ?? {},

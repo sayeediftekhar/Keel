@@ -7,11 +7,13 @@
 //   keel batch create <id> <migration files…> [--hours N]
 //   keel batch status
 //   keel guard-snippet                test-database guard for your test setup file
+//   keel approve <feature> <G1|G2|G3|Ship> "<why>"   (the HUMAN flips a gate in .scratch/<feature>/00-status.md)
 //
 // Options: --dir <project>  (default: git root of the current directory)
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 import { compile } from '../lib/compile.mjs';
 import { doctor, exitCode, formatReport } from '../lib/doctor.mjs';
 import { readPolicyFile, PolicyError, POLICY_FILE } from '../lib/policy.mjs';
@@ -100,6 +102,44 @@ try {
           for (const m of b.migrations ?? []) console.log(`  ${m.order}. ${m.file}  test:${applied('test', m.sha256) ? 'yes' : 'no'}  live:${applied('live', m.sha256) ? 'yes' : 'no'}`);
         }
       } else die('usage: keel batch create|status', 2);
+      break;
+    }
+    case 'approve': {
+      // The human's side of the ledger gate: flip one gate box with provenance.
+      // The gate hook blocks the agent from running this or from checking a box
+      // itself, which is what makes an [x] in the ledger mean a person approved it.
+      const [feature, gateName, ...words] = [sub, ...rest].filter((a) => a !== undefined);
+      const why = words.join(' ');
+      if (!feature || !/^[\w.-]+$/.test(feature) || !['G1', 'G2', 'G3', 'Ship'].includes(gateName) || !why) die('usage: keel approve <feature> <G1|G2|G3|Ship> "<why>"', 2);
+      let ledgerDir = '.scratch';
+      try { ledgerDir = readPolicyFile(projectDir).gates.ledger.dir; } catch { /* no policy: default dir */ }
+      const file = path.join(projectDir, ledgerDir, feature, '00-status.md');
+      if (!fs.existsSync(file)) die(`no ledger at ${path.relative(projectDir, file)}`);
+      const lines = fs.readFileSync(file, 'utf8').split('\n');
+      const open = new RegExp(`^- \\[ \\][ \\t]*${gateName}(?![A-Za-z0-9])`);
+      const done = new RegExp(`^- \\[[xX]\\][ \\t]*${gateName}(?![A-Za-z0-9])`);
+      const i = lines.findIndex((l) => open.test(l));
+      if (i < 0) {
+        if (lines.some((l) => done.test(l))) { console.log(`= ${gateName} already approved in ${path.relative(projectDir, file)}`); break; }
+        die(`no unchecked "- [ ] ${gateName}" line in ${path.relative(projectDir, file)}`);
+      }
+      let who = process.env.KEEL_APPROVER;
+      if (!who) { try { who = execFileSync('git', ['config', 'user.name'], { cwd: projectDir, encoding: 'utf8' }).trim(); } catch { /* fall through */ } }
+      if (!who) { try { who = readPolicyFile(projectDir).approver.github; } catch { who = process.env.USER ?? 'approver'; } }
+      let line = lines[i];
+      let docs = '';
+      const di = line.indexOf('(doc');
+      if (di > 0) { docs = line.slice(di); line = line.slice(0, di); }
+      const dash = line.indexOf(' — ');
+      if (dash > 0) line = line.slice(0, dash);
+      line = line.replace(/^- \[ \] /, '- [x] ').trimEnd();
+      lines[i] = `${line} — approved ${new Date().toISOString().slice(0, 10)} by ${who}: "${why.replace(/"/g, '\'')}"${docs ? `  ${docs}` : ''}`;
+      for (let j = 0; j < lines.length; j++) {
+        lines[j] = lines[j].replace(new RegExp(`(\\*\\*Blocked on:\\*\\*[ \\t]*)human approval \\(${gateName}\\)`), '$1nothing');
+      }
+      fs.writeFileSync(file, lines.join('\n'));
+      console.log(`+ ${gateName} approved in ${path.relative(projectDir, file)} by ${who}`);
+      for (const l of lines) if (/^- \[[xX ]\][ \t]*(G[123]|Ship)(?![A-Za-z0-9])|\*\*Blocked on:\*\*/.test(l)) console.log(`  ${l}`);
       break;
     }
     case 'guard-snippet': {

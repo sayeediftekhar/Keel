@@ -144,6 +144,19 @@ export function makeEnv(projectDir, policy, remote = null) {
       }
       return false;
     },
+    readFile: (abs) => { try { return fs.readFileSync(abs, 'utf8'); } catch { return null; } },
+    // Every feature ledger under the policy's ledger dir: [{ rel, text }].
+    ledgers: () => {
+      const dir = path.join(projectDir, policy.gates?.ledger?.dir ?? '.scratch');
+      let names; try { names = fs.readdirSync(dir, { withFileTypes: true }); } catch { return []; }
+      const out = [];
+      for (const d of names) {
+        if (!d.isDirectory()) continue;
+        const f = path.join(dir, d.name, '00-status.md');
+        try { out.push({ rel: path.relative(projectDir, f).split(path.sep).join('/'), text: fs.readFileSync(f, 'utf8') }); } catch { /* no ledger */ }
+      }
+      return out;
+    },
     realpath: (p) => {
       // resolve symlinks in the deepest existing ancestor; keep the rest as written
       let cur = p; const tail = [];

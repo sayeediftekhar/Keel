@@ -45,6 +45,7 @@ can't reach:
 | **secrets** | printing credentials (`printenv`, `env`, `export -p`, `declare -px`, `echo $DATABASE_URL`, scripts that dump the environment, `/proc/*/environ`), reading/copying/archiving `.env*`, `.envrc`, `.dev.vars` (including globs like `.e*` and `git show HEAD:.env`), recursive searches for a credential name | `.env.example`, `.env.test`, unrelated variables |
 | **governance** | the agent changing its own gates: the policy, lock, Claude settings (project and `~/.claude`), CODEOWNERS, the Keel workflow, through file tools or shell (`cd` is followed, directories that contain those files count, symlinks are resolved, case is ignored, `git checkout <old ref> -- .`/`git reset --hard <old ref>` count) | everything else, including writing a migration batch file |
 | **deploy** | production deploys (`vercel --prod`, `railway up`, …), Supabase edge-function deploys to live, triggering deploy/release workflows | previews, test projects |
+| **ledger** | the agent checking a gate box (`- [x] G1/G2/G3/Ship`) in a feature ledger `.scratch/<feature>/00-status.md` through the Edit/Write tools or a shell rewrite (`sed -i`, redirection, `tee`, `mv`), running `keel approve` itself, and writing any non-markdown file outside `.scratch/` while a ledger says `**Rigor:** HEAVY` and `**Blocked on:** human approval (…)` | ticking slices, adding open decisions, editing docs/tickets/markdown; everything once the human has approved (`keel approve`) or parked the feature (`Blocked on: paused`) |
 
 Wrapped forms are unwrapped first: `sh -c`/`bash -lc -- …`, here-strings and
 here-docs into a shell, `echo … | sh`, `eval`, `env`, `timeout`, `stdbuf`,
@@ -97,6 +98,28 @@ node <plugin>/bin/keel.mjs doctor          # prove it
 ```
 
 `<plugin>` is the installed plugin directory (or `plugin/` in a checkout of this repo).
+
+## Gate approvals: the human flips the box
+
+Keel's dev pipeline keeps one ledger per feature (`.scratch/<feature>/00-status.md`,
+conventions §3) with four named gates: G1 Align, G2 Spec, G3 Plan, Ship. The
+agent updates everything in it except the gate boxes. You approve a gate in
+your own terminal:
+
+```bash
+keel approve invoicing G3 "tickets look right, split 04 later"
+```
+
+That flips `- [ ] G3 Plan` to `- [x] G3 Plan — approved 2026-10-17 by <you>: "…"`
+and clears `Blocked on: human approval (G3)`. The **ledger** gate makes the
+agent unable to do the same: an Edit or Write that newly checks a gate, a shell
+rewrite of the ledger, or an agent-run `keel approve` are blocked. While a
+HEAVY ledger is blocked on human approval, writes to non-markdown files outside
+`.scratch/` are blocked too, so spec and tickets get finished before code
+exists. Set `gates.ledger.mode` to `off` to disable, or `gates.ledger.dir` if
+your ledgers live elsewhere. (Projects compiled before this gate existed need
+one `keel compile`: the new default changes the policy hash, and until then
+the hooks run in strict fallback.)
 
 ## Live migrations: batch authorization
 
