@@ -1,5 +1,19 @@
 # keel-v2 routing eval — results
 
+## Run 2 — 2026-10-17, Haiku (the cheap-model re-run the first run asked for)
+
+- **Classifier:** one fresh agent per case, Haiku (harness `haiku` alias —
+  Claude Haiku 5.5 in this environment), router rules only (keel-v2 §0 + §3,
+  LAWS nine surfaces). Prompts built by the same recipe as run 1.
+- **Routing accuracy: 14 / 14 (100%).** Surface ID exact: **13 / 14** — only
+  T1 named value (1) instead of irreversibility (6); both are valid on a
+  card charge. H7 named scale (7) exactly this time.
+- Format adherence: 14 / 14 returned bare JSON (run 1 had 3 fenced).
+- The "Fable-friendly" claim now has its cheap-model data point: the router
+  holds on Haiku with no loss of routing accuracy. Still single-trial.
+
+## Run 1 — 2026-07-15, Opus 4.8
+
 - **Date:** 2026-07-15
 - **Cases:** 14 (`cases.jsonl`)
 - **Classifier:** one fresh, independent agent per case (Opus 4.8), router rules only

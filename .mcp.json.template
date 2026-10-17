@@ -1,5 +1,5 @@
 {
-  "$comment": "Keel MCP connector template. Copy to .mcp.json and fill the ${ENV} values (never commit real secrets — .mcp.json should be gitignored). Delete the servers you don't use; each loads tools into every session. URLs/commands below reflect each vendor's documented setup and may change — check the source repo in catalog.md.",
+  "$comment": "Keel MCP connector template. Copy to .mcp.json and fill the ${ENV} values (never commit real secrets — .mcp.json should be gitignored). Delete the servers you don't use; each loads tools into every session. URLs/commands below reflect each vendor's documented setup and may change — check the source repo in catalog.md. SUPPLY CHAIN: `npx -y <pkg>` runs whatever version npm serves today; pin each package (`<pkg>@<version>`) once you have verified it, like the manifest pins git upstreams.",
   "mcpServers": {
     "slack": {
       "command": "npx",
@@ -37,10 +37,10 @@
       "type": "http",
       "url": "${KONDO_MCP_URL}"
     },
-    "agent-browser": {
-      "$note": "vercel-labs/agent-browser — token-efficient browser automation. Check the repo for the current MCP/CLI invocation.",
-      "command": "npx",
-      "args": ["-y", "agent-browser", "mcp"]
+    "sentry": {
+      "$note": "Sentry's hosted MCP — OAuth on first connect, so no token lives here. Scope it to one project. Same as: claude mcp add --transport http --scope project sentry <url>. (agent-browser is used as a CLI from the shell instead of an MCP server — no per-session tool cost.)",
+      "type": "http",
+      "url": "https://mcp.sentry.dev/mcp/${SENTRY_ORG}/${SENTRY_PROJECT}"
     }
   }
 }

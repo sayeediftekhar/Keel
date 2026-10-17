@@ -26,7 +26,7 @@ for the model, **[catalog.md](catalog.md)** for the upstreams, and
 | Skill | Role | Routes to |
 |-------|------|-----------|
 | [`keel-v2`](skills/keel-v2/) | **Arbiter** — rigor router, the spine | — |
-| [`keel-dev`](skills/keel-dev/) | Development lane | superpowers, gstack, codex-plugin-cc, hyperframes, antfu/skills, agent-browser |
+| [`keel-dev`](skills/keel-dev/) | Development lane | mattpocock-skills (spine), vercel, sentry, hyperframes, antfu/skills, agent-browser, keel-qa |
 | [`keel-design`](skills/keel-design/) | Design/UI lane | impeccable, frontend-design, fused-landing |
 | [`keel-marketing`](skills/keel-marketing/) | Marketing lane | marketingskills, claude-seo, kondo |
 | [`keel-content`](skills/keel-content/) | Content/social lane | humanizer, social-media-skills, higgsfield |
@@ -37,36 +37,41 @@ for the model, **[catalog.md](catalog.md)** for the upstreams, and
 | [`keel-legal`](skills/keel-legal/) | Legal vertical *(optional)* | claude-for-legal |
 | [`fused-landing`](skills/fused-landing/) | Landing-page build + token discipline | *(local)* |
 | [`lazy-loop`](skills/lazy-loop/) | `/lazy` code/prose thrift (caveman + ponytail) | *(local)* |
+| [`keel-qa`](skills/keel-qa/) | Real-browser QA procedure (Phase 6) | *(local)* |
+| [`keel-verify`](skills/keel-verify/) | Evidence-before-done: run it, show the output, then claim it | *(local)* |
 
-## Install
+## Install (in a consuming project)
+
+Keel lives at **`.claude/keel/`** as a git submodule. That is the one supported
+layout. Claude Code discovers project skills only at
+`.claude/skills/<name>/SKILL.md`, so the installer **symlinks** each lane
+router, local skill and vendored skill to that exact depth.
+
+```bash
+git submodule add https://github.com/sayeediftekhar/Keel .claude/keel
+git submodule update --init --recursive
+(cd .claude/keel && ./install.sh arbiter)      # keel-v2 router + LAWS → CLAUDE.md (managed block)
+(cd .claude/keel && ./install.sh dev design)   # vendor + link only the lanes you use
+(cd .claude/keel && ./install.sh check)        # verify; then /skills in a fresh session
+```
 
 Lanes are opt-in. Nothing installs until you name one.
 
 ```bash
-./install.sh                 # list lanes + what each pulls
-./install.sh dev design      # vendor those lanes' upstreams
+./install.sh                 # list lanes + what each pulls (with pins)
 ./install.sh all             # every non-optional lane
+./install.sh hyperframes     # one parked upstream by name
 ./install.sh mcp             # scaffold .mcp.json from the template
 ```
 
-- **skills** → cloned into `vendor/` (unmodified; point Claude Code at it).
-- **plugins** → the installer prints the marketplace/clone command.
+- **skills** → cloned into `vendor/` at the pinned commit (unmodified) and
+  symlinked into `.claude/skills/`.
+- **plugins** → the installer prints the exact `claude plugin install` command.
 - **MCP servers** → fill credentials in `.mcp.json` (copy from `.mcp.json.template`).
 
 Curate, don't hoard: every installed skill's description sits in context each
-session — install only the lanes you use.
-
-## Use as a submodule
-
-From a consuming project (a git repo):
-
-```bash
-git submodule add https://github.com/sayeediftekhar/Keel .claude/skills
-git submodule update --init --recursive
-```
-
-Skills resolve under `.claude/skills/skills/<skill-name>/`. Update with
-`git submodule update --remote .claude/skills`.
+session — install only the lanes you use. Update with
+`git submodule update --remote .claude/keel`, then re-run the install lines.
 
 ## Editing
 
