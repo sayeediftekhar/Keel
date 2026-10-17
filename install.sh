@@ -151,12 +151,13 @@ install_lane() {
   echo "== lane: $lane =="
   local n=$(jq -r --arg l "$lane" '.lanes[$l].upstreams | length' "$MANIFEST")
   for i in $(seq 0 $((n-1))); do
-    local name type repo plugin setup
+    local name type repo plugin setup note
     name=$(jq -r --arg l "$lane" --argjson i "$i" '.lanes[$l].upstreams[$i].name' "$MANIFEST")
     type=$(jq -r --arg l "$lane" --argjson i "$i" '.lanes[$l].upstreams[$i].type' "$MANIFEST")
     repo=$(jq -r --arg l "$lane" --argjson i "$i" '.lanes[$l].upstreams[$i].repo' "$MANIFEST")
     plugin=$(jq -r --arg l "$lane" --argjson i "$i" '.lanes[$l].upstreams[$i].plugin // empty' "$MANIFEST")
     setup=$(jq -r --arg l "$lane" --argjson i "$i" '.lanes[$l].upstreams[$i].setup // empty' "$MANIFEST")
+    note=$(jq -r --arg l "$lane" --argjson i "$i" '.lanes[$l].upstreams[$i].note // empty' "$MANIFEST")
     case "$type" in
       skill)
         mkdir -p "$VENDOR"
@@ -172,6 +173,7 @@ install_lane() {
           echo "» $name: PLUGIN — from your project root run:"
           echo "         claude plugin install $plugin --scope project"
           [ -n "$setup" ] && echo "         then, once per repo, in Claude Code:  $setup"
+          [ -n "$note" ] && echo "         ($note)"
         else
           echo "» $name: PLUGIN — install via the Claude Code plugin marketplace,"
           echo "         or:  git clone $repo  into your .claude/plugins"

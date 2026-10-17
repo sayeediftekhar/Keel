@@ -1,5 +1,5 @@
 {
-  "$comment": "Machine-readable map of Keel lanes → upstreams. Consumed by install.sh. type: plugin|skill|mcp|local. Optional on plugins: plugin (exact plugin@marketplace id → install.sh prints the real install command), setup (one-time per-repo command) and routes (every upstream skill Keel docs name — checked by evals/upstream-drift.sh). See catalog.md for prose, ARCHITECTURE.md for the model.",
+  "$comment": "Machine-readable map of Keel lanes → upstreams. Consumed by install.sh. type: plugin|skill|mcp|local. Optional on plugins: plugin (exact plugin@marketplace id → install.sh prints the real install command), setup (one-time per-repo command), note (when to install it) and routes (every upstream skill Keel docs name — checked by evals/upstream-drift.sh). See catalog.md for prose, ARCHITECTURE.md for the model.",
   "version": 1,
   "lanes": {
     "dev": {
@@ -10,9 +10,9 @@
           "routes": ["triage", "grill-with-docs", "grill-me", "wayfinder", "domain-modeling", "to-spec", "prototype", "to-tickets",
                      "implement", "implement-spec", "tdd", "code-review", "pr", "wizard", "diagnosing-bugs",
                      "improve-codebase-architecture", "codebase-design", "retro", "research", "handoff", "writing-for-agents"] },
-        { "name": "superpowers",       "type": "plugin", "role": "power-tool", "repo": "https://github.com/obra/superpowers" },
-        { "name": "gstack",            "type": "plugin", "role": "power-tool", "repo": "https://github.com/garrytan/gstack" },
         { "name": "codex-plugin-cc",   "type": "plugin", "role": "power-tool", "repo": "https://github.com/openai/codex-plugin-cc" },
+        { "name": "vercel",            "type": "plugin", "role": "deploy",     "repo": "https://github.com/vercel/vercel-plugin", "plugin": "vercel@claude-plugins-official", "note": "Vercel-hosted projects only — deploy, promote, instant rollback, logs" },
+        { "name": "keel-qa",           "type": "local",  "role": "qa",         "repo": "skills/keel-qa" },
         { "name": "hyperframes",       "type": "skill",  "role": "adjunct",    "repo": "https://github.com/heygen-com/hyperframes" },
         { "name": "antfu-skills",      "type": "plugin", "role": "adjunct",    "repo": "https://github.com/antfu/skills" },
         { "name": "agent-browser",     "type": "mcp",    "role": "adjunct",    "repo": "https://github.com/vercel-labs/agent-browser" },

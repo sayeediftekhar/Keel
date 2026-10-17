@@ -9,6 +9,10 @@ lane routes, doc improvements, or installer fixes.
 - **Route, don't merge.** Don't copy an upstream's code into this repo. Add a
   reference in `manifest.json` / `catalog.md` and a thin lane router. See
   [ARCHITECTURE.md](ARCHITECTURE.md).
+- **New upstreams pass the entry rules** in ARCHITECTURE.md → *Which upstreams
+  earn a route* (per-project install, no arbiter override, unambiguous names,
+  drift-checked, earns its install). A failing one's job goes to the platform or
+  a thin local skill instead.
 - **Everything through a reviewed PR.** `main` is protected; no direct pushes.
 - **Keep the arbiter lean.** `skills/keel-v2/CLAUDE.md` is loaded every session —
   add detail to `LAWS.md` or a lane, not the router.

@@ -79,10 +79,10 @@ One-time catch-ups for projects set up before 2026-10:
    keel-v2 will name the right one if you're unsure.
 3. **Let the pipeline run** (dev example): grill-with-docs → (wayfinder, for
    epics) → to-spec (`prototype` to settle a state model) → to-tickets →
-   implement (`tdd` at seams) → mattpocock-skills:code-review → verify → pr → retro. Use
-   **graphify** to navigate the code, not grep.
-4. **Reach for a power-tool by name** when you want it: `/qa` (real browser),
-   `/cso` (security), the superpowers autonomous executor for a big approved plan.
+   implement (`tdd` at seams) → mattpocock-skills:code-review → keel-qa / verify
+   → pr → retro. Use **graphify** to navigate the code, not grep.
+4. **Reach for a power-tool by name** when you want it: `/codex` (cross-model
+   second opinion), `/security-review` (built-in second security pass).
 5. **Stop at the gate.** keel-v2 stops before commit / deploy / send. **You**
    commit — Keel never auto-commits.
 6. **Capture & hand off.** Note learnings; if you'll continue later, write a
@@ -98,6 +98,23 @@ worktree. A `wayfinder` epic works the same way, one session per decision
 ticket. For this, use **tracker mode**: every session, local or cloud, sees one
 shared board, while `.scratch/` files only reach sessions on your machine.
 Each agent still stops at keel-v2's gates; you approve, merge and commit.
+
+---
+
+## Keeping a production app healthy
+
+Once a project ships, set up keel-dev's **Maintain** loop once — each job is a
+scheduled routine (`/schedule`) that ends at a PR, a ticket or a step for you:
+
+- **Weekly:** dependency + security updates → a PR you merge.
+- **On an alert:** `diagnosing-bugs` on the error report → a fix PR or a ticket.
+- **When production breaks:** roll back first (Vercel apps: instant rollback via
+  the Vercel plugin — you confirm the target), then diagnose, then `retro` as
+  the postmortem.
+- **Monthly:** `improve-codebase-architecture` → tickets.
+
+Full table: [keel-dev → Maintain](skills/keel-dev/SKILL.md). Mark any job you
+don't need as *not needed* in `CONTEXT.md` so nobody re-asks.
 
 ---
 
@@ -119,9 +136,11 @@ Each agent still stops at keel-v2's gates; you approve, merge and commit.
 | Move fast on safe work | Name your Authority + one-shot FAST block |
 | Build something risky | Just describe it — keel-v2 forces HEAVY |
 | Understand the codebase | graphify (`query`/`path`/`explain`) |
-| Test a live app | `/qa` (gstack power-tool) |
-| Security-check a diff | `/keel-secure` → VibeSec (+ `/cso`) |
-| Run a big plan hands-off | superpowers autonomous executor (stops at gates) |
+| Test a live app | `/keel-qa` (real browser, evidence per criterion) |
+| Security-check a diff | `/keel-secure` → VibeSec (+ built-in `/security-review`) |
+| Run a big plan hands-off | `implement-spec` on the approved tickets, or one session per frontier ticket (both stop at gates) |
+| Keep a shipped app healthy | keel-dev → *Maintain* loop (scheduled, ends at PRs) |
+| Roll back a bad deploy | Vercel plugin instant rollback — you confirm the target |
 | Plan an epic (more than one session) | `wayfinder` |
 | Split work across agents | tracker mode + one session per frontier ticket |
 | Do steps only I can (secrets, dashboards) | `wizard` |

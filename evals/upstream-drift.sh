@@ -31,7 +31,9 @@ BUILTINS=(code-review simplify security-review init run loop schedule update-con
   permissions doctor cost context plugin login logout rewind add-dir review)
 # Docs that name upstream skills. catalog.md is left out on purpose: its
 # "Match status" log records retired names.
-SCAN=("$KEEL_ROOT/skills/keel-dev/SKILL.md" "$KEEL_ROOT/HOWTO.md" "$KEEL_ROOT/CONTRIBUTING.md" "$KEEL_ROOT"/conventions/*.md)
+SCAN=("$KEEL_ROOT/skills/keel-dev/SKILL.md" "$KEEL_ROOT/skills/keel-qa/SKILL.md"
+  "$KEEL_ROOT/HOWTO.md" "$KEEL_ROOT/CONTRIBUTING.md" "$KEEL_ROOT/PLAYBOOK.md"
+  "$KEEL_ROOT/MEMORY-CONTRACT.md" "$KEEL_ROOT"/conventions/*.md)
 
 PASS=0; FAIL=0; WARN=0
 ok()   { printf '  \033[32mok\033[0m   %s\n' "$1"; PASS=$((PASS+1)); }

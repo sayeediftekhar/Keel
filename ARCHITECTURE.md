@@ -17,11 +17,11 @@ each one and enforces one rigor standard across all of them.
 │      Thin index skills.  keel-content, keel-research,         │
 │      One per domain.     keel-secure, keel-ops,               │
 │      Dispatch → L3.      keel-finance*, keel-legal*  (*opt-in)│
-│      Plus locals: fused-landing, lazy-loop                    │
+│      Plus locals: fused-landing, lazy-loop, keel-qa           │
 ├─────────────────────────────────────────────────────────────┤
-│  L3  UPSTREAMS          superpowers, gstack, impeccable,      │
+│  L3  UPSTREAMS          mattpocock-skills, impeccable,        │
 │      Unmodified.        marketingskills, humanizer, VibeSec,  │
-│      Vendored/installed  claude-mem, … (28 total)             │
+│      Vendored/installed  claude-mem, … (see catalog.md)       │
 │      as-is. Keep         + MCP servers: slack, notion,        │
 │      updating.           zapier, perplexity, granola, …       │
 └─────────────────────────────────────────────────────────────┘
@@ -33,25 +33,58 @@ everything; where any file disagrees with keel-v2, keel-v2 wins.
 
 ## Why routers, not a merge
 
-We rejected forking the 28 repos into monolithic `keel-dev`/`keel-marketing`
+We rejected forking the upstreams into monolithic `keel-dev`/`keel-marketing`
 skills:
 
-- **Upstreams are alive.** superpowers, caveman, agent-browser et al. gain
-  stars/skills monthly. A merge freezes them and creates a permanent re-merge
-  chore.
-- **Internal structure matters.** superpowers is ~14 interlocking skills;
-  gstack is 23 role agents. Flattened into one file they get worse.
+- **Upstreams are alive.** Between 2026-07 and 2026-10 mattpocock/skills grew to
+  27 skills and renamed two that keel-dev routed to. A merge would have frozen
+  the old names and created a permanent re-merge chore.
+- **Internal structure matters.** Pocock's skills are small interlocking pieces
+  (grill → spec → tickets → implement → review). Flattened into one file they
+  get worse.
 - **License hygiene.** Blending many MIT/Apache/official repos into one blob is
   a mess to attribute and update.
 
 Routing gives the same single-entry-point UX ("use the dev lane") with none of
 that debt.
 
+## Which upstreams earn a route
+
+**Route the machinery, own the procedure.** Fast-moving tooling (browsers,
+deploy pipelines, security scanners) stays with the people who maintain it.
+Keel writes its own skill only for a *procedure* — stable steps that mostly
+encode Keel policy — and only when no routable upstream passes the rules below.
+
+An upstream is routed only if it:
+
+1. **Installs per project.** Anything forced into user scope taxes every
+   session, in every project.
+2. **Leaves the arbiter alone.** No CLAUDE.md directives or blocking hooks that
+   compete with keel-v2's rigor or gates.
+3. **Has unambiguous names.** No clash with the spine or Claude Code built-ins,
+   or callable with its plugin prefix.
+4. **Is drift-checked.** Its skill names are in `manifest.json` → `routes` and
+   checked by `evals/upstream-drift.sh` (today that covers the spine; extend it
+   when routing another skill bundle).
+5. **Earns its install.** Keel uses a real share of it, not a handful of
+   commands from a large bundle.
+
+When one fails, its job goes to the platform (Claude Code built-ins, the hosting
+provider's own tools), to an upstream that passes, or — if the job is just
+procedure — to a thin local skill.
+
+**Rejected 2026-10:** *gstack* (installs into `~/.claude/skills`; its setup tells
+the agent to bypass other browsers, and team mode adds blocking hooks; ~60 skills
+overlapping the spine — fails 1, 2, 3, 5) and *superpowers* (its executor,
+worktrees, TDD and debugging are now covered by the spine plus Claude Code's own
+sessions and worktrees — fails 5). Their useful jobs moved to `keel-qa` (local),
+the Vercel plugin (deploy/rollback) and keel-secure.
+
 ## The lanes
 
 | Lane | Domain | Dispatches to (L3) |
 |------|--------|--------------------|
-| `keel-dev` | Development | superpowers, gstack, codex-plugin-cc, hyperframes, antfu/skills, agent-browser |
+| `keel-dev` | Development | mattpocock-skills (spine), codex-plugin-cc, hyperframes, antfu/skills, agent-browser, (local) keel-qa |
 | `keel-design` | Design/UI | impeccable, frontend-design, (local) fused-landing |
 | `keel-marketing` | Marketing/growth | marketingskills, claude-seo, kondo (MCP) |
 | `keel-content` | Content/social/writing | humanizer, social-media-skills, higgsfield (MCP) |
@@ -64,12 +97,13 @@ that debt.
 \* Optional verticals — off by default; install only if you do that work.
 
 Locals that aren't routers: **fused-landing** (landing-page build + token
-discipline) and **lazy-loop** (`/lazy` — code/prose thrift, wraps caveman +
-ponytail). Both already defer to keel-v2.
+discipline), **lazy-loop** (`/lazy` — code/prose thrift, wraps caveman +
+ponytail) and **keel-qa** (real-browser QA procedure on Claude Code's own
+browsers). All defer to keel-v2.
 
 ## Three install mechanisms (they are not the same)
 
-The 28 upstreams reach Claude three different ways — see `catalog.md` for the
+The upstreams reach Claude three different ways — see `catalog.md` for the
 per-item mapping and `install.sh` for the tooling:
 
 1. **Plugins** (bundles) → the Claude Code plugin marketplace / `.claude/plugins`.

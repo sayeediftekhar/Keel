@@ -1,4 +1,4 @@
-# Keel — upstream catalog (28 items)
+# Keel — upstream catalog (30 items: 27 upstreams + 3 locals)
 
 The external skills/plugins/MCP servers Keel routes to. Kept **unmodified**;
 Keel's lane routers (see `ARCHITECTURE.md`) point at them. `type` decides how
@@ -14,9 +14,9 @@ Conductor: **Pocock spine + power-tools** (see `skills/keel-dev/SKILL.md`).
 | Item | Role | Type | Repo / source | What it does |
 |------|------|------|---------------|--------------|
 | mattpocock-skills | **spine** | plugin | mattpocock/skills (`mattpocock-skills@claude-plugins-official`, self-updating) | 27 skills. The backbone pipeline: grill-with-docs → to-spec → to-tickets → implement → two-axis code-review; domain-modeling (`GLOSSARY.md`), codebase-design (deep modules), diagnosing-bugs, tdd |
-| superpowers | power-tool | plugin | obra/superpowers | Autonomous TDD executor: subagent-driven dev, strict red-green-refactor, systematic-debugging (~14 skills) |
-| gstack | power-tool | plugin | garrytan/gstack | Product studio: design-shotgun/html, real-browser /qa, /review, /cso security, /ship+deploy (23 roles + tools) |
 | codex-plugin-cc | power-tool | plugin | openai/codex-plugin-cc | Official OpenAI bridge — cross-model review / hand-off to Codex |
+| vercel | deploy | plugin | vercel/vercel-plugin (`vercel@claude-plugins-official`) | Vercel-hosted projects only: deploy, promote, instant rollback, logs — the Ship and Incident steps |
+| keel-qa | qa | local | this repo | Real-browser QA procedure on Claude Code's own browsers; evidence per acceptance criterion |
 | hyperframes | adjunct | skill | heygen-com/hyperframes | Agent-native HTML/CSS/JS → deterministic MP4 video |
 | antfu/skills | adjunct | plugin | antfu/skills | Vue/Vite/Nuxt/Pinia/Vitest skills, auto-synced from docs |
 | agent-browser | adjunct | mcp | vercel-labs/agent-browser | Token-efficient browser automation via a11y-tree snapshots |
@@ -85,6 +85,11 @@ Conductor: **Pocock spine + power-tools** (see `skills/keel-dev/SKILL.md`).
   `research`, `wizard`; `writing-for-agents` is the authoring standard
   (CONTRIBUTING.md). The full list lives in `manifest.json` → `routes`, checked
   by `evals/upstream-drift.sh`.
+- **gstack**, **superpowers** — ❌ removed 2026-10-17. gstack had grown to ~60
+  skills, installs into `~/.claude/skills`, and its setup steers the agent away
+  from other browsers (team mode adds blocking hooks); superpowers' jobs are now
+  covered by the spine + Claude Code sessions/worktrees. Reasons and
+  replacements: ARCHITECTURE.md → *Which upstreams earn a route*.
 - **social-media-skills** — ✅ confirmed `charlie947` (Charlie Hills content OS,
   17 skills incl. reels/captions/carousels). Not blacktwist.
 - **claude-skills** — ✅ confirmed `alirezarezvani` (changelog shows 263→264
