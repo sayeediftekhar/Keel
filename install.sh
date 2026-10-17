@@ -5,7 +5,8 @@
 #
 # Usage:
 #   ./install.sh                 # list lanes and what each would install
-#   ./install.sh dev design      # install those lanes' upstreams
+#   ./install.sh dev design      # install those lanes' upstreams (parked ones skipped)
+#   ./install.sh hyperframes     # install one upstream by name — how parked ones install
 #   ./install.sh all             # install every non-optional lane
 #   ./install.sh mcp             # just scaffold .mcp.json from the template
 #   ./install.sh arbiter         # sync the always-on keel-v2 rules into host CLAUDE.md
@@ -15,8 +16,9 @@
 #   plugin -> prints the exact `claude plugin install … --scope project` command
 #             when the manifest entry names its plugin id (+ any one-time setup);
 #             otherwise the generic marketplace/clone hint
-#   mcp    -> reminds you to fill .mcp.json (connectors need credentials)
-#   local  -> already in this repo; skipped
+#   mcp    -> prints the entry's `install` command, else reminds you to fill .mcp.json
+#   cli    -> prints the entry's `install` command (shell tool, no context cost)
+#   local  -> already in this repo (or a user-level path); skipped
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -35,10 +37,10 @@ list() {
     opt=$(jq -r --arg l "$l" '.lanes[$l].optional // false' "$MANIFEST")
     tag=""; [ "$opt" = "true" ] && tag="  (optional vertical)"
     echo "  • $l$tag"
-    jq -r --arg l "$l" '.lanes[$l].upstreams[] | "      - \(.name)  [\(.type)]  \(.repo)"' "$MANIFEST"
+    jq -r --arg l "$l" '.lanes[$l].upstreams[] | "      - \(.name)  [\(.type)]  \(.repo)\(if .optional then "  (parked)" else "" end)"' "$MANIFEST"
   done
   echo
-  echo "Install:  ./install.sh <lane> [lane...]   |   all   |   mcp   |   arbiter"
+  echo "Install:  ./install.sh <lane|upstream> [...]   |   all   |   mcp   |   arbiter"
 }
 
 scaffold_mcp() {
@@ -144,20 +146,20 @@ ensure_host_ignores() {
   echo "  → re-run your code-graph indexer (e.g. graphify update .) to drop vendored nodes."
 }
 
-install_lane() {
-  local lane="$1"
-  jq -e --arg l "$lane" '.lanes[$l]' "$MANIFEST" >/dev/null 2>&1 \
-    || { echo "! unknown lane: $lane"; return 1; }
-  echo "== lane: $lane =="
-  local n=$(jq -r --arg l "$lane" '.lanes[$l].upstreams | length' "$MANIFEST")
-  for i in $(seq 0 $((n-1))); do
-    local name type repo plugin setup note
+# Install one manifest entry: install_item <lane> <index>.
+# Always returns 0 — a skipped optional line (e.g. an empty note) must not trip
+# `set -e` and abort the rest of the install.
+install_item() {
+    local lane="$1" i="$2"
+    local name type repo plugin setup note install marketplace
     name=$(jq -r --arg l "$lane" --argjson i "$i" '.lanes[$l].upstreams[$i].name' "$MANIFEST")
     type=$(jq -r --arg l "$lane" --argjson i "$i" '.lanes[$l].upstreams[$i].type' "$MANIFEST")
     repo=$(jq -r --arg l "$lane" --argjson i "$i" '.lanes[$l].upstreams[$i].repo' "$MANIFEST")
     plugin=$(jq -r --arg l "$lane" --argjson i "$i" '.lanes[$l].upstreams[$i].plugin // empty' "$MANIFEST")
     setup=$(jq -r --arg l "$lane" --argjson i "$i" '.lanes[$l].upstreams[$i].setup // empty' "$MANIFEST")
     note=$(jq -r --arg l "$lane" --argjson i "$i" '.lanes[$l].upstreams[$i].note // empty' "$MANIFEST")
+    install=$(jq -r --arg l "$lane" --argjson i "$i" '.lanes[$l].upstreams[$i].install // empty' "$MANIFEST")
+    marketplace=$(jq -r --arg l "$lane" --argjson i "$i" '.lanes[$l].upstreams[$i].marketplace // empty' "$MANIFEST")
     case "$type" in
       skill)
         mkdir -p "$VENDOR"
@@ -171,20 +173,60 @@ install_lane() {
           # Project scope (not user): keeps its skill descriptions out of every
           # other session's context. Use --scope local to keep it uncommitted.
           echo "» $name: PLUGIN — from your project root run:"
+          [ -n "$marketplace" ] && echo "         claude plugin marketplace add $marketplace"
           echo "         claude plugin install $plugin --scope project"
           [ -n "$setup" ] && echo "         then, once per repo, in Claude Code:  $setup"
-          [ -n "$note" ] && echo "         ($note)"
         else
           echo "» $name: PLUGIN — install via the Claude Code plugin marketplace,"
           echo "         or:  git clone $repo  into your .claude/plugins"
         fi ;;
       mcp)
-        echo "» $name: MCP — add credentials to .mcp.json (see .mcp.json.template). Source: $repo" ;;
+        if [ -n "$install" ]; then
+          echo "» $name: MCP — from your project root run:"
+          echo "         $install"
+        else
+          echo "» $name: MCP — add credentials to .mcp.json (see .mcp.json.template). Source: $repo"
+        fi ;;
+      cli)
+        # A CLI the agent runs from the shell: no skill descriptions, no context cost.
+        echo "» $name: CLI — install once on the machine:"
+        echo "         ${install:-see $repo}" ;;
       local)
-        echo "= $name: local to this repo — nothing to install" ;;
+        case "$repo" in
+          "~"*|/*) echo "= $name: user-level install at $repo — check it exists" ;;
+          *)       echo "= $name: local to this repo — nothing to install" ;;
+        esac ;;
       *) echo "? $name: unknown type '$type'" ;;
     esac
+    [ -n "$note" ] && echo "         ($note)"
+    return 0
+}
+
+install_lane() {
+  local lane="$1" n i name
+  jq -e --arg l "$lane" '.lanes[$l]' "$MANIFEST" >/dev/null 2>&1 \
+    || { echo "! unknown lane: $lane"; return 1; }
+  echo "== lane: $lane =="
+  n=$(jq -r --arg l "$lane" '.lanes[$l].upstreams | length' "$MANIFEST")
+  for i in $(seq 0 $((n-1))); do
+    # Parked upstreams stay catalogued but never install with their lane.
+    if [ "$(jq -r --arg l "$lane" --argjson i "$i" '.lanes[$l].upstreams[$i].optional // false' "$MANIFEST")" = "true" ]; then
+      name=$(jq -r --arg l "$lane" --argjson i "$i" '.lanes[$l].upstreams[$i].name' "$MANIFEST")
+      echo "~ $name: parked — skipped; when a project needs it:  ./install.sh $name"
+      continue
+    fi
+    install_item "$lane" "$i"
   done
+}
+
+# Install a single upstream by name (parked or not): install_upstream <name>.
+install_upstream() {
+  local want="$1" hit
+  hit=$(jq -r --arg w "$want" '.lanes | to_entries[] | .key as $l
+        | .value.upstreams | to_entries[] | select(.value.name == $w) | "\($l) \(.key)"' "$MANIFEST" | head -n 1)
+  [ -n "$hit" ] || { echo "! unknown lane or upstream: $want   (./install.sh with no args lists them)"; return 1; }
+  echo "== upstream: $want (lane: ${hit% *}) =="
+  install_item "${hit% *}" "${hit#* }"
 }
 
 main() {
@@ -199,7 +241,12 @@ main() {
              [ "$opt" = "true" ] && { echo "~ skipping optional lane: $l (install explicitly)"; continue; }
              install_lane "$l"; need_mcp=true
            done ;;
-      *)   install_lane "$arg"; need_mcp=true ;;
+      *)   if jq -e --arg l "$arg" '.lanes[$l]' "$MANIFEST" >/dev/null 2>&1; then
+             install_lane "$arg"
+           else
+             install_upstream "$arg"
+           fi
+           need_mcp=true ;;
     esac
   done
   if [ "$need_mcp" = true ]; then

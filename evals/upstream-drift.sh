@@ -42,13 +42,13 @@ warn() { printf '  \033[33mwarn\033[0m %s\n' "$1"; WARN=$((WARN+1)); }
 
 command -v jq >/dev/null || { echo "needs jq"; exit 2; }
 
-fetch_tree() {
-  local api="repos/$UPSTREAM_REPO/git/trees/main?recursive=1"
+fetch_tree() { # fetch_tree <owner/repo> — the default branch's full file tree
+  local api="repos/$1/git/trees/HEAD?recursive=1"
   if command -v gh >/dev/null && gh api "$api" 2>/dev/null; then return 0; fi
   command -v curl >/dev/null && curl -fsSL "https://api.github.com/$api"
 }
 
-tree_json="$(fetch_tree)" || { echo "could not fetch the $UPSTREAM_REPO tree (network, gh or curl)"; exit 2; }
+tree_json="$(fetch_tree "$UPSTREAM_REPO")" || { echo "could not fetch the $UPSTREAM_REPO tree (network, gh or curl)"; exit 2; }
 
 # One "<category> <skill>" line per skills/<category>/<skill>/SKILL.md upstream.
 upstream="$(printf '%s' "$tree_json" | jq -r '.tree[].path
@@ -117,6 +117,35 @@ while read -r s; do
   fi
 done <<< "$routes"
 [ "$clashes" -eq 0 ] && ok "no routed skill shares a built-in's name"
+
+echo "[6] every other routed plugin: routes + setup exist upstream, docs use \`<plugin>:<name>\`"
+others="$(jq -r --arg e "$ENTRY" '.lanes[].upstreams[] | select(.name != $e and ((.routes // []) | length) > 0) | .name' "$MANIFEST")"
+[ -n "$others" ] || ok "no other routed plugins"
+while read -r up; do
+  [ -n "$up" ] || continue
+  field() { jq -r --arg u "$up" --arg f "$1" '.lanes[].upstreams[] | select(.name == $u) | .[$f] // empty | if type == "array" then .[] else . end' "$MANIFEST"; }
+  urepo="$(field repo | sed -E 's#^https://github\.com/##; s#/+$##')"
+  uns="$(field plugin | cut -d@ -f1)"; [ -n "$uns" ] || uns="$up"
+  uroutes="$(field routes)"
+  usetup="$(field setup | sed -E "s#^/##; s#^$uns:##")"
+  if ! utree="$(fetch_tree "$urepo")"; then bad "$up — could not fetch $urepo"; continue; fi
+  # Skill dirs and command files upstream, ignoring test fixtures.
+  unames="$(printf '%s' "$utree" | jq -r '.tree[].path
+    | select(test("(^|/)(tests?|fixtures)/") | not)
+    | (capture("(^|/)(?<n>[^/]+)/SKILL\\.md$") // capture("(^|/)commands/(?<n>[^/]+)\\.md$") // empty) | .n' | sort -u)"
+  while read -r r; do
+    if ! printf '%s\n' "$unames" | grep -qxF -- "$r"; then bad "$uns:$r — not found in $urepo (renamed or removed?)"
+    elif grep -qF -e "\`$uns:$r\`" -e "\`/$uns:$r\`" "${SCAN[@]}" 2>/dev/null; then ok "$uns:$r"
+    else bad "$uns:$r is in routes but no doc names \`/$uns:$r\`"; fi
+  done <<< "$uroutes"
+  if [ -n "$usetup" ]; then
+    if printf '%s\n' "$unames" | grep -qxF -- "$usetup"; then ok "setup $uns:$usetup"; else bad "setup $uns:$usetup — not found in $urepo"; fi
+  fi
+  # Anything the docs call "<ns>:<name>" must be declared (routes or setup).
+  for named in $(grep -ohE "\`/?$uns:[A-Za-z0-9_-]+\`" "${SCAN[@]}" 2>/dev/null | sed -E "s#^\`/?$uns:##; s#\`\$##" | sort -u); do
+    printf '%s\n%s\n' "$uroutes" "$usetup" | grep -qxF -- "$named" || bad "docs name \`$uns:$named\` but manifest routes doesn't list it"
+  done
+done <<< "$others"
 
 echo
 echo "----------------------------------------"

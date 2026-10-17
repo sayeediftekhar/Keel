@@ -81,8 +81,9 @@ One-time catch-ups for projects set up before 2026-10:
    epics) → to-spec (`prototype` to settle a state model) → to-tickets →
    implement (`tdd` at seams) → mattpocock-skills:code-review → keel-qa / verify
    → pr → retro. Use **graphify** to navigate the code, not grep.
-4. **Reach for a power-tool by name** when you want it: `/codex` (cross-model
-   second opinion), `/security-review` (built-in second security pass).
+4. **Reach for a second pass by name** when you want one: `/code-review`
+   (built-in correctness bug hunt, alongside Pocock's standards/spec review),
+   `/security-review` (built-in second security pass).
 5. **Stop at the gate.** keel-v2 stops before commit / deploy / send. **You**
    commit — Keel never auto-commits.
 6. **Capture & hand off.** Note learnings; if you'll continue later, write a
@@ -107,7 +108,9 @@ Once a project ships, set up keel-dev's **Maintain** loop once — each job is a
 scheduled routine (`/schedule`) that ends at a PR, a ticket or a step for you:
 
 - **Weekly:** dependency + security updates → a PR you merge.
-- **On an alert:** `diagnosing-bugs` on the error report → a fix PR or a ticket.
+- **On an alert:** `diagnosing-bugs` on the Sentry issue (connect once:
+  `claude mcp add --transport http --scope project sentry https://mcp.sentry.dev/mcp/<org>/<project>`)
+  → a fix PR or a ticket.
 - **When production breaks:** roll back first (Vercel apps: instant rollback via
   the Vercel plugin — you confirm the target), then diagnose, then `retro` as
   the postmortem.
@@ -146,7 +149,8 @@ don't need as *not needed* in `CONTEXT.md` so nobody re-asks.
 | Do steps only I can (secrets, dashboards) | `wizard` |
 | Learn from a session | `retro` |
 | Design/UI | `/keel-design` (impeccable) |
-| Add a capability | `./install.sh <lane>` |
+| Add a capability | `./install.sh <lane>` (parked extras skipped) |
+| Add one parked extra (e.g. video) | `./install.sh hyperframes` |
 
 Deeper reference: [RECIPES.md](RECIPES.md) (per-project cookbook) ·
 [MEMORY-CONTRACT.md](MEMORY-CONTRACT.md) (how the memory layers compose) ·

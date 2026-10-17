@@ -15,6 +15,9 @@ and reports; fixes go back through the pipeline.
   take screenshots for evidence.
 - **Claude in Chrome** — only when a flow needs the user's real signed-in
   session and they asked for it.
+- **`agent-browser` CLI** — headless, for terminal and cloud sessions that have
+  no browser pane. Run it from the shell; `agent-browser --help` has the current
+  commands (check it rather than recalling flags).
 - **No browser reachable** → say so and stop. A UI check that didn't run is
   reported as *not run*, never as a pass.
 

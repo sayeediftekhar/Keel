@@ -73,18 +73,27 @@ When one fails, its job goes to the platform (Claude Code built-ins, the hosting
 provider's own tools), to an upstream that passes, or — if the job is just
 procedure — to a thin local skill.
 
+**Parked upstreams.** Rule 5 judges what *installs*, not what's listed. A
+useful upstream that most projects don't need stays in the catalog marked
+`"optional": true`: lane installs skip it, and `./install.sh <name>` installs it
+alone in the project that needs it. Parked today: hyperframes (video, ~162 MB)
+and antfu-skills (Vue stack).
+
 **Rejected 2026-10:** *gstack* (installs into `~/.claude/skills`; its setup tells
 the agent to bypass other browsers, and team mode adds blocking hooks; ~60 skills
 overlapping the spine — fails 1, 2, 3, 5) and *superpowers* (its executor,
 worktrees, TDD and debugging are now covered by the spine plus Claude Code's own
-sessions and worktrees — fails 5). Their useful jobs moved to `keel-qa` (local),
-the Vercel plugin (deploy/rollback) and keel-secure.
+sessions and worktrees — fails 5) and *codex-plugin-cc* (drives OpenAI's Codex
+CLI on a separate OpenAI account, which Keel's workflows don't use — fails 5).
+Their useful jobs moved to `keel-qa` (local), the Vercel plugin
+(deploy/rollback), keel-secure, and the built-in `/code-review` as a second
+review pass.
 
 ## The lanes
 
 | Lane | Domain | Dispatches to (L3) |
 |------|--------|--------------------|
-| `keel-dev` | Development | mattpocock-skills (spine), codex-plugin-cc, hyperframes, antfu/skills, agent-browser, (local) keel-qa |
+| `keel-dev` | Development | mattpocock-skills (spine), vercel, sentry (MCP), hyperframes, antfu/skills, agent-browser (CLI), (local) keel-qa |
 | `keel-design` | Design/UI | impeccable, frontend-design, (local) fused-landing |
 | `keel-marketing` | Marketing/growth | marketingskills, claude-seo, kondo (MCP) |
 | `keel-content` | Content/social/writing | humanizer, social-media-skills, higgsfield (MCP) |
@@ -101,15 +110,18 @@ discipline), **lazy-loop** (`/lazy` — code/prose thrift, wraps caveman +
 ponytail) and **keel-qa** (real-browser QA procedure on Claude Code's own
 browsers). All defer to keel-v2.
 
-## Three install mechanisms (they are not the same)
+## Four install mechanisms (they are not the same)
 
-The upstreams reach Claude three different ways — see `catalog.md` for the
+The upstreams reach Claude four different ways — see `catalog.md` for the
 per-item mapping and `install.sh` for the tooling:
 
 1. **Plugins** (bundles) → the Claude Code plugin marketplace / `.claude/plugins`.
 2. **Standalone skills** → git submodule or clone under `.claude/skills`.
 3. **MCP servers** → `.mcp.json` (see `.mcp.json.template`). **Not skills** —
    they cannot be merged into a lane; they're connectors wired with credentials.
+   Each one's tools load into every session, so add them per project.
+4. **CLIs** → installed once on the machine (e.g. `agent-browser`). The agent
+   runs them from the shell, so they cost no context until used.
 
 ## How a task flows
 

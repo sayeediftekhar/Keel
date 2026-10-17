@@ -42,10 +42,10 @@ built-in `/code-review` hunts bugs in a diff but has no Standards/Spec axes.
 | 0 · Align | `grill-with-docs` — one Q at a time, look up facts, recommend answers; HEAVY features also write `00-product.md` (problem, success metric, announcement copy, mockup — **no technical language**) | — | HEAVY/ambiguous only; FAST skips |
 | 0b · Map | `wayfinder` — work bigger than one session becomes a map of decision tickets, resolved one per session until no open question blocks the build | — | HEAVY epics only |
 | 1 · Language | `domain-modeling` → `GLOSSARY.md` + ADRs | — | optional, compounding |
-| 2 · Spec | `to-spec` (synthesize conversation → spec); `prototype` for a throwaway spike when a state model, logic or UI shape is still in doubt | `/codex` second opinion on the spec | HEAVY |
+| 2 · Spec | `to-spec` (synthesize conversation → spec); `prototype` for a throwaway spike when a state model, logic or UI shape is still in doubt | — | HEAVY |
 | 3 · Decompose | `to-tickets` → `.scratch/<feat>/issues/NN.md` (or tracker issues), tracer-bullet slices + blocking edges (+ expand/contract for wide refactors) | — | HEAVY |
 | 4 · Build | `implement` — ticket-by-ticket, `tdd` at seams; `implement-spec` to run the whole approved ticket set | parallel Claude Code sessions, one per frontier ticket, each in its own worktree | HEAVY→strict red-green-refactor; FAST→pragmatic. Autonomy **stops at** commit/deploy gates |
-| 5 · Review | `mattpocock-skills:code-review` — two-axis (Standards = the project's `CODING_STANDARDS.md` over a Fowler baseline / Spec), parallel subagents | `/codex` (cross-model second opinion) | always |
+| 5 · Review | `mattpocock-skills:code-review` — two-axis (Standards = the project's `CODING_STANDARDS.md` over a Fowler baseline / Spec), parallel subagents | built-in `/code-review` as a second pass (correctness bugs — a different axis) | always |
 | 5b · Security | → **keel-secure** (VibeSec) | built-in `/security-review` as a second pass | mandatory on trust-boundary diffs (keel-v2 tripwire) |
 | 6 · Verify/QA | **keel-qa** (UI: real browser, evidence per acceptance criterion); Keel `verify` (non-UI) | design questions → **keel-design** | HEAVY |
 | 7 · Ship | `pr` writes the PR body; `wizard` scripts the steps only the human can do (secrets, dashboards, cutovers); on Vercel, `vercel:deployments-cicd` to promote | — | HEAVY; **stops at human gate**, never auto-deploys |
@@ -92,7 +92,7 @@ production.
 | Job | When | Runs | Ends at |
 |---|---|---|---|
 | Dependency + security updates | weekly | upgrade, run the suite, `mattpocock-skills:code-review`; patch/minor = FAST, major = HEAVY | a PR you merge |
-| Error triage | on an alert | `diagnosing-bugs` on the error tracker's report (connector chosen per project) | a fix PR, or a ticket |
+| Error triage | on a Sentry alert | `diagnosing-bugs` on the issue, read through the Sentry MCP; no Sentry → the host's runtime logs (Vercel plugin) | a fix PR, or a ticket |
 | Incident | production breaks | roll back first — on Vercel, instant rollback to the last good deployment via `vercel:deployments-cicd`; `wizard` for human-only steps; then `diagnosing-bugs`; `retro` as the postmortem | service restored, then a fix PR |
 | Architecture health | monthly | `improve-codebase-architecture` | tickets for review |
 | CI health | continuous | the app's Auto-fix on open PRs | pushes to that PR |
@@ -135,7 +135,7 @@ pretend a specialist ran. Install: `./install.sh dev` (spine + power-tools,
 per-project). Power-tools are best installed **user-invoked / per-project** so
 their descriptions don't tax every session (token lever 5).
 
-Sources (unmodified): mattpocock/skills (spine) · openai/codex-plugin-cc ·
-heygen-com/hyperframes · antfu/skills · vercel-labs/agent-browser · Vercel plugin
-(Vercel-hosted projects) · keel-qa + graphify (local). gstack and superpowers were
-removed 2026-10 — see ARCHITECTURE.md → *Which upstreams earn a route*.
+Sources (unmodified): mattpocock/skills (spine) · heygen-com/hyperframes · antfu/skills · vercel-labs/agent-browser (CLI) · Vercel
+plugin (Vercel-hosted projects) · Sentry MCP (production errors) · keel-qa +
+graphify (local). gstack, superpowers and codex-plugin-cc
+were removed 2026-10 — see ARCHITECTURE.md → *Which upstreams earn a route*.
