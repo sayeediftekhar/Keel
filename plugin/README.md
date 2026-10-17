@@ -1,7 +1,18 @@
-# Keel v3 plugin (alpha) — gates that hold
+# Keel v3 plugin (alpha) — rules that ship, gates that hold
 
-Keel v2 told the agent the rules. This plugin **enforces** them, outside the
-agent's judgment, and **proves** they hold.
+The `keel` plugin is the whole Keel repo (marketplace source `.`): the
+rules (`skills/`, invoked as `/keel:keel-dev`, `/keel:keel-design`, …; the
+always-on keel-v2 router + LAWS written into `CLAUDE.md` by `keel init`) and
+this directory, the enforcement engine. Keel v2 told the agent the rules; the
+engine **enforces** them, outside the agent's judgment, and **proves** they
+hold.
+
+```
+keel init ─────────▶ keel.policy.json (starter)        the policy you edit
+                     CLAUDE.md: keel-v2 router + LAWS  the always-on rules (one managed block)
+                     CLAUDE.md: standing authorization what the agent may do (FAST → auto-merge PR, HEAVY → approver)
+                     CONTEXT.md GLOSSARY.md CODING_STANDARDS.md DESIGN.md .scratch/   scaffolded once, never overwritten
+```
 
 ```
 keel.policy.json ──keel compile──▶ .keel/policy.lock.json      what the gate hooks read
@@ -81,23 +92,28 @@ and pins these gaps down as tests, so a change in behavior is visible.
 | Permission deny rules | named commands/tools, in every permission mode | command-text tricks |
 | Hooks (this plugin) | early, explained blocks before anything happens | programs acting on their own; disabling the plugin or all hooks |
 
-## Quick start
+## Quick start — plugin install → keel init → keel compile
 
 ```bash
-# 1. Install (once per machine)
-/plugin marketplace add sayeediftekhar/Keel
-/plugin install keel@keel
+# 1. Install (once per machine; one step on Claude Code 2.1.275+)
+/plugin install keel --marketplace sayeediftekhar/Keel
+#    or: /plugin marketplace add sayeediftekhar/Keel  then  /plugin install keel@keel
+#    non-interactive: claude plugin marketplace add sayeediftekhar/Keel && claude plugin install keel@keel --scope project
+alias keel='node <plugin>/plugin/bin/keel.mjs'   # <plugin> = the installed plugin directory (`/plugin` shows it), or a checkout of this repo
 
 # 2. In a project
-node <plugin>/bin/keel.mjs init            # writes a starter keel.policy.json
-#    edit: approver, agentIdentity, danger paths (surfaces), checks
-node <plugin>/bin/keel.mjs compile         # writes the files above
-#    commit them in a PR and merge it
+keel init          # policy + the two CLAUDE.md blocks + CONTEXT/GLOSSARY/CODING_STANDARDS/DESIGN/.scratch
+#    edit keel.policy.json: approver, agentIdentity, danger paths (surfaces), checks; run `keel init` again
+keel compile       # lock, deny rules, CODEOWNERS, keel.yml, ruleset — commit in one PR marked "Rigor: HEAVY — governance"
 gh api -X POST repos/<owner>/<repo>/rulesets --input .keel/github-ruleset.json   # a repo admin, once
-node <plugin>/bin/keel.mjs doctor          # prove it
+keel doctor        # prove it
 ```
 
-`<plugin>` is the installed plugin directory (or `plugin/` in a checkout of this repo).
+In a session, `/keel:keel-setup` walks the agent through the same steps
+(it knows the plugin path as `${CLAUDE_PLUGIN_ROOT}`). `keel init` is
+idempotent: re-run it after a plugin update to refresh the two managed
+blocks; it never overwrites a file you filled in. Projects compiled before
+the ledger and secrets-write gates existed need one `keel compile`.
 
 ## Gate approvals: the human flips the box
 
@@ -168,7 +184,7 @@ run tests against anything but a test database. Point
 ## Tests
 
 ```bash
-node --test plugin/test/*.test.mjs
+node --test plugin/test/*.test.mjs      # or: npm test
 ```
 
 The suite (250+ tests) has the gate decision table, the red-team set from the

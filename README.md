@@ -4,10 +4,15 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-A **routing + governance layer** for Claude Code. Keel doesn't reimplement
-skills — it curates a set of external skills, plugins, and MCP servers, keeps
-them **unmodified**, and decides when to reach for each one under a single
-rigor standard.
+A **routing + governance layer** for Claude Code, shipped as one plugin. Keel
+doesn't reimplement skills — it curates a set of external skills, plugins, and
+MCP servers, keeps them **unmodified**, decides when to reach for each one
+under a single rigor standard, and enforces the gates that standard needs.
+
+```
+/plugin install keel --marketplace sayeediftekhar/Keel   # once per machine
+keel init && keel compile                                # per project; then keel doctor
+```
 
 See **[HOWTO.md](HOWTO.md)** for the simple per-project/per-session workflow,
 **[PLAYBOOK.md](PLAYBOOK.md)** for the operating discipline, **[ARCHITECTURE.md](ARCHITECTURE.md)**
@@ -46,20 +51,46 @@ for the model, **[catalog.md](catalog.md)** for the upstreams, and
 | [`lazy-loop`](skills/lazy-loop/) | `/lazy` code/prose thrift (caveman + ponytail) | *(local)* |
 | [`keel-qa`](skills/keel-qa/) | Real-browser QA procedure (Phase 6) | *(local)* |
 | [`keel-verify`](skills/keel-verify/) | Evidence-before-done: run it, show the output, then claim it | *(local)* |
+| [`keel-setup`](skills/keel-setup/) | In-session `keel init` → policy → `keel compile` → ruleset → `keel doctor` walkthrough | *(local)* |
+
+With the plugin installed every skill is namespaced: `/keel:keel-dev`,
+`/keel:keel-design`, … (`keel-v2` is not a skill; `keel init` writes it into
+`CLAUDE.md` as the always-on block).
 
 ## Install (in a consuming project)
 
-Keel lives at **`.claude/keel/`** as a git submodule. That is the one supported
-layout. Claude Code discovers project skills only at
-`.claude/skills/<name>/SKILL.md`, so the installer **symlinks** each lane
-router, local skill and vendored skill to that exact depth.
+**Plugin (the default).** Once per machine:
+
+```
+/plugin install keel --marketplace sayeediftekhar/Keel
+```
+
+Then, per project (`keel` = `node <plugin>/plugin/bin/keel.mjs`; `/plugin`
+shows the directory):
+
+```bash
+keel init       # keel.policy.json + keel-v2 rules and standing authorization in CLAUDE.md + CONTEXT/GLOSSARY/CODING_STANDARDS/DESIGN/.scratch
+keel compile    # lock, deny rules, CODEOWNERS, CI workflow, GitHub ruleset — one PR, merge it yourself
+keel doctor     # prove every gate blocks
+```
+
+Full walkthrough: [docs/v3/GUIDE.md](docs/v3/GUIDE.md) (GitHub App identity,
+ruleset, day to day). Lanes arrive with the plugin as `/keel:<lane>`; their
+upstreams are still opt-in: `./install.sh <lane>` from the plugin directory
+prints the pinned install for each one.
+
+**Submodule layout (still supported).** Keel at **`.claude/keel/`** as a git
+submodule; the installer **symlinks** each lane router, local skill and
+vendored skill to `.claude/skills/<name>/SKILL.md`, the only depth Claude
+Code discovers.
 
 ```bash
 git submodule add https://github.com/sayeediftekhar/Keel .claude/keel
 git submodule update --init --recursive
-(cd .claude/keel && ./install.sh arbiter)      # keel-v2 router + LAWS → CLAUDE.md (managed block)
+(cd .claude/keel && ./install.sh arbiter)      # keel-v2 router + LAWS → CLAUDE.md (same managed block as keel init)
 (cd .claude/keel && ./install.sh dev design)   # vendor + link only the lanes you use
 (cd .claude/keel && ./install.sh check)        # verify; then /skills in a fresh session
+node .claude/keel/plugin/bin/keel.mjs init     # the gates work the same way from here
 ```
 
 Lanes are opt-in. Nothing installs until you name one.

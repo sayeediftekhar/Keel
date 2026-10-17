@@ -20,7 +20,7 @@ jobs:
         run: |
           jq empty manifest.json
           jq empty .mcp.json.template
-          jq empty .claude-plugin/marketplace.json plugin/.claude-plugin/plugin.json plugin/hooks/hooks.json plugin/schema/keel.policy.schema.json
+          jq empty .claude-plugin/marketplace.json .claude-plugin/plugin.json plugin/hooks/hooks.json plugin/schema/keel.policy.schema.json package.json
 
       - name: Shell syntax
         run: |
@@ -65,3 +65,13 @@ jobs:
 
       - name: Plugin tests
         run: node --test plugin/test/*.test.mjs
+
+      - name: keel init + compile + doctor on a throwaway repo
+        run: |
+          set -e
+          d=$(mktemp -d); git -C "$d" init -q -b main
+          node plugin/bin/keel.mjs init --dir "$d" >/dev/null
+          node plugin/bin/keel.mjs compile --dir "$d" >/dev/null
+          node plugin/bin/keel.mjs doctor --dir "$d" --offline --allow-unproven || true
+          test -f "$d/.keel/policy.lock.json" && grep -q '^# >>> keel-v2 arbiter' "$d/CLAUDE.md" && grep -q '^# >>> keel standing authorization' "$d/CLAUDE.md"
+          test -f "$d/CONTEXT.md" && test -f "$d/GLOSSARY.md" && test -f "$d/CODING_STANDARDS.md" && test -f "$d/DESIGN.md" && test -f "$d/.scratch/README.md"

@@ -17,6 +17,7 @@ import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { loadLock, readPolicyFile } from './policy.mjs';
 import { compile, githubRepo, SETTINGS, CODEOWNERS, WORKFLOW, CI_SCRIPT_DST } from './compile.mjs';
+import { hasArbiter, hasAuthorization } from './init.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const GATE = path.join(HERE, '..', 'hooks', 'gate.mjs');
@@ -255,6 +256,10 @@ export function doctor(projectDir, { offline = false, gate: gateScript = GATE, p
   else items.push(item('gates', true, 'UNPROVEN', 'fix the lock first; gates run in strict fallback mode until then'));
   items.push(...githubChecks(projectDir, policy, offline));
   items.push(testDbGuard(projectDir, policy));
+  items.push(hasArbiter(projectDir) ? item('rules', false, 'OK', 'CLAUDE.md carries the keel-v2 router + LAWS block')
+    : item('rules', false, 'MISSING', 'CLAUDE.md has no keel-v2 rules block (eleven surfaces, FAST/HEAVY) — run `keel init`; a project on the card-set Keel can ignore this line'));
+  items.push(hasAuthorization(projectDir) ? item('authorization', false, 'OK', 'CLAUDE.md carries the standing authorization + precedence block')
+    : item('authorization', false, 'MISSING', 'no standing-authorization block in CLAUDE.md: FAST work will stop on the branch instead of opening an auto-merging PR — run `keel init`'));
   items.push(policy.backPressure.length
     ? item('back-pressure', false, 'OK', `CI runs: ${policy.backPressure.join(' → ')}`)
     : item('back-pressure', false, 'MISSING', 'no backPressure checks configured; keel-checks proves nothing yet'));

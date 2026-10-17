@@ -87,7 +87,7 @@ scaffold_mcp() {
 # which DUPLICATES the whole block every time Keel updates. Instead we write it
 # between markers and replace-in-place, so re-running is idempotent — that's how
 # a consuming project picks up an updated arbiter without hand-editing.
-ARB_BEGIN="# >>> keel-v2 arbiter (managed by keel/install.sh) — do not edit between markers >>>"
+ARB_BEGIN="# >>> keel-v2 arbiter (managed by Keel — keel init / install.sh arbiter) — do not edit between markers >>>"
 ARB_END="# <<< keel-v2 arbiter <<<"
 
 # The block carries BOTH keel-v2 files: CLAUDE.md (the router) and LAWS.md (the
@@ -110,8 +110,8 @@ sync_arbiter() {
   tmp="$(mktemp)"
   # Drop any existing managed block (markers included), keep everything else.
   if [ -f "$target" ]; then
-    awk -v b="$ARB_BEGIN" -v e="$ARB_END" '
-      $0==b {skip=1; next}
+    awk -v e="$ARB_END" '
+      !skip && /^# >>> keel-v2 arbiter .*>>>[[:space:]]*$/ {skip=1; next}
       skip && $0==e {skip=0; next}
       !skip {print}
     ' "$target" > "$tmp"
@@ -315,7 +315,7 @@ check_host() {
   echo "Keel check — $host"
   if [ "$rel" = ".claude/keel" ]; then echo "  ok   submodule at .claude/keel"
   else echo "  warn submodule at '$rel' — supported layout is .claude/keel (see HOWTO.md → Updating)"; fi
-  if [ -f "$host/CLAUDE.md" ] && grep -qxF -- "$ARB_BEGIN" "$host/CLAUDE.md"; then
+  if [ -f "$host/CLAUDE.md" ] && grep -qE -- "^# >>> keel-v2 arbiter .*>>>" "$host/CLAUDE.md"; then
     if grep -q "Server enforces, not the UI" "$host/CLAUDE.md"; then echo "  ok   CLAUDE.md has the managed keel-v2 block (router + LAWS)"
     else echo "  FAIL CLAUDE.md block is from an older Keel — missing LAWS. Re-run: ./install.sh arbiter"; bad=1; fi
   else echo "  FAIL CLAUDE.md has no managed keel-v2 block. Run: ./install.sh arbiter"; bad=1; fi

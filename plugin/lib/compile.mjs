@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { readPolicyFile, buildLock, LOCK_FILE } from './policy.mjs';
+import { hasAuthorization, syncAuthorization } from './init.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const CI_SCRIPT_SRC = path.join(HERE, '..', 'ci', 'keel-ci.mjs');
@@ -226,6 +227,9 @@ export function compile(projectDir, { write = false } = {}) {
       fs.mkdirSync(path.dirname(abs), { recursive: true });
       fs.writeFileSync(abs, content);
     }
+    // The standing authorization names the approver and the protected branches; keep it in step with the policy.
+    if (hasAuthorization(projectDir)) syncAuthorization(projectDir, policy);
   }
+  if (!hasAuthorization(projectDir)) notes.push('CLAUDE.md has no Keel standing-authorization block: the agent will fall back to "stop on the branch, the human commits". Run `keel init` to add it (and the keel-v2 rules).');
   return { policy, files, notes };
 }

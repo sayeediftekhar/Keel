@@ -21,11 +21,14 @@ Keep using whichever rules your project has. Add the gates on top.
 **Install the plugin on each machine you run Claude Code on:**
 
 ```
-/plugin marketplace add sayeediftekhar/Keel
-/plugin install keel@keel
+/plugin install keel --marketplace sayeediftekhar/Keel          # Claude Code 2.1.275+
+/plugin marketplace add sayeediftekhar/Keel  +  /plugin install keel@keel   # older
 ```
 
-Then set an alias so the CLI is easy to call (the plugin directory is shown by `/plugin`; in a Keel checkout it's `plugin/`):
+The plugin is the whole Keel repo: the lanes arrive as `/keel:keel-dev`,
+`/keel:keel-design`, …, and `plugin/` is the engine. Set an alias so the CLI
+is easy to call (the plugin directory is shown by `/plugin`; in a Keel
+checkout it's the repo root):
 
 ```bash
 alias keel='node /path/to/keel/plugin/bin/keel.mjs'
@@ -49,23 +52,27 @@ alias keel='node /path/to/keel/plugin/bin/keel.mjs'
 
 ## 1. A new project
 
-### 1.1 Rules (as today)
+### 1.1 Rules and scaffolds
 
 ```bash
-git submodule add https://github.com/sayeediftekhar/Keel .claude/skills
-(cd .claude/skills && ./install.sh arbiter)        # keel-v2 rules into CLAUDE.md
-(cd .claude/skills && ./install.sh dev design)     # only the lanes you use
+keel init          # or /keel:keel-setup in a session
 ```
 
-Grill first, then write `DESIGN.md` and `CONTEXT.md` as in [RECIPES.md](../../RECIPES.md).
+One command writes: a starter `keel.policy.json`; the keel-v2 router + LAWS
+into `CLAUDE.md` as one managed block (the rules the agent reads every
+session); the *Standing authorization* + *Precedence* block (§1.6); and, only
+where missing, `CONTEXT.md`, `GLOSSARY.md`, `CODING_STANDARDS.md`,
+`DESIGN.md` and `.scratch/README.md`. Re-running it refreshes the two blocks
+and touches nothing else. Grill first, then fill `DESIGN.md` and `CONTEXT.md`
+as in [RECIPES.md](../../RECIPES.md). The lanes need no install: they are
+`/keel:keel-dev`, `/keel:keel-design`, …; each lane's upstreams are still
+opt-in (`./install.sh <lane>` from the plugin directory prints the pinned
+install).
 
 ### 1.2 Gates
 
-```bash
-keel init          # writes keel.policy.json
-```
-
-Edit `keel.policy.json`:
+Edit `keel.policy.json`, then run `keel init` again so the authorization block
+names the approver:
 
 | Field | Set it to |
 |---|---|
@@ -110,29 +117,30 @@ The ruleset requires `keel-checks` and `keel-rigor`, code-owner review on danger
 
 ### 1.6 Tell the agent what it may do
 
-Claude Code's defaults are cautious: commit or push only when asked, and in cloud sessions don't open PRs unless asked. Keel's flow (D1/D6) needs a standing authorization, so add this to `CLAUDE.md`:
+Claude Code's defaults are cautious: commit or push only when asked, and in cloud sessions don't open PRs unless asked. Keel's flow (D1/D6) needs a standing authorization. `keel init` writes it (and §1.6b) into `CLAUDE.md` as a managed block, filled from the policy; `keel compile` keeps it in step. This is what it says:
 
 ```markdown
 ## Standing authorization (Keel v3)
-- LIGHT work (no danger surface): you may commit on a feature branch, push it,
-  open a PR whose description starts with a rigor record line
-  ("Rigor: LIGHT — surfaces 1-11 scanned, all no."), and enable auto-merge
-  with `gh pr merge --auto`. GitHub merges it when checks pass.
-- HEAVY work: open the PR with "Rigor: HEAVY — <surfaces>" and stop. I review
-  and approve; auto-merge then completes it.
+- FAST work (no danger surface; "LIGHT" in the policy vocabulary): you may
+  commit on a feature branch, push it, open a PR whose description starts
+  with the rigor record line ("Rigor: FAST — surfaces 1-11 scanned, all
+  no."), and enable auto-merge with `gh pr merge --auto`. GitHub merges it
+  when the required checks pass.
+- HEAVY work: open the PR with "Rigor: HEAVY — <surfaces>" and stop.
+  @<your-handle> reviews and approves; auto-merge then completes it.
 - Live migrations: prepare them, apply to the test database, then
-  `keel batch create <id> <files>` and open a PR. After I merge that PR you
-  may apply exactly those migrations to live, in order.
+  `keel batch create <id> <files>` and open a PR. After the approver merges
+  that PR you may apply exactly those migrations to live, in order.
 - Never use --admin, never push to main, never deploy to production.
 ```
 
 ### 1.6b Say which rules win
 
-Keel is the main system; Claude Code's built-ins do the work. Add this too:
+Keel is the main system; Claude Code's built-ins do the work. `keel init` writes this in the same block:
 
 ```markdown
 ## Precedence (Keel)
-- Keel governs process: rigor (LIGHT/HEAVY), laws, gates and approvals.
+- Keel governs process: rigor (FAST/HEAVY), laws, gates and approvals.
   Where these rules differ from Claude Code's default behavior, follow Keel.
 - Keel's gates are final. If a hook blocks an action, don't retry it another
   way; take the path the message names, or stop and ask.
@@ -175,12 +183,11 @@ Do this on a branch, as one HEAVY PR per project.
 
 ### 2.1 Projects on the Keel v2 submodule
 
-```bash
-git submodule update --remote .claude/skills       # pulls docs/v3 and plugin/
-(cd .claude/skills && ./install.sh arbiter)        # refreshes the keel-v2 block
-```
-
-Then follow **1.2 → 1.7**, plus these clean-ups:
+Install the plugin (§0) and run `keel init`: it replaces the submodule's
+managed block in `CLAUDE.md` with the merged rules (same markers), adds the
+standing authorization, and scaffolds only what is missing. The submodule can
+stay (its `.claude/skills` links keep working) or go: with the plugin, the
+lanes are `/keel:<lane>`. Then follow **1.2 → 1.7**, plus these clean-ups:
 
 1. **Remove old delegations that contradict the gates.** If `CLAUDE.md` says the agent "may commit, push and merge PRs on its own" or "applies migrations to LIVE autonomously", replace that text with the standing authorization in 1.6. Otherwise the agent reads one rule and hits another.
 2. **Remove risky allow rules.** `keel compile` lists them (e.g. `Bash(printenv DATABASE_URL)`, `Bash(git … commit -m '*')`). Deny rules win anyway, but delete the allows.

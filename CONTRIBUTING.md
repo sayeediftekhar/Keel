@@ -16,6 +16,8 @@ lane routes, doc improvements, or installer fixes.
 - **Everything through a reviewed PR.** `main` is protected; no direct pushes.
 - **Keep the arbiter lean.** `skills/keel-v2/CLAUDE.md` is loaded every session —
   add detail to `LAWS.md` or a lane, not the router.
+- **A rule a hook or CI enforces needs no paragraph.** Put enforcement in
+  `plugin/` (with a test and a doctor probe) and leave one line in the prose.
 - **Write skills the way Pocock's `writing-for-agents` teaches.** Describe the
   process, not the output; give every step a checkable "done when" line (see
   keel-dev's *Phase exits*); state the behaviour you want instead of the one you
@@ -30,10 +32,13 @@ lane routes, doc improvements, or installer fixes.
 ## Before you open a PR
 
 ```bash
+node --test plugin/test/*.test.mjs # the gates, compiler, doctor, init (deterministic)
 bash -n install.sh                 # installer parses
 bash evals/install-regression.sh   # installer regression (deterministic)
 jq empty manifest.json             # manifest is valid JSON
 bash evals/keel-approve-regression.sh  # the human-side gate tool (deterministic)
+shellcheck -S warning install.sh bin/keel-approve evals/*.sh evals/gates/*.sh
+claude plugin validate .           # the plugin and marketplace manifests
 bash evals/upstream-drift.sh       # routed upstream skills still exist (network)
 ```
 

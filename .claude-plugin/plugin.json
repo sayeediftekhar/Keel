@@ -1,0 +1,13 @@
+{
+  "name": "keel",
+  "displayName": "Keel",
+  "version": "3.0.0-alpha.2",
+  "description": "Governance for AI coding agents: the keel-v2 rigor router and lane skills (/keel:keel-dev, /keel:keel-design, …) plus enforced, self-testing gates — one policy file compiled into Claude Code hooks, permission rules, CODEOWNERS, CI and a GitHub ruleset, and `keel doctor` to prove each gate blocks.",
+  "author": { "name": "Sayeed Iftekhar" },
+  "homepage": "https://github.com/sayeediftekhar/Keel",
+  "repository": "https://github.com/sayeediftekhar/Keel",
+  "license": "MIT",
+  "keywords": ["governance", "hooks", "harness", "agentic-engineering", "guardrails", "rigor-router"],
+  "skills": "./skills",
+  "hooks": "./plugin/hooks/hooks.json"
+}

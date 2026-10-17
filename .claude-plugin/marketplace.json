@@ -1,14 +1,14 @@
 {
   "name": "keel",
-  "description": "Keel: governance for AI coding agents — a rigor router plus enforced, self-testing gates.",
+  "description": "Keel: governance for AI coding agents — a rigor router, lane skills, and enforced, self-testing gates.",
   "owner": {
     "name": "Sayeed Iftekhar"
   },
   "plugins": [
     {
       "name": "keel",
-      "source": "./plugin",
-      "description": "Keel v3 (alpha): governance gates for AI coding agents. One policy file compiled into hooks, permission rules, CODEOWNERS, CI and a GitHub ruleset; `keel doctor` proves each gate blocks."
+      "source": ".",
+      "description": "Keel v3 (alpha): the keel-v2 rigor router + lane skills namespaced keel:, and governance gates for AI coding agents. One policy file compiled into hooks, permission rules, CODEOWNERS, CI and a GitHub ruleset; `keel init` scaffolds a project; `keel doctor` proves each gate blocks."
     }
   ]
 }

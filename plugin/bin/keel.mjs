@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 // keel — compile a project's governance policy, and prove it holds.
 //
-//   keel init                         write a starter keel.policy.json
+//   keel init [--no-scaffold] [--name <project>]
+//                                     starter keel.policy.json + the keel-v2 rules and standing-authorization
+//                                     blocks in CLAUDE.md + CONTEXT/GLOSSARY/CODING_STANDARDS/DESIGN/.scratch scaffolds
 //   keel compile [--dry-run]          policy → lock, deny rules, CODEOWNERS, CI, ruleset
 //   keel doctor [--offline] [--json] [--allow-unproven]
 //   keel batch create <id> <migration files…> [--hours N]
@@ -20,6 +22,7 @@ import { readPolicyFile, PolicyError, POLICY_FILE } from '../lib/policy.mjs';
 import { contentSha } from '../lib/hash.mjs';
 import { gitToplevel, fetchGithubRemote, readReceipts } from '../lib/runtime.mjs';
 import { loadLock } from '../lib/policy.mjs';
+import { init, formatInit } from '../lib/init.mjs';
 
 const args = process.argv.slice(2);
 const flag = (name) => { const i = args.indexOf(name); if (i < 0) return false; args.splice(i, 1); return true; };
@@ -34,23 +37,9 @@ function die(msg, code = 1) { console.error(msg); process.exit(code); }
 try {
   switch (cmd) {
     case 'init': {
-      const file = path.join(projectDir, POLICY_FILE);
-      if (fs.existsSync(file)) die(`${POLICY_FILE} already exists.`);
-      const starter = {
-        $schema: 'https://raw.githubusercontent.com/sayeediftekhar/Keel/main/plugin/schema/keel.policy.schema.json',
-        version: 1,
-        approver: { github: 'YOUR-GITHUB-HANDLE' },
-        agentIdentity: { github: 'your-keel-app[bot]' },
-        surfaces: {
-          value: ['lib/money/**'], scope: [], pii: [], access: ['lib/auth/**', 'middleware.ts'],
-          schema: ['supabase/migrations/**', 'prisma/migrations/**'], secrets: ['.env*'],
-        },
-        environments: { live: { markers: ['DATABASE_URL'], supabaseProjectIds: [] }, test: { supabaseProjectIds: [], guardFile: null } },
-        backPressure: ['typecheck', 'unit', 'build'],
-        checks: { typecheck: 'npx tsc --noEmit', unit: 'npm test', build: 'npm run build' },
-      };
-      fs.writeFileSync(file, `${JSON.stringify(starter, null, 2)}\n`);
-      console.log(`Wrote ${POLICY_FILE}. Edit the approver, agent identity, danger paths and checks, then run \`keel compile\`.`);
+      const scaffold = !flag('--no-scaffold');
+      const name = opt('--name');
+      console.log(formatInit(init(projectDir, { scaffold, name })));
       break;
     }
     case 'compile': {
@@ -154,7 +143,7 @@ if (url && !/(_test|_ci)$/.test(db) && !['localhost', '127.0.0.1', '::1', 'postg
       break;
     }
     default:
-      console.log(fs.readFileSync(new URL(import.meta.url), 'utf8').split('\n').slice(1, 12).map((l) => l.replace(/^\/\/ ?/, '')).join('\n'));
+      console.log(fs.readFileSync(new URL(import.meta.url), 'utf8').split('\n').slice(1, 14).map((l) => l.replace(/^\/\/ ?/, '')).join('\n'));
       process.exit(cmd ? 2 : 0);
   }
 } catch (e) {

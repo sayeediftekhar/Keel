@@ -37,7 +37,10 @@ CLI that writes CI and GitHub settings. Additional rules for this code:
 
 - **Fail closed.** A gate that errors, times out, or can't read its policy
   blocks. Every gate hook declares `onFailure: "block"`; CI verifies it.
-- **No network in hooks.** Gate decisions use local files and local git only.
+- **No network in hooks, one exception.** Gate decisions use local files and
+  local git, except that a *live migration* reads its approval batch from
+  GitHub over TLS (a local ref is writable by the agent); unreachable GitHub
+  blocks the migration.
 - **No admin credentials.** `keel compile` and `keel doctor` never need admin
   rights; they print the GitHub ruleset for a repo admin to apply.
 - **Known limit, stated plainly.** Hooks match command text; a program that
@@ -53,10 +56,14 @@ CLI that writes CI and GitHub settings. Additional rules for this code:
 - **Does** write, when run as a submodule, idempotent entries to the host
   project's `.gitignore` / `.graphifyignore`, `Read(...)` deny rules in
   `.claude/settings.json`, relative symlinks under `.claude/skills/`, and (on
-  `install.sh arbiter`) a marker-delimited block in `CLAUDE.md`. All additive
-  and reversible.
+  `install.sh arbiter`) a marker-delimited block in `CLAUDE.md`. `keel init`
+  writes the same block plus the standing-authorization block, a starter
+  policy, and scaffolds only files that don't exist; `keel compile` writes the
+  files it lists. All additive and reversible.
 - Skills are **instructions** interpreted by *your* agent under *your* human
-  gates — Keel's own `keel-v2` arbiter stops before commit/deploy/send.
+  gates — Keel's own `keel-v2` arbiter ends FAST work as a PR that merges on
+  green and HEAVY work as a PR that waits for the approver; deploys, sends
+  and live migrations never run on the agent's say-so.
 
 ## For maintainers — keeping `main` trustworthy
 

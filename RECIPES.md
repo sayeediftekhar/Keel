@@ -24,11 +24,11 @@ name. Always grill before you build.**
 
 ```
 1. Grill me on what we're building.
-2. git submodule add https://github.com/sayeediftekhar/Keel .claude/keel
-   (cd .claude/keel && ./install.sh arbiter)        # keel-v2 router + LAWS → CLAUDE.md (idempotent; re-run on update)
-   (cd .claude/keel && ./install.sh dev design)     # only the lanes this project needs (linked into .claude/skills/)
-   (cd .claude/keel && ./install.sh check)          # wiring check
-3. Create DESIGN.md (visual tokens) + CONTEXT.md (voice, terms) — the brand, encoded.
+2. keel init          # plugin installed once per machine; writes the policy, the rules + standing
+                      # authorization into CLAUDE.md, and scaffolds CONTEXT/GLOSSARY/CODING_STANDARDS/DESIGN/.scratch
+   keel compile && keel doctor      # after you fill the policy; one PR you merge; apply the ruleset
+   ./install.sh dev design          # from the plugin directory: the upstreams each lane routes to (opt-in)
+3. Fill DESIGN.md (visual tokens) + CONTEXT.md (voice, terms) — the brand, encoded.
 4. Run graphify on the repo so "how does X work" is cheap later.
 ```
 
