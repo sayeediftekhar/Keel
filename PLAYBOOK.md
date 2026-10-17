@@ -56,9 +56,10 @@ it on judgment. Delegate everything else.
 3. **Curate per project — don't hoard.** Every installed skill's *description*
    taxes every turn (progressive disclosure keeps names+descriptions always
    loaded). Install only the lanes a repo actually uses.
-4. **Verify, don't trust.** Use the `verify` skill or drive the real flow at the
-   human gate keel-v2 already stops at. Verification is what lets you delegate
-   at scale without re-reading everything.
+4. **Verify, don't trust.** Use `keel-verify` (evidence before "done": run it,
+   show the output) and `keel-qa` (real browser) at the human gate keel-v2
+   already stops at. Verification is what lets you delegate at scale without
+   re-reading everything.
 5. **Encode every learning once.** A correction or constraint goes to its one
    home ([MEMORY-CONTRACT.md](MEMORY-CONTRACT.md) → *Where a lesson goes*) —
    never re-explained. This is the compounding move; it's how coordination cost
@@ -70,7 +71,7 @@ it on judgment. Delegate everything else.
 
 | You're doing… | Flow through Keel |
 |---|---|
-| **Product development** | keel-v2 → `keel-dev` (Pocock spine) → `keel-secure` gate on trust-boundary code → `keel-qa` / verify → human commit. In production, keel-dev's *Maintain* loop runs the recurring upkeep. Design forks to `keel-design`. |
+| **Product development** | keel-v2 → `keel-dev` (Pocock spine) → `keel-secure` gate on trust-boundary code → `keel-qa` / `keel-verify` → human commit. In production, keel-dev's *Maintain* loop runs the recurring upkeep. Design forks to `keel-design`. |
 | **Systems / architecture** | Usually HEAVY (plan-first). Map first with the `Plan` agent + `graphify`; build via `keel-dev`; `keel-secure` before done. |
 | **Automation** | Leave the synchronous lanes for the harness's own automation: `Workflow` (deterministic fan-out), `schedule`/cron (recurring), `keel-ops` MCP connectors (Zapier/Slack/Notion as the hands). |
 | **Marketing** | `keel-marketing` (SEO/CRO/copy) → `keel-content` → humanizer (voice) → `keel-design`/fused-landing (the page). A pipeline; each stage a specialist. |
@@ -103,7 +104,7 @@ where outsized gains actually come from.
   one that installs globally or overrides keel-v2.
 - Merging upstreams into monolithic skills → freezes them, kills their internal
   structure, license soup. Route, don't merge.
-- Indexing vendored upstreams as host code → `.claude/skills/vendor/` is
+- Indexing vendored upstreams as host code → `.claude/keel/vendor/` is
   third-party, not your project. Let a code-graph indexer walk it and the graph
   balloons (one dev lane's ~162 MB) and real queries drown in vendored nodes.
   `install.sh` adds the ignore entries on install; keep them. graphify reads

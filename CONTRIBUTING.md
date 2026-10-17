@@ -33,8 +33,12 @@ lane routes, doc improvements, or installer fixes.
 bash -n install.sh                 # installer parses
 bash evals/install-regression.sh   # installer regression (deterministic)
 jq empty manifest.json             # manifest is valid JSON
+bash evals/keel-approve-regression.sh  # the human-side gate tool (deterministic)
 bash evals/upstream-drift.sh       # routed upstream skills still exist (network)
 ```
+
+Bumping an upstream pin is a code review of someone else's repo: run
+`./install.sh pin`, read what each moved upstream changed, then PR.
 
 CI runs these plus a shellcheck and a secret scan. Fill in the PR template,
 especially the **security checklist** — Keel's instructions run inside other

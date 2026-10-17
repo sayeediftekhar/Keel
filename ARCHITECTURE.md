@@ -107,8 +107,8 @@ review pass.
 
 Locals that aren't routers: **fused-landing** (landing-page build + token
 discipline), **lazy-loop** (`/lazy` — code/prose thrift, wraps caveman +
-ponytail) and **keel-qa** (real-browser QA procedure on Claude Code's own
-browsers). All defer to keel-v2.
+ponytail), **keel-qa** (real-browser QA procedure on Claude Code's own
+browsers) and **keel-verify** (evidence-before-done). All defer to keel-v2.
 
 ## Four install mechanisms (they are not the same)
 
@@ -116,12 +116,26 @@ The upstreams reach Claude four different ways — see `catalog.md` for the
 per-item mapping and `install.sh` for the tooling:
 
 1. **Plugins** (bundles) → the Claude Code plugin marketplace / `.claude/plugins`.
-2. **Standalone skills** → git submodule or clone under `.claude/skills`.
+2. **Standalone skills** → cloned into `.claude/keel/vendor/<name>` at the
+   pinned commit and symlinked to `.claude/skills/<name>` (the only depth
+   Claude Code documents for discovery). Keel's own lane routers and locals are
+   linked the same way. Every git upstream is pinned (`manifest.json` → `ref`).
 3. **MCP servers** → `.mcp.json` (see `.mcp.json.template`). **Not skills** —
    they cannot be merged into a lane; they're connectors wired with credentials.
    Each one's tools load into every session, so add them per project.
 4. **CLIs** → installed once on the machine (e.g. `agent-browser`). The agent
    runs them from the shell, so they cost no context until used.
+
+## Enforcement is a separate layer
+
+Everything above is instructions the agent reads. The Keel **v3 plugin**
+(`docs/v3/`, `plugin/`) is the part the agent cannot talk past: hooks that
+block pushes to protected branches, immediate merges, unapproved live
+migrations, credential reads, governance-file edits and production deploys,
+plus a GitHub ruleset and a `keel doctor` that proves each gate by planting a
+violation. The ledger's human-only gate boxes (conventions §3) are the next
+gate to add there. `./install.sh check` verifies the *wiring* of this layer;
+`keel doctor` verifies the *gates*.
 
 ## How a task flows
 

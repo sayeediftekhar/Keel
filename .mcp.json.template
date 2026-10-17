@@ -1,5 +1,5 @@
 {
-  "$comment": "Keel MCP connector template. Copy to .mcp.json and fill the ${ENV} values (never commit real secrets — .mcp.json should be gitignored). Delete the servers you don't use; each loads tools into every session. URLs/commands below reflect each vendor's documented setup and may change — check the source repo in catalog.md.",
+  "$comment": "Keel MCP connector template. Copy to .mcp.json and fill the ${ENV} values (never commit real secrets — .mcp.json should be gitignored). Delete the servers you don't use; each loads tools into every session. URLs/commands below reflect each vendor's documented setup and may change — check the source repo in catalog.md. SUPPLY CHAIN: `npx -y <pkg>` runs whatever version npm serves today; pin each package (`<pkg>@<version>`) once you have verified it, like the manifest pins git upstreams.",
   "mcpServers": {
     "slack": {
       "command": "npx",

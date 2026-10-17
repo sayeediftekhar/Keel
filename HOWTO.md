@@ -13,12 +13,14 @@ you reach for them by name.
    code work, `grill-me` for anything else.)
 2. **Install Keel + the lanes you'll use.**
    ```bash
-   git submodule add https://github.com/sayeediftekhar/Keel .claude/skills
-   (cd .claude/skills && ./install.sh arbiter)               # keel-v2 rules → CLAUDE.md (idempotent)
-   (cd .claude/skills && ./install.sh dev design)            # only the lanes you need
+   git submodule add https://github.com/sayeediftekhar/Keel .claude/keel
+   (cd .claude/keel && ./install.sh arbiter)      # keel-v2 router + LAWS → CLAUDE.md (idempotent)
+   (cd .claude/keel && ./install.sh dev design)   # only the lanes you need; links them into .claude/skills/
+   (cd .claude/keel && ./install.sh check)        # verify the wiring
    ```
-   Re-run `./install.sh arbiter` any time you update the submodule — it replaces
-   the managed block in place instead of duplicating it.
+   Then open a fresh session and run `/skills` — the lanes you installed must
+   be listed. Re-run `./install.sh arbiter` any time you update the submodule;
+   it replaces the managed block in place instead of duplicating it.
 3. **Install the dev spine** (Matt Pocock's skills) — `./install.sh dev` prints
    this; run it from the project root, then the setup once in Claude Code:
    ```bash
@@ -28,18 +30,20 @@ you reach for them by name.
    or **GitHub/GitLab** (needed for parallel or cloud agents — see below).
    Project scope keeps its skills out of your other projects' sessions.
 4. **Write your coding standards.** Copy
-   `.claude/skills/conventions/CODING_STANDARDS.template.md` to
+   `.claude/keel/conventions/CODING_STANDARDS.template.md` to
    `CODING_STANDARDS.md` and keep the rules that fit —
    `mattpocock-skills:code-review` enforces it (the bare `/code-review` is
    Claude Code's built-in bug hunt, which doesn't read the file).
 5. **Build the graph.** Run graphify on the repo so comprehension is cheap
    later (`graphify-out/` persists). Vendored upstreams are **not** host code —
-   `install.sh` already adds the ignore entries (`.gitignore` / `.graphifyignore`
-   / `.claudeignore`) so your code index skips `.claude/skills/vendor/`.
+   `install.sh` adds the ignore entries (`.gitignore` / `.graphifyignore`) and
+   a `permissions.deny` Read rule for vendor noise in `.claude/settings.json`,
+   so your code index and Claude's search skip `.claude/keel/vendor/`.
+   (`.claudeignore` has no effect in Claude Code; Keel no longer writes it.)
    Never index vendored third-party code as your own; it drowns real queries.
 6. **Capture shared language** in `GLOSSARY.md` as terms emerge, and track
-   gate/slice state in `.scratch/<feat>/00-status.md` so any session resumes
-   from one file (see [conventions](conventions/tickets-and-context.md)).
+   gate/slice state in `.scratch/<feat>/00-status.md` (committed) so any
+   session resumes from one file (see [conventions](conventions/tickets-and-context.md)).
 
 ---
 
@@ -49,14 +53,27 @@ Projects pin Keel to a commit — they don't auto-update. When you want new
 improvements, in the consuming project:
 
 ```bash
-git submodule update --remote .claude/skills        # pull latest Keel
-git add .claude/skills && git commit -m "update Keel"
+git submodule update --remote .claude/keel          # pull latest Keel
+git add .claude/keel && git commit -m "update Keel"
 
-(cd .claude/skills && ./install.sh arbiter)          # refresh keel-v2 rules (idempotent)
-(cd .claude/skills && ./install.sh dev design)       # re-apply lanes + the vendor-ignore fix
+(cd .claude/keel && ./install.sh arbiter)            # refresh keel-v2 router + LAWS (idempotent)
+(cd .claude/keel && ./install.sh dev design)         # re-apply lanes, links, pins, ignore + deny rules
+(cd .claude/keel && ./install.sh check)
 ```
 Then rebuild the map: **`graphify update .`** (drops any vendored nodes an older
 install indexed).
+
+**Migrating from the old `.claude/skills` layout** (projects set up before the
+`.claude/keel` convention) — once:
+
+```bash
+git mv .claude/skills .claude/keel                   # moves the submodule + updates .gitmodules
+(cd .claude/keel && ./install.sh arbiter && ./install.sh dev design && ./install.sh check)
+git add -A && git commit -m "keel: move submodule to .claude/keel"
+```
+The old layout nested the skills at `.claude/skills/skills/<name>/`, a depth
+Claude Code does not document scanning. The installer now links each skill at
+`.claude/skills/<name>` where discovery is guaranteed.
 
 One-time only: if this project still has an old hand-pasted keel-v2 block in
 `CLAUDE.md` (from before `./install.sh arbiter` existed), delete it once — the
@@ -79,13 +96,15 @@ One-time catch-ups for projects set up before 2026-10:
    keel-v2 will name the right one if you're unsure.
 3. **Let the pipeline run** (dev example): grill-with-docs → (wayfinder, for
    epics) → to-spec (`prototype` to settle a state model) → to-tickets →
-   implement (`tdd` at seams) → mattpocock-skills:code-review → keel-qa / verify
-   → pr → retro. Use **graphify** to navigate the code, not grep.
+   implement (`tdd` at seams) → mattpocock-skills:code-review → keel-qa /
+   keel-verify → pr → retro. Use **graphify** to navigate the code, not grep.
 4. **Reach for a second pass by name** when you want one: `/code-review`
    (built-in correctness bug hunt, alongside Pocock's standards/spec review),
    `/security-review` (built-in second security pass).
 5. **Stop at the gate.** keel-v2 stops before commit / deploy / send. **You**
-   commit — Keel never auto-commits.
+   commit — Keel never auto-commits. On HEAVY work the gates G1/G2/G3 in
+   `00-status.md` are yours to flip (`.claude/keel/bin/keel-approve <feature> G3
+   "<why>"`), never the agent's.
 6. **Capture & hand off.** Note learnings; if you'll continue later, write a
    `handoff` doc so the next session picks up clean.
 
@@ -151,6 +170,8 @@ don't need as *not needed* in `CONTEXT.md` so nobody re-asks.
 | Design/UI | `/keel-design` (impeccable) |
 | Add a capability | `./install.sh <lane>` (parked extras skipped) |
 | Add one parked extra (e.g. video) | `./install.sh hyperframes` |
+| Prove a change before calling it done | `keel-verify` (paste the real output) |
+| Approve a HEAVY gate | `.claude/keel/bin/keel-approve <feature> <G1\|G2\|G3\|Ship> "<why>"` |
 
 Deeper reference: [RECIPES.md](RECIPES.md) (per-project cookbook) ·
 [MEMORY-CONTRACT.md](MEMORY-CONTRACT.md) (how the memory layers compose) ·

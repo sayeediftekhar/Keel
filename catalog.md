@@ -1,9 +1,12 @@
-# Keel — upstream catalog (30 items: 27 upstreams + 3 locals)
+# Keel — upstream catalog (31 items: 27 upstreams + 4 locals)
 
 The external skills/plugins/MCP servers Keel routes to. Kept **unmodified**;
 Keel's lane routers (see `ARCHITECTURE.md`) point at them. `type` decides how
-each installs: **plugin** (marketplace/`.claude/plugins`), **skill** (submodule
-under `.claude/skills`), **mcp** (`.mcp.json`), **local** (already in this repo).
+each installs: **plugin** (marketplace/`.claude/plugins`), **skill** (cloned to
+`.claude/keel/vendor/`, symlinked into `.claude/skills/`), **mcp** (`.mcp.json`),
+**cli** (installed on the machine), **local** (in this repo, symlinked into
+`.claude/skills/`). Every git upstream is pinned to a commit in `manifest.json`
+(`ref`, refreshed with `./install.sh pin` through a reviewed PR).
 
 Star/install figures are approximate snapshots and drift upward — don't trust
 them as current.
@@ -21,6 +24,7 @@ Conductor: **Pocock spine + power-tools** (see `skills/keel-dev/SKILL.md`).
 | agent-browser | qa | cli | vercel-labs/agent-browser | Headless browser CLI — keel-qa's browser for terminal/cloud sessions; run from the shell, no per-session tool cost |
 | sentry | errors | mcp | mcp.sentry.dev | Hosted Sentry MCP (OAuth) — the Maintain loop's error-triage input; already used by taleem-central, careon, image-erp, image-erp-clinical |
 | graphify | comprehension | local | ~/.claude/skills/graphify | Codebase knowledge graph (query/path/explain) — the graphify-first default over grep |
+| keel-verify | verification | local | this repo | Evidence before "done": run the real checks, show the output, then claim |
 
 ## keel-design — Design/UI
 | Item | Type | Repo / source | What it does |

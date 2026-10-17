@@ -1,87 +1,282 @@
 {
-  "$comment": "Machine-readable map of Keel lanes → upstreams. Consumed by install.sh. type: plugin|skill|mcp|cli|local. Optional on plugins: plugin (exact plugin@marketplace id → install.sh prints the real install command), marketplace (added first, when not the official one), setup (one-time per-repo command), note (when to install it) and routes. Optional on mcp/cli: install (the exact command to run). Any upstream may set optional: true (parked) — lane installs skip it; `./install.sh <name>` installs it alone (every upstream skill Keel docs name — checked by evals/upstream-drift.sh). See catalog.md for prose, ARCHITECTURE.md for the model.",
+  "$comment": "Machine-readable map of Keel lanes → upstreams. Consumed by install.sh. type: plugin|skill|mcp|cli|local. Optional on plugins: plugin (exact plugin@marketplace id → install.sh prints the real install command), marketplace (added first, when not the official one), setup (one-time per-repo command), note (when to install it) and routes. Optional on mcp/cli: install (the exact command to run). Any upstream may set optional: true (parked) — lane installs skip it; `./install.sh <name>` installs it alone (every upstream skill Keel docs name — checked by evals/upstream-drift.sh). See catalog.md for prose, ARCHITECTURE.md for the model. `ref` pins a git upstream to a commit (SECURITY.md: supply chain); `./install.sh pin` refreshes pins to upstream HEAD — review the diff before committing; `pinned_at` is when they were last refreshed.",
   "version": 1,
   "lanes": {
     "dev": {
       "router": "keel-dev",
       "spine": "mattpocock-skills",
       "upstreams": [
-        { "name": "mattpocock-skills", "type": "plugin", "role": "spine",      "repo": "https://github.com/mattpocock/skills", "plugin": "mattpocock-skills@claude-plugins-official", "setup": "/setup-matt-pocock-skills",
-          "routes": ["triage", "grill-with-docs", "grill-me", "wayfinder", "domain-modeling", "to-spec", "prototype", "to-tickets",
-                     "implement", "implement-spec", "tdd", "code-review", "pr", "wizard", "diagnosing-bugs",
-                     "improve-codebase-architecture", "codebase-design", "retro", "research", "handoff", "writing-for-agents"] },
-        { "name": "vercel",            "type": "plugin", "role": "deploy",     "repo": "https://github.com/vercel/vercel-plugin", "plugin": "vercel@claude-plugins-official", "note": "Vercel-hosted projects only — deploy, promote, instant rollback, logs", "routes": ["deployments-cicd"] },
-        { "name": "sentry",            "type": "mcp",    "role": "errors",     "repo": "https://mcp.sentry.dev", "install": "claude mcp add --transport http --scope project sentry https://mcp.sentry.dev/mcp/<org>/<project>", "note": "production apps on Sentry — OAuth on first connect, no token stored; scope it to one project" },
-        { "name": "keel-qa",           "type": "local",  "role": "qa",         "repo": "skills/keel-qa" },
-        { "name": "hyperframes",       "type": "skill",  "role": "adjunct",    "repo": "https://github.com/heygen-com/hyperframes", "optional": true, "note": "parked — HTML/CSS/JS → MP4 video; ~162 MB clone, so only for projects that make video" },
-        { "name": "antfu-skills",      "type": "plugin", "role": "adjunct",    "repo": "https://github.com/antfu/skills",           "optional": true, "note": "parked — Vue/Vite/Nuxt/Pinia; only for Vue-stack projects" },
-        { "name": "agent-browser",     "type": "cli",    "role": "qa",         "repo": "https://github.com/vercel-labs/agent-browser", "install": "npm install -g agent-browser   (or: brew install agent-browser)", "note": "keel-qa's headless browser for terminal and cloud sessions, which have no browser pane" },
-        { "name": "graphify",          "type": "local",  "role": "comprehension", "repo": "~/.claude/skills/graphify" }
+        {
+          "name": "mattpocock-skills",
+          "type": "plugin",
+          "role": "spine",
+          "repo": "https://github.com/mattpocock/skills",
+          "plugin": "mattpocock-skills@claude-plugins-official",
+          "setup": "/setup-matt-pocock-skills",
+          "routes": [
+            "triage",
+            "grill-with-docs",
+            "grill-me",
+            "wayfinder",
+            "domain-modeling",
+            "to-spec",
+            "prototype",
+            "to-tickets",
+            "implement",
+            "implement-spec",
+            "tdd",
+            "code-review",
+            "pr",
+            "wizard",
+            "diagnosing-bugs",
+            "improve-codebase-architecture",
+            "codebase-design",
+            "retro",
+            "research",
+            "handoff",
+            "writing-for-agents"
+          ],
+          "ref": "49dd158d1076134a641b33efb035946536778336"
+        },
+        {
+          "name": "vercel",
+          "type": "plugin",
+          "role": "deploy",
+          "repo": "https://github.com/vercel/vercel-plugin",
+          "plugin": "vercel@claude-plugins-official",
+          "note": "Vercel-hosted projects only — deploy, promote, instant rollback, logs",
+          "routes": [
+            "deployments-cicd"
+          ],
+          "ref": "137e9f44a243a939c5eaea30e4dff96aee744f64"
+        },
+        {
+          "name": "sentry",
+          "type": "mcp",
+          "role": "errors",
+          "repo": "https://mcp.sentry.dev",
+          "install": "claude mcp add --transport http --scope project sentry https://mcp.sentry.dev/mcp/<org>/<project>",
+          "note": "production apps on Sentry — OAuth on first connect, no token stored; scope it to one project"
+        },
+        {
+          "name": "keel-qa",
+          "type": "local",
+          "role": "qa",
+          "repo": "skills/keel-qa"
+        },
+        {
+          "name": "hyperframes",
+          "type": "skill",
+          "role": "adjunct",
+          "repo": "https://github.com/heygen-com/hyperframes",
+          "optional": true,
+          "note": "parked — HTML/CSS/JS → MP4 video; ~162 MB clone, so only for projects that make video",
+          "ref": "b18b3e958aa199529fa5fa06728e81b97d520021"
+        },
+        {
+          "name": "antfu-skills",
+          "type": "plugin",
+          "role": "adjunct",
+          "repo": "https://github.com/antfu/skills",
+          "optional": true,
+          "note": "parked — Vue/Vite/Nuxt/Pinia; only for Vue-stack projects",
+          "ref": "feb0f3aba6566426f12230e7fc7a10d97c1293bb"
+        },
+        {
+          "name": "agent-browser",
+          "type": "cli",
+          "role": "qa",
+          "repo": "https://github.com/vercel-labs/agent-browser",
+          "install": "npm install -g agent-browser   (or: brew install agent-browser)",
+          "note": "keel-qa's headless browser for terminal and cloud sessions, which have no browser pane",
+          "ref": "dac13bb87468fe9d74a040d862720f6cc17a9565"
+        },
+        {
+          "name": "graphify",
+          "type": "local",
+          "role": "comprehension",
+          "repo": "~/.claude/skills/graphify"
+        },
+        {
+          "name": "keel-verify",
+          "type": "local",
+          "role": "verification",
+          "repo": "skills/keel-verify"
+        }
       ]
     },
     "design": {
       "router": "keel-design",
       "upstreams": [
-        { "name": "impeccable",      "type": "skill",  "repo": "https://github.com/pbakaus/impeccable" },
-        { "name": "frontend-design", "type": "plugin", "repo": "https://github.com/anthropics/claude-code", "subpath": "plugins/frontend-design" },
-        { "name": "fused-landing",   "type": "local",  "repo": "skills/fused-landing" }
+        {
+          "name": "impeccable",
+          "type": "skill",
+          "repo": "https://github.com/pbakaus/impeccable",
+          "ref": "08d5b470495d242ca0470f4aeae1956c3a074f83"
+        },
+        {
+          "name": "frontend-design",
+          "type": "plugin",
+          "repo": "https://github.com/anthropics/claude-code",
+          "subpath": "plugins/frontend-design",
+          "ref": "c017428c8c27e604840435048d5bce6a9a22c040"
+        },
+        {
+          "name": "fused-landing",
+          "type": "local",
+          "repo": "skills/fused-landing"
+        }
       ]
     },
     "marketing": {
       "router": "keel-marketing",
       "upstreams": [
-        { "name": "marketingskills", "type": "plugin", "repo": "https://github.com/coreyhaines31/marketingskills" },
-        { "name": "claude-seo",      "type": "skill",  "repo": "https://github.com/AgriciDaniel/claude-seo" },
-        { "name": "kondo",           "type": "mcp",    "repo": "https://docs.trykondo.com/mcp-setup" }
+        {
+          "name": "marketingskills",
+          "type": "plugin",
+          "repo": "https://github.com/coreyhaines31/marketingskills",
+          "ref": "365b412152b9542499ca1439426f7fc3cc92bb65"
+        },
+        {
+          "name": "claude-seo",
+          "type": "skill",
+          "repo": "https://github.com/AgriciDaniel/claude-seo",
+          "ref": "4b99de2f7de7e7d5247042e5fb5b4ea9368ef734"
+        },
+        {
+          "name": "kondo",
+          "type": "mcp",
+          "repo": "https://docs.trykondo.com/mcp-setup"
+        }
       ]
     },
     "content": {
       "router": "keel-content",
       "upstreams": [
-        { "name": "humanizer",           "type": "skill", "repo": "https://github.com/blader/humanizer" },
-        { "name": "social-media-skills", "type": "skill", "repo": "https://github.com/charlie947/social-media-skills" },
-        { "name": "higgsfield",          "type": "mcp",   "repo": "https://higgsfield.ai/mcp" }
+        {
+          "name": "humanizer",
+          "type": "skill",
+          "repo": "https://github.com/blader/humanizer",
+          "ref": "8c307f367c91bd974002f10f2be2965d642c13df"
+        },
+        {
+          "name": "social-media-skills",
+          "type": "skill",
+          "repo": "https://github.com/charlie947/social-media-skills",
+          "ref": "8cefb5b6d03757885faa6918bd8bfaef202a83db"
+        },
+        {
+          "name": "higgsfield",
+          "type": "mcp",
+          "repo": "https://higgsfield.ai/mcp"
+        }
       ]
     },
     "research": {
       "router": "keel-research",
       "upstreams": [
-        { "name": "notebooklm-skill", "type": "skill", "repo": "https://github.com/PleasePrompto/notebooklm-skill" },
-        { "name": "perplexity",       "type": "mcp",   "repo": "https://github.com/perplexityai/modelcontextprotocol" },
-        { "name": "ai-second-brain",  "type": "skill", "repo": "https://github.com/charlie947/ai-second-brain" }
+        {
+          "name": "notebooklm-skill",
+          "type": "skill",
+          "repo": "https://github.com/PleasePrompto/notebooklm-skill",
+          "ref": "c80722d3f27d65e06b6579add201bf69b99101d0"
+        },
+        {
+          "name": "perplexity",
+          "type": "mcp",
+          "repo": "https://github.com/perplexityai/modelcontextprotocol",
+          "ref": "6ba09f856ab8da91c171e5d60f0db9803c1753f5"
+        },
+        {
+          "name": "ai-second-brain",
+          "type": "skill",
+          "repo": "https://github.com/charlie947/ai-second-brain",
+          "ref": "69e9959bbc8cac3a983988f2a62ff3ec48642fb1"
+        }
       ]
     },
     "secure": {
       "router": "keel-secure",
       "upstreams": [
-        { "name": "VibeSec-Skill", "type": "skill", "repo": "https://github.com/BehiSecc/VibeSec-Skill" }
+        {
+          "name": "VibeSec-Skill",
+          "type": "skill",
+          "repo": "https://github.com/BehiSecc/VibeSec-Skill",
+          "ref": "0590993b35ad51961f65a4d01cf1196dfead05bb"
+        }
       ]
     },
     "ops": {
       "router": "keel-ops",
       "upstreams": [
-        { "name": "claude-mem",    "type": "plugin", "role": "memory", "repo": "https://github.com/thedotmack/claude-mem" },
-        { "name": "granola",       "type": "mcp",   "repo": "https://www.granola.ai/blog/granola-mcp" },
-        { "name": "slack",         "type": "mcp",   "repo": "https://github.com/slackapi/slack-mcp-plugin" },
-        { "name": "notion",        "type": "mcp",   "repo": "https://github.com/makenotion/notion-mcp-server" },
-        { "name": "zapier",        "type": "mcp",   "repo": "https://github.com/zapier/zapier-mcp" },
-        { "name": "find-skills",   "type": "skill", "repo": "https://github.com/vercel-labs/skills" },
-        { "name": "claude-skills", "type": "skill", "repo": "https://github.com/alirezarezvani/claude-skills" }
+        {
+          "name": "claude-mem",
+          "type": "plugin",
+          "role": "memory",
+          "repo": "https://github.com/thedotmack/claude-mem",
+          "ref": "6aef92f1e2efead26d3eb7b02a406fde909112b2"
+        },
+        {
+          "name": "granola",
+          "type": "mcp",
+          "repo": "https://www.granola.ai/blog/granola-mcp"
+        },
+        {
+          "name": "slack",
+          "type": "mcp",
+          "repo": "https://github.com/slackapi/slack-mcp-plugin",
+          "ref": "f984a6e34e6b2e4daa7e7f94520ce68e1648dc5b"
+        },
+        {
+          "name": "notion",
+          "type": "mcp",
+          "repo": "https://github.com/makenotion/notion-mcp-server",
+          "ref": "730ae781ba28beeaf0865025a3f2ed4c25ea2387"
+        },
+        {
+          "name": "zapier",
+          "type": "mcp",
+          "repo": "https://github.com/zapier/zapier-mcp",
+          "ref": "5360f152b96735712e5f925ad728732cb86888df"
+        },
+        {
+          "name": "find-skills",
+          "type": "skill",
+          "repo": "https://github.com/vercel-labs/skills",
+          "ref": "13e4063a1cf913f5606d57d42ab83a86f5001e04"
+        },
+        {
+          "name": "claude-skills",
+          "type": "skill",
+          "repo": "https://github.com/alirezarezvani/claude-skills",
+          "ref": "19392f7a08264ed00486a251f5b2098321771f94"
+        }
       ]
     },
     "finance": {
       "router": "keel-finance",
       "optional": true,
       "upstreams": [
-        { "name": "financial-services", "type": "plugin", "repo": "https://github.com/anthropics/financial-services" }
+        {
+          "name": "financial-services",
+          "type": "plugin",
+          "repo": "https://github.com/anthropics/financial-services",
+          "ref": "574ed3624aebd0418c7e96cd101262f30210ab26"
+        }
       ]
     },
     "legal": {
       "router": "keel-legal",
       "optional": true,
       "upstreams": [
-        { "name": "claude-for-legal", "type": "plugin", "repo": "https://github.com/anthropics/claude-for-legal" }
+        {
+          "name": "claude-for-legal",
+          "type": "plugin",
+          "repo": "https://github.com/anthropics/claude-for-legal",
+          "ref": "4a6c651889c97cc9140580363c73e0eb17379c2b"
+        }
       ]
     }
-  }
+  },
+  "pinned_at": "2026-10-17"
 }
