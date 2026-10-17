@@ -80,9 +80,11 @@ Conductor: **Pocock spine + power-tools** (see `skills/keel-dev/SKILL.md`).
 - **mattpocock-skills** — ✅ re-verified 2026-10-17: 27 skills, now shipped in
   `claude-plugins-official` and self-updating, so it drifts without a version
   bump here. Since 2026-07: `grill` → `grill-with-docs` (+ `grill-me`,
-  `grilling`); `domain-modeling` writes `GLOSSARY.md`. Present but not yet routed
-  by keel-dev: `wayfinder`, `pr`, `retro`, `triage`, `prototype`,
-  `implement-spec`, `research`, `writing-for-agents`.
+  `grilling`); `domain-modeling` writes `GLOSSARY.md`. keel-dev now also routes
+  `wayfinder`, `pr`, `retro`, `triage`, `prototype`, `implement-spec`,
+  `research`, `wizard`; `writing-for-agents` is the authoring standard
+  (CONTRIBUTING.md). The full list lives in `manifest.json` → `routes`, checked
+  by `evals/upstream-drift.sh`.
 - **social-media-skills** — ✅ confirmed `charlie947` (Charlie Hills content OS,
   17 skills incl. reels/captions/carousels). Not blacktwist.
 - **claude-skills** — ✅ confirmed `alirezarezvani` (changelog shows 263→264

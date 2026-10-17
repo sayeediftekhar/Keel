@@ -26,22 +26,41 @@ radius, architecture) **query graphify** (`query`/`path`/`explain`) instead of
 grep+read — it returns a targeted subgraph, not a dozen file reads. **Grep only**
 for an exact known string/symbol, a tiny throwaway scope with no `graphify-out/`
 yet, or an area just edited (graph may be stale). Default graphify; grep is the
-deliberate exception.
+deliberate exception. For facts *outside* the repo (a library's API, a vendor's
+docs) use Pocock `research` — primary sources, findings saved as Markdown in the
+repo. Topic/market research belongs to **keel-research**.
 
 ## The pipeline (spine default · power-tools opt-in)
+Spine skills load as `mattpocock-skills:<name>`. A bare name works unless
+Claude Code ships a built-in with the same name — then invoke the prefixed form,
+or the built-in runs instead. Today that is `mattpocock-skills:code-review`: the
+built-in `/code-review` hunts bugs in a diff but has no Standards/Spec axes.
+
 | Phase | Default (Pocock spine) | Opt-in power-tools | Rigor |
 |---|---|---|---|
+| · Intake | `triage` — incoming issues/PRs → categorised, verified, agent-ready briefs | — | tracker mode only |
 | 0 · Align | `grill-with-docs` — one Q at a time, look up facts, recommend answers; HEAVY features also write `00-product.md` (problem, success metric, announcement copy, mockup — **no technical language**) | gstack `/office-hours` for product/scope reframes | HEAVY/ambiguous only; FAST skips |
+| 0b · Map | `wayfinder` — work bigger than one session becomes a map of decision tickets, resolved one per session until no open question blocks the build | — | HEAVY epics only |
 | 1 · Language | `domain-modeling` → `GLOSSARY.md` + ADRs | — | optional, compounding |
-| 2 · Spec | `to-spec` (synthesize conversation → spec) | gstack `/spec` (Codex quality gate) | HEAVY |
-| 3 · Decompose | `to-tickets` → `.scratch/<feat>/issues/NN.md`, tracer-bullet slices + blocking edges (+ expand/contract for wide refactors) | — | HEAVY |
-| 4 · Build | `implement` — ticket-by-ticket, `tdd` at seams | superpowers **autonomous executor** (big approved plans) + worktrees / parallel-agents | HEAVY→strict red-green-refactor; FAST→pragmatic. Autonomy **stops at** commit/deploy gates |
-| 5 · Review | `code-review` — two-axis (Standards+Fowler / Spec), parallel subagents | gstack `/review` (prod-bug autofix) + `/codex` (cross-model) | always |
+| 2 · Spec | `to-spec` (synthesize conversation → spec); `prototype` for a throwaway spike when a state model, logic or UI shape is still in doubt | gstack `/spec` (Codex quality gate) | HEAVY |
+| 3 · Decompose | `to-tickets` → `.scratch/<feat>/issues/NN.md` (or tracker issues), tracer-bullet slices + blocking edges (+ expand/contract for wide refactors) | — | HEAVY |
+| 4 · Build | `implement` — ticket-by-ticket, `tdd` at seams; `implement-spec` to run the whole approved ticket set | superpowers **autonomous executor** (big approved plans) + worktrees / parallel-agents | HEAVY→strict red-green-refactor; FAST→pragmatic. Autonomy **stops at** commit/deploy gates |
+| 5 · Review | `mattpocock-skills:code-review` — two-axis (Standards = the project's `CODING_STANDARDS.md` over a Fowler baseline / Spec), parallel subagents | gstack `/review` (prod-bug autofix) + `/codex` (cross-model) | always |
 | 5b · Security | → **keel-secure** (VibeSec) | gstack `/cso` (OWASP+STRIDE) | mandatory on trust-boundary diffs (keel-v2 tripwire) |
 | 6 · Verify/QA | Keel `verify` (non-UI) | gstack `/qa` (real browser, autofix, regression tests); UI → **keel-design** + `/design-shotgun` | HEAVY |
-| 7 · Ship | — | gstack `/ship` → `/land-and-deploy` → `/canary` | HEAVY; **stops at human gate**, never auto-deploys |
+| 7 · Ship | `pr` writes the PR body; `wizard` scripts the steps only the human can do (secrets, dashboards, cutovers) | gstack `/ship` → `/land-and-deploy` → `/canary` | HEAVY; **stops at human gate**, never auto-deploys |
 | 8 · Debug | `diagnosing-bugs` | superpowers `systematic-debugging` / gstack `/investigate` | as needed |
 | 9 · Arch health | `improve-codebase-architecture` + `codebase-design` (deep modules) | — | periodic |
+| 10 · Learn | `retro` on the session → encode each lesson once (memory, `CONTEXT.md`, `CODING_STANDARDS.md` or a skill) | — | after ship / big sessions |
+
+## Phase exits — advance only when the line is true
+- **Align:** the problem, success metric and scope fit in a paragraph the human has confirmed.
+- **Map:** every decision ticket is resolved or parked in `Open decisions`; nothing left blocks the build.
+- **Spec:** the spec names every behaviour to build and every one deliberately left out.
+- **Decompose:** each ticket is a vertical slice with acceptance criteria and blocking edges; the frontier is non-empty.
+- **Build:** the ticket's acceptance criteria pass under tests; the slice is ticked in `00-status.md`.
+- **Review:** both axes report no open findings above nit, or each is fixed or explicitly waived by the human.
+- **Ship:** the human has approved; nothing deploys on an agent's say-so.
 
 ## Gates (approval boundaries · keel-v2 decides how hard)
 The pipeline is decision-first: settle the expensive calls while context is
@@ -49,7 +68,7 @@ cheap, before thousands of lines exist. Rigor sets how many boundaries are
 **hard human gates** (keel-v2 HEAVY §2.2 approve-before-code / §2.4
 stop-for-verification apply *at each*):
 
-- **HEAVY** — hard gates after **0·Align → 2·Spec**, **2·Spec → 3·Decompose**,
+- **HEAVY** — hard gates after **0·Align (+ 0b·Map for epics) → 2·Spec**, **2·Spec → 3·Decompose**,
   and **3·Decompose → 4·Build**, plus the always-on **7·Ship** gate. At each,
   stop and get the human's explicit approval before advancing.
 - **FAST** — no mid-pipeline gates; only the **Ship** gate (keel-v2 §1.4:
@@ -63,15 +82,16 @@ go in `00-status.md` → `Open decisions` so a human resolves them, never a
 silent guess.
 
 ## Rules (the locked decisions)
-1. **One spine.** Power-tools never auto-fire alongside the spine — reach for
-   them by name. No coin-flip between three methodologies.
+1. **One spine.** The spine runs by default; reach for a power-tool by name
+   when you want it. No coin-flip between three methodologies.
 2. **keel-v2 rigor arbitrates completeness.** FAST = YAGNI/minimal; HEAVY =
    complete (tests, edges, error paths). `lazy-loop` is an explicit opt-in.
-3. **Execution leash.** `implement` is default; the superpowers executor is
-   opt-in and runs *within* an approved plan but stops at keel-v2 gates.
-4. **State lives in files** — `.scratch/<feat>/issues/NN.md` tracer-bullet
-   tickets + `GLOSSARY.md` + `00-status.md` gate/slice ledger (the
-   single "where are we, what's approved" resume file). See
+3. **Execution leash.** `implement` / `implement-spec` are default; the
+   superpowers executor is opt-in. All three run *within* an approved plan and
+   stop at keel-v2 gates.
+4. **State lives in files** — tracer-bullet tickets (`.scratch/` by default, or
+   the tracker `/setup-matt-pocock-skills` configured) + `GLOSSARY.md` +
+   `00-status.md`, the single "where are we, what's approved" resume file. See
    `conventions/tickets-and-context.md`.
 
 ## Token economy (7 levers)

@@ -1,12 +1,15 @@
 {
-  "$comment": "Machine-readable map of Keel lanes → upstreams. Consumed by install.sh. type: plugin|skill|mcp|local. Optional on plugins: plugin (exact plugin@marketplace id → install.sh prints the real install command) and setup (one-time per-repo command). See catalog.md for prose, ARCHITECTURE.md for the model.",
+  "$comment": "Machine-readable map of Keel lanes → upstreams. Consumed by install.sh. type: plugin|skill|mcp|local. Optional on plugins: plugin (exact plugin@marketplace id → install.sh prints the real install command), setup (one-time per-repo command) and routes (every upstream skill Keel docs name — checked by evals/upstream-drift.sh). See catalog.md for prose, ARCHITECTURE.md for the model.",
   "version": 1,
   "lanes": {
     "dev": {
       "router": "keel-dev",
       "spine": "mattpocock-skills",
       "upstreams": [
-        { "name": "mattpocock-skills", "type": "plugin", "role": "spine",      "repo": "https://github.com/mattpocock/skills", "plugin": "mattpocock-skills@claude-plugins-official", "setup": "/setup-matt-pocock-skills" },
+        { "name": "mattpocock-skills", "type": "plugin", "role": "spine",      "repo": "https://github.com/mattpocock/skills", "plugin": "mattpocock-skills@claude-plugins-official", "setup": "/setup-matt-pocock-skills",
+          "routes": ["triage", "grill-with-docs", "grill-me", "wayfinder", "domain-modeling", "to-spec", "prototype", "to-tickets",
+                     "implement", "implement-spec", "tdd", "code-review", "pr", "wizard", "diagnosing-bugs",
+                     "improve-codebase-architecture", "codebase-design", "retro", "research", "handoff", "writing-for-agents"] },
         { "name": "superpowers",       "type": "plugin", "role": "power-tool", "repo": "https://github.com/obra/superpowers" },
         { "name": "gstack",            "type": "plugin", "role": "power-tool", "repo": "https://github.com/garrytan/gstack" },
         { "name": "codex-plugin-cc",   "type": "plugin", "role": "power-tool", "repo": "https://github.com/openai/codex-plugin-cc" },
