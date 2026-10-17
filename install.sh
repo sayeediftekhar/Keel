@@ -12,7 +12,9 @@
 #
 # Behavior by upstream type:
 #   skill  -> git clone into ./vendor/<name>  (point Claude Code at ./vendor)
-#   plugin -> prints the marketplace/clone command (bundles install their own way)
+#   plugin -> prints the exact `claude plugin install … --scope project` command
+#             when the manifest entry names its plugin id (+ any one-time setup);
+#             otherwise the generic marketplace/clone hint
 #   mcp    -> reminds you to fill .mcp.json (connectors need credentials)
 #   local  -> already in this repo; skipped
 set -euo pipefail
@@ -149,10 +151,12 @@ install_lane() {
   echo "== lane: $lane =="
   local n=$(jq -r --arg l "$lane" '.lanes[$l].upstreams | length' "$MANIFEST")
   for i in $(seq 0 $((n-1))); do
-    local name type repo
+    local name type repo plugin setup
     name=$(jq -r --arg l "$lane" --argjson i "$i" '.lanes[$l].upstreams[$i].name' "$MANIFEST")
     type=$(jq -r --arg l "$lane" --argjson i "$i" '.lanes[$l].upstreams[$i].type' "$MANIFEST")
     repo=$(jq -r --arg l "$lane" --argjson i "$i" '.lanes[$l].upstreams[$i].repo' "$MANIFEST")
+    plugin=$(jq -r --arg l "$lane" --argjson i "$i" '.lanes[$l].upstreams[$i].plugin // empty' "$MANIFEST")
+    setup=$(jq -r --arg l "$lane" --argjson i "$i" '.lanes[$l].upstreams[$i].setup // empty' "$MANIFEST")
     case "$type" in
       skill)
         mkdir -p "$VENDOR"
@@ -162,8 +166,16 @@ install_lane() {
           echo "+ $name: cloning skill -> vendor/$name"; git clone --depth 1 "$repo" "$VENDOR/$name"
         fi ;;
       plugin)
-        echo "» $name: PLUGIN — install via the Claude Code plugin marketplace,"
-        echo "         or:  git clone $repo  into your .claude/plugins" ;;
+        if [ -n "$plugin" ]; then
+          # Project scope (not user): keeps its skill descriptions out of every
+          # other session's context. Use --scope local to keep it uncommitted.
+          echo "» $name: PLUGIN — from your project root run:"
+          echo "         claude plugin install $plugin --scope project"
+          [ -n "$setup" ] && echo "         then, once per repo, in Claude Code:  $setup"
+        else
+          echo "» $name: PLUGIN — install via the Claude Code plugin marketplace,"
+          echo "         or:  git clone $repo  into your .claude/plugins"
+        fi ;;
       mcp)
         echo "» $name: MCP — add credentials to .mcp.json (see .mcp.json.template). Source: $repo" ;;
       local)

@@ -13,7 +13,7 @@ Conductor: **Pocock spine + power-tools** (see `skills/keel-dev/SKILL.md`).
 
 | Item | Role | Type | Repo / source | What it does |
 |------|------|------|---------------|--------------|
-| mattpocock-skills | **spine** | plugin | mattpocock/skills | The backbone pipeline: grill → to-spec → to-tickets → implement → two-axis code-review; domain-modeling, deep modules, diagnosing-bugs |
+| mattpocock-skills | **spine** | plugin | mattpocock/skills (`mattpocock-skills@claude-plugins-official`, self-updating) | 27 skills. The backbone pipeline: grill-with-docs → to-spec → to-tickets → implement → two-axis code-review; domain-modeling (`GLOSSARY.md`), codebase-design (deep modules), diagnosing-bugs, tdd |
 | superpowers | power-tool | plugin | obra/superpowers | Autonomous TDD executor: subagent-driven dev, strict red-green-refactor, systematic-debugging (~14 skills) |
 | gstack | power-tool | plugin | garrytan/gstack | Product studio: design-shotgun/html, real-browser /qa, /review, /cso security, /ship+deploy (23 roles + tools) |
 | codex-plugin-cc | power-tool | plugin | openai/codex-plugin-cc | Official OpenAI bridge — cross-model review / hand-off to Codex |
@@ -77,6 +77,12 @@ Conductor: **Pocock spine + power-tools** (see `skills/keel-dev/SKILL.md`).
 | claude-for-legal | plugin | anthropics/claude-for-legal | ~12 practice areas, 90+ workflow agents |
 
 ## Match status (verified 2026-07)
+- **mattpocock-skills** — ✅ re-verified 2026-10-17: 27 skills, now shipped in
+  `claude-plugins-official` and self-updating, so it drifts without a version
+  bump here. Since 2026-07: `grill` → `grill-with-docs` (+ `grill-me`,
+  `grilling`); `domain-modeling` writes `GLOSSARY.md`. Present but not yet routed
+  by keel-dev: `wayfinder`, `pr`, `retro`, `triage`, `prototype`,
+  `implement-spec`, `research`, `writing-for-agents`.
 - **social-media-skills** — ✅ confirmed `charlie947` (Charlie Hills content OS,
   17 skills incl. reels/captions/carousels). Not blacktwist.
 - **claude-skills** — ✅ confirmed `alirezarezvani` (changelog shows 263→264

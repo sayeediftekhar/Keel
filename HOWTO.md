@@ -9,7 +9,8 @@ you reach for them by name.
 ## Once per project (setup)
 
 1. **Grill first.** Before any code, run a grill session — get interrogated
-   about what you're actually building until it's clear. (`grill` / `grill-me`.)
+   about what you're actually building until it's clear. (`grill-with-docs` for
+   code work, `grill-me` for anything else.)
 2. **Install Keel + the lanes you'll use.**
    ```bash
    git submodule add https://github.com/sayeediftekhar/Keel .claude/skills
@@ -23,7 +24,7 @@ you reach for them by name.
    `install.sh` already adds the ignore entries (`.gitignore` / `.graphifyignore`
    / `.claudeignore`) so your code index skips `.claude/skills/keel/vendor/`.
    Never index vendored third-party code as your own; it drowns real queries.
-4. **Capture shared language** in `CONTEXT.md` as terms emerge, and track
+4. **Capture shared language** in `GLOSSARY.md` as terms emerge, and track
    gate/slice state in `.scratch/<feat>/00-status.md` so any session resumes
    from one file (see [conventions](conventions/tickets-and-context.md)).
 
@@ -56,7 +57,7 @@ managed block replaces it going forward.
    `Rigor: FAST` (safe) or `Rigor: HEAVY` (auth/money/data/migrations).
 2. **Reach for the tool** by name: `/keel-dev`, `/keel-design`, `/keel-marketing`…
    keel-v2 will name the right one if you're unsure.
-3. **Let the pipeline run** (dev example): grill → to-spec → to-tickets →
+3. **Let the pipeline run** (dev example): grill-with-docs → to-spec → to-tickets →
    implement (`tdd` at seams) → code-review → verify. Use **graphify** to
    navigate the code, not grep.
 4. **Reach for a power-tool by name** when you want it: `/qa` (real browser),

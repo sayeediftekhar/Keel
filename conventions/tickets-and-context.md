@@ -31,14 +31,16 @@ Rules: no stale file paths/snippets in tickets (they rot) — describe behaviour
 the exception to vertical slicing — sequence them **expand → migrate-in-batches
 → contract**, each batch its own ticket, CI green batch to batch.
 
-## 2. Shared language — `CONTEXT.md` (the project glossary)
+## 2. Shared language — `GLOSSARY.md` (the project glossary)
 
 A ubiquitous-language doc so agent and human speak the same terms — fewer
 tokens, consistent naming, easier navigation. Built/sharpened by
-`domain-modeling`. Shape:
+`domain-modeling`, which writes `GLOSSARY.md` (repos with several bounded
+contexts get a `GLOSSARY-MAP.md` pointing at one glossary per context). Terms
+only — no implementation detail. Shape:
 
 ```
-# <Project> — Context
+# <Project> — Glossary
 
 ## Language
 **<Term>**: one-line definition. _Avoid_: <synonyms not to use>
@@ -50,14 +52,19 @@ tokens, consistent naming, easier navigation. Built/sharpened by
 - <term> was overloaded → resolved: now means <X>; <Y> is retired.
 ```
 
-Merely *reading* `CONTEXT.md` for vocabulary is a one-line pointer, not the
+Merely *reading* `GLOSSARY.md` for vocabulary is a one-line pointer, not the
 `domain-modeling` skill — that skill is the active build/sharpen discipline
-(challenge terms, edge-case scenarios, write ADRs, update `CONTEXT.md` inline).
+(challenge terms, edge-case scenarios, write ADRs, update `GLOSSARY.md` inline).
+
+Not the same file as `CONTEXT.md`: that one is the project's context/brand/rules
+doc (keel-v2's HEAVY pack, the brand recipes). Older Keel projects kept the
+glossary inside `CONTEXT.md` — move that section into `GLOSSARY.md` so
+`domain-modeling` and the rest of the pack agree on one source of truth.
 
 ## 3. Gate ledger — `.scratch/<feature-slug>/00-status.md`
 
 One file per feature that answers **"where are we and what's approved"** in a
-single read. Tickets (`NN.md`) hold the *work*; `CONTEXT.md` holds the
+single read. Tickets (`NN.md`) hold the *work*; `GLOSSARY.md` holds the
 *language*; `00-status.md` holds the *state* — so a cold session resumes from
 one file instead of replaying a transcript. (Adapted from the Software Factory
 Playbook's `00-status.md`; keel-dev owns the phases, this is just their ledger.)
@@ -74,7 +81,7 @@ say-so — an agent never marks a gate `approved` on its own.
 
 ## Gates
 - [x] G1 Product   — approved 2026-08-08 (doc: 00-product.md)
-- [x] G2 Spec/Arch — approved 2026-08-08 (docs: CONTEXT.md, spec.md)
+- [x] G2 Spec/Arch — approved 2026-08-08 (docs: GLOSSARY.md, spec.md)
 - [ ] G3 Design    — awaiting approval (doc: issues/)
 - [ ] Ship         — not reached
 
@@ -96,7 +103,7 @@ habit).
 ## Handoff
 To continue big work across sessions, capture state with Pocock `handoff` (or
 `keel-ops` claude-mem) — and for work larger than one context, map it with
-`wayfinder` as investigation tickets on the same `.scratch/` convention.
+`wayfinder` as decision tickets on the same `.scratch/` convention.
 `00-status.md` is the lightweight always-on ledger; `handoff` is the richer
 session-boundary snapshot — the ledger points at the latest handoff, it doesn't
 replace it.

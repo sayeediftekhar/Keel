@@ -31,8 +31,8 @@ deliberate exception.
 ## The pipeline (spine default · power-tools opt-in)
 | Phase | Default (Pocock spine) | Opt-in power-tools | Rigor |
 |---|---|---|---|
-| 0 · Align | `grill` — one Q at a time, look up facts, recommend answers; HEAVY features also write `00-product.md` (problem, success metric, announcement copy, mockup — **no technical language**) | gstack `/office-hours` for product/scope reframes | HEAVY/ambiguous only; FAST skips |
-| 1 · Language | `domain-modeling` → `CONTEXT.md` glossary + ADRs | — | optional, compounding |
+| 0 · Align | `grill-with-docs` — one Q at a time, look up facts, recommend answers; HEAVY features also write `00-product.md` (problem, success metric, announcement copy, mockup — **no technical language**) | gstack `/office-hours` for product/scope reframes | HEAVY/ambiguous only; FAST skips |
+| 1 · Language | `domain-modeling` → `GLOSSARY.md` + ADRs | — | optional, compounding |
 | 2 · Spec | `to-spec` (synthesize conversation → spec) | gstack `/spec` (Codex quality gate) | HEAVY |
 | 3 · Decompose | `to-tickets` → `.scratch/<feat>/issues/NN.md`, tracer-bullet slices + blocking edges (+ expand/contract for wide refactors) | — | HEAVY |
 | 4 · Build | `implement` — ticket-by-ticket, `tdd` at seams | superpowers **autonomous executor** (big approved plans) + worktrees / parallel-agents | HEAVY→strict red-green-refactor; FAST→pragmatic. Autonomy **stops at** commit/deploy gates |
@@ -56,7 +56,7 @@ stop-for-verification apply *at each*):
   never auto-commit). Don't bureaucratize no-surface work.
 
 **Compact at every gate.** Before advancing, consolidate the decisions of the
-phase you're leaving into its doc (product/spec/CONTEXT.md/tickets) and record
+phase you're leaving into its doc (product/spec/GLOSSARY.md/tickets) and record
 approval in `00-status.md` — then the doc *is* the context; a fresh session
 resumes from files, not from the transcript. Calls you're not confident about
 go in `00-status.md` → `Open decisions` so a human resolves them, never a
@@ -70,7 +70,7 @@ silent guess.
 3. **Execution leash.** `implement` is default; the superpowers executor is
    opt-in and runs *within* an approved plan but stops at keel-v2 gates.
 4. **State lives in files** — `.scratch/<feat>/issues/NN.md` tracer-bullet
-   tickets + `CONTEXT.md` glossary + `00-status.md` gate/slice ledger (the
+   tickets + `GLOSSARY.md` + `00-status.md` gate/slice ledger (the
    single "where are we, what's approved" resume file). See
    `conventions/tickets-and-context.md`.
 
