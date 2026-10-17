@@ -24,9 +24,10 @@ name. Always grill before you build.**
 
 ```
 1. Grill me on what we're building.
-2. git submodule add https://github.com/sayeediftekhar/Keel .claude/skills
-   (cd .claude/skills && ./install.sh arbiter)      # keel-v2 rules → CLAUDE.md (idempotent; re-run on update)
-   (cd .claude/skills && ./install.sh dev design)   # only the lanes this project needs
+2. git submodule add https://github.com/sayeediftekhar/Keel .claude/keel
+   (cd .claude/keel && ./install.sh arbiter)        # keel-v2 router + LAWS → CLAUDE.md (idempotent; re-run on update)
+   (cd .claude/keel && ./install.sh dev design)     # only the lanes this project needs (linked into .claude/skills/)
+   (cd .claude/keel && ./install.sh check)          # wiring check
 3. Create DESIGN.md (visual tokens) + CONTEXT.md (voice, terms) — the brand, encoded.
 4. Run graphify on the repo so "how does X work" is cheap later.
 ```
@@ -157,10 +158,10 @@ Notes:
 2. **Use the one-shot FAST block** for anything safe. Don't pay the
    plan→ask→build tax on a landing page.
 3. **Curate per project — don't install every lane.** Each lane taxes every turn.
-4. **Verify, don't trust.** At the human gate, drive the real flow (`/qa`, the
-   `verify` skill) before "done."
-5. **Encode every correction once** — into `CONTEXT.md` or a skill — so you never
-   re-explain it.
+4. **Verify, don't trust.** At the human gate, drive the real flow (`/keel-qa`,
+   `keel-verify`) before "done."
+5. **Encode every correction once** — in its one home (MEMORY-CONTRACT →
+   *Where a lesson goes*) — so you never re-explain it.
 
 ---
 

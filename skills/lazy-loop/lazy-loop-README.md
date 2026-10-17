@@ -34,8 +34,8 @@ then add this umbrella skill on top for the unified `/lazy` toggle.
 claude plugin marketplace add JuliusBrussee/caveman && claude plugin install caveman@caveman
 
 # 3. umbrella skill
-mkdir -p .claude/skills/lazy-loop
-cp lazy-loop-SKILL.md .claude/skills/lazy-loop/SKILL.md
+mkdir -p .claude/skills
+ln -s ../../.claude/keel/skills/lazy-loop .claude/skills/lazy-loop   # or copy SKILL.md there
 ```
 
 If you only want the fused behavior without the two plugins' hooks/commands,

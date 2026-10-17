@@ -1,9 +1,11 @@
 # KEEL v2 — install & use (Fable-friendly)
 
 ## Files
-- `CLAUDE.md` — the router. Drop into project root as-is
-  (or `.keel/CLAUDE.md` and reference it).
+- `CLAUDE.md` — the router.
 - `LAWS.md`   — danger surfaces + invariants + review tripwires.
+- Install both with `./install.sh arbiter` from a consuming project: it writes
+  ONE managed block (router + laws) into the host `CLAUDE.md`. Pasting only
+  `CLAUDE.md` leaves the agent with surface *names* and no definitions.
 - Keep your existing `CONTEXT.md`, `LEARNINGS.md`, `DESIGN.md`.
 
 ## What changed from v1

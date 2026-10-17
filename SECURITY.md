@@ -26,16 +26,18 @@ Primary risks and the controls against them:
 |------|--------|---------|
 | **Instruction injection** | A PR embeds hidden directives in a `SKILL.md` / `CLAUDE.md` (e.g. "exfiltrate secrets", "ignore the human gate") that later run in a user's agent | Branch protection on `main` (no direct pushes, required review); `CODEOWNERS` review; reviewers read instruction files as *code*, not prose |
 | **Installer tampering** | A PR alters `install.sh` to run arbitrary commands or clone a malicious repo | Same review gate; CI runs `bash -n` + the install regression eval on every PR |
-| **Supply-chain (upstreams)** | An upstream Keel routes to is compromised | Keel **references** upstreams, never vendors modified copies; pin to tags/commits where possible; users review what `install.sh` pulls |
+| **Supply-chain (upstreams)** | An upstream Keel routes to is compromised | Keel **references** upstreams, never vendors modified copies. Every git upstream is **pinned to a commit** in `manifest.json` (`ref`); `install.sh` checks that commit out and never floats to HEAD. Pins move only via `./install.sh pin` in a reviewed PR, with the moved upstream's diff read. Marketplace plugins (the Pocock spine) self-update; their names are drift-checked by `evals/upstream-drift.sh`. MCP servers run from `npx -y` packages — pin their versions in your `.mcp.json` too |
 | **Secret leakage** | Real credentials committed instead of the template | `.mcp.json` is gitignored; only `.mcp.json.template` is tracked; CI secret-scan fails the build on obvious key material |
 
 ## What Keel does and does not do
 
 - **Does not** execute arbitrary code on install beyond `git clone` of the
   upstreams you explicitly name. Nothing installs until you name a lane.
-- **Does** write, when run as a submodule, idempotent marker-delimited blocks to
-  the host project's ignore files (and, on `install.sh arbiter`, its `CLAUDE.md`).
-  These are additive and reversible.
+- **Does** write, when run as a submodule, idempotent entries to the host
+  project's `.gitignore` / `.graphifyignore`, `Read(...)` deny rules in
+  `.claude/settings.json`, relative symlinks under `.claude/skills/`, and (on
+  `install.sh arbiter`) a marker-delimited block in `CLAUDE.md`. All additive
+  and reversible.
 - Skills are **instructions** interpreted by *your* agent under *your* human
   gates — Keel's own `keel-v2` arbiter stops before commit/deploy/send.
 
@@ -46,4 +48,4 @@ Primary risks and the controls against them:
 2. Enable **Private Vulnerability Reporting** (Settings → Security).
 3. Never auto-merge. Read every diff to a `SKILL.md` / `CLAUDE.md` / `install.sh`
    as executable instructions, not documentation.
-4. Keep upstream references pinned and review changes to them.
+4. Refresh pins deliberately: `./install.sh pin`, read what each moved upstream changed, then PR. A pin bump is a code review of someone else's repo.
