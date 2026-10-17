@@ -57,7 +57,21 @@ export function plantedCases(policy, projectDir) {
       ...(g.migration.liveSql !== 'allow' ? [{ tool_name: 'mcp__supabase__execute_sql', tool_input: { project_id: liveProject, query: 'UPDATE keel_doctor_probe SET x = 1' } }] : []),
     ], testProject ? [{ tool_name: 'mcp__supabase__apply_migration', tool_input: { project_id: testProject, name: 'probe', query: 'select 1' } }] : []];
   }
-  if (g.secrets.mode === 'block') cases.secrets = [[...(marker ? [bash(`printenv ${marker}`)] : []), bash('printenv'), { tool_name: 'Read', tool_input: { file_path: abs('.env') } }], [bash('printenv HOME')]];
+  // Fake credential shapes for the planted writes, assembled so no literal sits in this source file.
+  const fakeAws = `AK${'IA'}KEELDOCTORPROBE0`;
+  const fakeSk = `sk-${'keeldoctorprobe'}0123456789`;
+  if (g.secrets.mode === 'block') {
+    cases.secrets = [[
+      ...(marker ? [bash(`printenv ${marker}`)] : []), bash('printenv'), { tool_name: 'Read', tool_input: { file_path: abs('.env') } },
+      { tool_name: 'Write', tool_input: { file_path: abs('src/keel-doctor-probe.ts'), content: `const key = "${fakeAws}";\n` } },
+      { tool_name: 'Edit', tool_input: { file_path: abs('README.md'), old_string: 'x', new_string: `token: ${fakeSk}` } },
+      bash(`echo "${fakeAws}" > src/keel-doctor-probe.ts`),
+    ], [
+      bash('printenv HOME'),
+      { tool_name: 'Write', tool_input: { file_path: abs('src/keel-doctor-probe.ts'), content: 'const key = process.env.STRIPE_KEY;\n' } },
+      { tool_name: 'Write', tool_input: { file_path: abs('.env.local'), content: `STRIPE_KEY=${fakeSk}\n` } },
+    ]];
+  }
   if (g.governance.mode === 'block') cases.governance = [[{ tool_name: 'Edit', tool_input: { file_path: abs('keel.policy.json') } }, { tool_name: 'Write', tool_input: { file_path: abs('.claude/settings.json') } }, bash('rm -f .keel/policy.lock.json')], [{ tool_name: 'Edit', tool_input: { file_path: abs('src/keel-doctor-probe.ts') } }]];
   if (g.deploy.mode === 'approver' && g.deploy.commands.length) cases.deploy = [[bash(g.deploy.commands[0])], [bash('echo deploy')]];
   if (g.ledger.mode === 'block') {

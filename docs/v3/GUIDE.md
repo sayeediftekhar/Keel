@@ -225,7 +225,7 @@ Every block says which gate and what to do instead. The common ones:
 | `[merge] … without --auto` | `gh pr merge --auto`. |
 | `[migration] … not in any approved batch` | Create a batch and get the PR merged. |
 | `[migration] … verified on GitHub, and that failed` | Check network and `gh auth status`; the gate fails closed when it can't see GitHub. |
-| `[secrets] …` | Use a test credential; don't print or read the live one. |
+| `[secrets] …` | Use a test credential; don't print or read the live one. If it blocked a *write*, the file would have contained a real-looking key: read it from an env var instead and keep the value in `.env.local`. |
 | `[governance] …` | Only the approver changes Keel's files: edit the policy, `keel compile`, PR. |
 | `[ledger] gate G3 … can only be approved by the human` | Review the spec/tickets, then `keel approve <feature> G3 "<why>"` in your terminal. |
 | `[ledger] … Blocked on: human approval` | Approve the gate (above), or park the feature by setting `**Blocked on:** paused` in its ledger. |
