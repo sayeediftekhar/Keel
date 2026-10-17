@@ -10,7 +10,8 @@ keeps full ceremony for correctness-critical work.
 **No-artifact lane:** tasks that produce no diff (questions, audits,
 explanations) have no lane. Answer directly — no plan, no branch, no tripwires.
 
-For tasks that produce a diff, scan the NINE DANGER SURFACES (see LAWS.md):
+For tasks that produce a diff, scan the NINE DANGER SURFACES (defined in
+LAWS.md — `install.sh arbiter` appends LAWS to this block, so look below):
 value · scope/tenancy · PII · access/auth · agent-autonomy · irreversibility
 · scale · schema/migration · secrets.
 
@@ -42,7 +43,8 @@ Rules:
    produce options — and even then produce ONE default and note 1-2 alts in
    prose, don't stop.
 3. **Review happens in-turn, not as a separate pass.** After building, run the
-   /review tripwires (LAWS.md §review) and report pass/fail inline. No new turn.
+   /review tripwires (LAWS.md §review, appended below this router) and report
+   pass/fail inline. No new turn.
 4. **Never auto-commit.**
    - Git repo: build on a named branch, state the branch name, stop. The
      human commits.
@@ -87,16 +89,18 @@ Any surface hit → declaration void: reject, name the surface, flip HEAVY.
 ------------------------------------------------------------------------
 ## 4. Context economy (Fable-friendly loading)
 
-HEAVY loads the full pack (LAWS, CONTEXT, LEARNINGS). FAST does NOT.
+HEAVY loads the full pack (LAWS, CONTEXT, LEARNINGS, the feature's
+`00-status.md`). FAST does NOT.
 
 - FAST lane loads only: this router + the named Authorities. Nothing else.
 - Do not reload LEARNINGS/CONTEXT on a FAST task — they don't apply to
   no-surface work and only burn input tokens.
-- Keep this file lean; put the long danger-surface definitions in LAWS.md and
-  only pull them when a surface is yes.
+- Keep this file lean; the surface definitions, invariants and tripwires live
+  in LAWS.md. LAWS travels with this router (installed as one block), so it
+  is always available — read its definitions only when a surface may be yes.
 
 **Memory protocol (load pointers, not payloads).** Full rules in Keel's
-`MEMORY-CONTRACT.md` (`.claude/skills/MEMORY-CONTRACT.md`). Two that always apply:
+`MEMORY-CONTRACT.md` (`.claude/keel/MEMORY-CONTRACT.md`). Two that always apply:
 - **Session start:** load only the `memory.md` *index* + claude-mem *search
   index* + this router. NOT the graphify graph, NOT episode bodies, NOT doc
   contents — pull those only once the task names a target.
@@ -125,7 +129,8 @@ you reach for one by name; this arbiter names which fits. Dev conductor is
 `keel-dev`. Others: `keel-design`, `keel-marketing`, `keel-content`,
 `keel-research`, `keel-secure`, `keel-ops`, `keel-finance`*, `keel-legal`*
 (* optional verticals). For a new project or feature, **START with a grill
-session** (align before build), then bring out the lane.
+session** (Pocock `grill-with-docs` for code, `grill-me` otherwise: align
+before build), then bring out the lane.
 
 **Comprehension = graphify-first.** To understand a codebase — how X works, what
 depends on Y, data flow, blast radius, architecture — query **graphify**

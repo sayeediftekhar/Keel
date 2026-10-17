@@ -27,14 +27,30 @@ present."
 |---|---|---|---|
 | Write/review code for vulnerabilities (injection, authz, secrets, SSRF, XSS) | `VibeSec-Skill` | skill | BehiSecc/VibeSec-Skill |
 
+## Two moments, not one
+**Design time (G2 Spec).** Security enters before tickets exist: keel-dev's
+`spec.md` §Threat model (conventions §4) lists every trust boundary with its
+STRIDE-lite threats, the LAWS invariant that answers each, the two enforcement
+layers, and the slice that carries them. This lane reviews that table at G2
+(the built-in `/security-review` is the opt-in second pass for it). A boundary with no row is a
+finding.
+
+**Build time (5b).** The scan over the diff, checked *against* that table.
+
 ## Gate rule (how it plugs into keel-v2)
 1. `keel-dev` (or any lane) produces a change touching a trust boundary.
 2. Route here → run `VibeSec-Skill` over the diff.
 3. Map each finding to a keel-v2 invariant (server-enforces, identity-from-
    session, exact-money, immutable-records). A finding with only one
    enforcement layer present = **PARTIAL, not done** (keel-v2 LAWS).
-4. Unresolved high-severity finding = block the commit gate. Upgrading rigor
+4. Walk the §Threat model rows for the slices in this diff: each mitigation
+   must be *visible in the code*, both layers. A row whose slice shipped
+   without it = finding, same severity as the threat.
+5. Unresolved high-severity finding = block the commit gate. Upgrading rigor
    is yours to enforce; downgrading is only the human's explicit call.
+6. Report with `keel-verify` shape: the scanner's actual output (or "manual,
+   no scanner" when VibeSec isn't installed), never a summary that claims
+   more than it shows.
 
 ## If the target isn't installed
 Do **not** silently skip the security pass. Say VibeSec isn't installed, run

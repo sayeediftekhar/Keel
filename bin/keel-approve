@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# keel-approve — the HUMAN flips a gate in a feature's ledger.
+#
+#   .claude/keel/bin/keel-approve <feature-slug> <G1|G2|G3|Ship> "<why / your words>"
+#
+# Run this in your own terminal. Keel's hooks block the agent from running it
+# or from checking a gate box itself, which is what makes an "[x]" in the
+# ledger mean a person approved it.
+set -euo pipefail
+
+usage() { echo "usage: keel-approve <feature-slug> <G1|G2|G3|Ship> \"<your words>\"" >&2; exit 64; }
+[ $# -eq 3 ] || usage
+feat="$1"; gate="$2"; words="$3"
+case "$gate" in G1|G2|G3|Ship) ;; *) usage ;; esac
+
+root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+ledger="$root/.scratch/$feat/00-status.md"
+[ -f "$ledger" ] || { echo "! no ledger at $ledger" >&2; exit 66; }
+
+if ! grep -qE "^- \[ \] $gate([^A-Za-z0-9]|$)" "$ledger"; then
+  if grep -qE "^- \[[xX]\] $gate([^A-Za-z0-9]|$)" "$ledger"; then echo "= $gate already approved in $ledger"; exit 0; fi
+  echo "! no unchecked '- [ ] $gate' line in $ledger" >&2; exit 65
+fi
+
+who="${KEEL_APPROVER:-$(git config user.name 2>/dev/null || echo "$USER")}"
+when="$(date +%F)"
+tmp="$(mktemp)"
+# Flip the box, replace any "awaiting approval"/"not reached" note with the provenance,
+# and keep the trailing "(docs: …)" part if present.
+awk -v g="$gate" -v who="$who" -v when="$when" -v words="$words" '
+  !done && ($0 ~ ("^- \\[ \\] " g "( |$)")) {
+    line=$0; docs=""
+    i=index(line, "(doc");  if (i>0) { docs=substr(line, i); line=substr(line, 1, i-1) }
+    j=index(line, " — ");   if (j>0) { line=substr(line, 1, j-1) }
+    sub(/^- \[ \] /, "- [x] ", line)
+    sub(/[ \t]+$/, "", line)
+    printf "%s — approved %s by %s: \"%s\"%s%s\n", line, when, who, words, (docs==""?"":"  "), docs
+    done=1; next }
+  { print }
+' "$ledger" > "$tmp"
+mv "$tmp" "$ledger"
+
+# If the ledger was blocked on this gate, unblock it.
+if grep -qE "\*\*Blocked on:\*\*[[:space:]]*human approval \($gate\)" "$ledger"; then
+  sed -i.bak -E "s/(\*\*Blocked on:\*\*[[:space:]]*)human approval \($gate\)/\1nothing/" "$ledger" && rm -f "$ledger.bak"
+fi
+echo "+ $gate approved in $ledger by $who"
+grep -E "^- \[[xX ]\] (G[123]|Ship)\b|\*\*Blocked on:\*\*" "$ledger"

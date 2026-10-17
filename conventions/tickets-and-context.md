@@ -78,24 +78,26 @@ glossary inside `CONTEXT.md` — move that section into `GLOSSARY.md` so
 One file per feature that answers **"where are we and what's approved"** in a
 single read. Tickets (`NN.md`) hold the *work*; `GLOSSARY.md` holds the
 *language*; `00-status.md` holds the *state* — so a cold session resumes from
-one file instead of replaying a transcript. (Adapted from the Software Factory
-Playbook's `00-status.md`; keel-dev owns the phases, this is just their ledger.)
+one file instead of replaying a transcript. (The `00-status.md` ledger and the
+"park uncertain decisions for a human" habit are adapted from the Software
+Factory Playbook pattern; keel-dev owns the phases, this is just their ledger.)
 
-It tracks two things: which **phase gates** are approved (see keel-dev §Gates),
-and which **slices** are done. Human approval is recorded here, by the human's
-say-so — an agent never marks a gate `approved` on its own.
+It tracks two things: which **gates** are approved (the four named in keel-dev
+§Gates: `G1 Align`, `G2 Spec`, `G3 Plan`, `Ship` — use these names verbatim,
+tooling parses them), and which **slices** are done. Human approval is recorded
+here, by the human's say-so — an agent never marks a gate `[x]` on its own.
 
 ```
 # <Feature> — Status
 
-**Rigor:** FAST | HEAVY — <one-line reason from keel-v2 scan>
-**Current phase:** <n · name>   **Blocked on:** <human approval | ticket NN | nothing>
+**Rigor:** HEAVY — <one-line reason from keel-v2 scan>
+**Current phase:** 3 · Decompose   **Blocked on:** human approval (G3)
 
 ## Gates
-- [x] G1 Product   — approved 2026-08-08 (doc: 00-product.md)
-- [x] G2 Spec/Arch — approved 2026-08-08 (docs: GLOSSARY.md, spec.md)
-- [ ] G3 Design    — awaiting approval (doc: issues/)
-- [ ] Ship         — not reached
+- [x] G1 Align — approved <date> by <human>: "<their words>"  (docs: 00-product.md, GLOSSARY.md)
+- [x] G2 Spec  — approved <date> by <human>: "<their words>"  (docs: spec.md §Architecture, §Threat model)
+- [ ] G3 Plan  — awaiting approval  (docs: issues/)
+- [ ] Ship     — not reached
 
 ## Slices
 - [x] 01 — <title>
@@ -105,12 +107,67 @@ say-so — an agent never marks a gate `approved` on its own.
 - <uncertain call not yet made, and who/what resolves it>
 ```
 
+Field rules (machine-read by `bin/keel-approve` and the v3 ledger gate):
+- `**Rigor:**` is `FAST` or `HEAVY`, first word after the label.
+- `**Blocked on:**` is one of `human approval (G1|G2|G3|Ship)`, `ticket NN`,
+  `nothing`, or `paused` (a feature parked while another is worked).
+- A gate line starts `- [ ] ` or `- [x] ` followed by the gate name. An
+  approved line carries the date, the approver and their quoted words.
+  `bin/keel-approve <feature> <gate> "<why>"`, run by the human, writes it.
+
 Rules: **one ledger per feature**, updated at every gate boundary and slice
-completion. FAST features keep it to a stub (rigor line + slice checklist +
-ship gate) — don't bureaucratize no-surface work. The `Open decisions` list is
-where a phase parks calls it isn't confident about, so they surface for a human
-instead of being silently guessed (the Software Factory "uncertain decisions"
-habit).
+completion. **When to create one:** HEAVY work, or two or more slices, or work
+that will span sessions. **Never for one-turn FAST work** — that is the FAST
+lane's whole point. A FAST ledger is a stub (rigor line + slices + Ship).
+**`.scratch/` is committed**, not gitignored: it is the feature's decision
+record and the file a fresh clone resumes from (in tracker mode the tickets
+live on the board, the ledger still lives here). The `Open decisions` list is
+where a phase parks calls it isn't confident about, so they surface for a
+human instead of being silently guessed.
+
+## 4. Spec with architecture + threat model — `.scratch/<feature-slug>/spec.md`
+
+What the human approves at **G2 Spec**. `to-spec` writes the behaviour; on
+HEAVY, keel-dev adds the two sections below *before* G2 so that tickets carry
+the mitigations and the security pass in 5b has something to check against.
+"System design" is not a label on a gate; it is these sections.
+
+```
+# <Feature> — Spec
+
+## Behaviour
+<what to-spec produced: user-facing behaviour, acceptance, out of scope>
+
+## Architecture
+**Components** — each new/changed component, one line: responsibility + owner module.
+**Data flow** — the request path(s), as a list or a diagram: entry → validation →
+  authz → domain → storage → response. Mark every **trust boundary** (⚠) where
+  data crosses from less-trusted to more-trusted (client→server, tenant A→shared,
+  external API→us, user input→query).
+**State & schema** — tables/records touched, new vs changed, migration shape
+  (expand→migrate→contract if live rows).
+**Failure modes** — what breaks if each dependency is slow/down/wrong; the
+  behaviour chosen (fail closed / retry / degrade) and why.
+**Decisions** — ADR one-liners (context → decision → consequence); durable ones
+  go to their home (MEMORY-CONTRACT → *Where a lesson goes*).
+
+## Threat model
+One row per ⚠ trust boundary above. STRIDE-lite: Spoofing · Tampering ·
+Repudiation · Info disclosure · Denial · Elevation.
+
+| Boundary | Threat | LAWS invariant / surface | Mitigation (both layers) | Carried by slice |
+|---|---|---|---|---|
+| client → /invoices POST | tampered total (T) | exact money (1) | server recomputes from line items (decimal) + UI shows server total | 02 |
+| request → tenant filter | cross-tenant read (I, E) | identity-from-session (2/4) | session tenant bound in WHERE + request tenant id rejected | 01 |
+
+Rules: a boundary with no row is a finding, not an omission. Every mitigation
+names **both** enforcement layers (LAWS: one layer = PARTIAL). The "carried by"
+column is checked at 5b: a threat whose slice shipped without its mitigation
+blocks the Ship gate.
+```
+
+FAST work has no spec.md; HEAVY work without §Architecture and §Threat model
+has not reached G2.
 
 ## Handoff
 To continue big work across sessions, capture state with Pocock `handoff` (or
