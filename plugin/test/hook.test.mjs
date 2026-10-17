@@ -134,6 +134,21 @@ test('Bash live push: local migrations must match the remote; edits void approva
   assert.match(r.err, /differ from the default branch|no longer matches/);
 });
 
+test('keel batch create: project-relative paths through a symlinked dir; files outside the project refused', () => {
+  const { dir, root } = makeRepo();
+  const link = path.join(root, 'link');
+  fs.symlinkSync(dir, link);
+  write(dir, 'supabase/migrations/0001_fee.sql', 'ALTER TABLE fees ADD COLUMN a int;\n');
+  // --dir through the symlink, cwd on the real path (what macOS /var vs /private/var does)
+  execFileSync(process.execPath, [KEEL, 'batch', 'create', 'b1', 'supabase/migrations/0001_fee.sql', '--dir', link], { cwd: fs.realpathSync(dir) });
+  const b = JSON.parse(fs.readFileSync(path.join(dir, '.keel/approvals/b1.json'), 'utf8'));
+  assert.equal(b.migrations[0].file, 'supabase/migrations/0001_fee.sql');
+  write(root, 'outside.sql', 'DROP TABLE users;\n');
+  const r = spawnSync(process.execPath, [KEEL, 'batch', 'create', 'b2', path.join(root, 'outside.sql'), '--dir', dir], { cwd: dir, encoding: 'utf8' });
+  assert.notEqual(r.status, 0);
+  assert.match(r.stderr, /outside the project/);
+});
+
 test('GitHub unreachable → live migration blocked (fail closed)', async () => {
   const { dir } = makeRepo();
   process.env.CLAUDE_PROJECT_DIR = dir;

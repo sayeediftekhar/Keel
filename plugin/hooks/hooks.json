@@ -1,5 +1,5 @@
 {
-  "description": "Keel v3 gates: block pushes to protected branches, immediate merges, unapproved live migrations, credential reads, governance-file edits and production deploys. Each gate fails closed.",
+  "description": "Keel v3 gates: block pushes to protected branches, immediate merges and PR self-approvals, unapproved live migrations, credential reads, governance-file edits and production deploys. Each gate fails closed.",
   "hooks": {
     "PreToolUse": [
       {

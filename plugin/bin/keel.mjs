@@ -67,10 +67,16 @@ try {
         if (!id || !/^[\w.-]+$/.test(id) || !files.length) die('usage: keel batch create <id> <migration files…> [--hours N]', 2);
         const out = path.join(projectDir, '.keel/approvals', `${id}.json`);
         if (fs.existsSync(out)) die(`batch ${id} already exists; pick a new id.`);
+        // Paths are recorded relative to the project's real path: cwd and --dir can
+        // differ by a symlink (macOS /var → /private/var), and the gate joins this
+        // path onto the project dir it resolves at run time.
+        const root = fs.realpathSync(projectDir);
         const migrations = files.map((f, i) => {
-          const rel = path.relative(projectDir, path.resolve(process.cwd(), f)).split(path.sep).join('/');
-          const abs = path.join(projectDir, rel);
-          if (!fs.existsSync(abs)) die(`${rel} not found`);
+          const given = path.resolve(process.cwd(), f);
+          if (!fs.existsSync(given)) die(`${f} not found`);
+          const abs = fs.realpathSync(given);
+          const rel = path.relative(root, abs).split(path.sep).join('/');
+          if (rel.startsWith('..') || path.isAbsolute(rel)) die(`${f} is outside the project (${root})`);
           return { file: rel, sha256: contentSha(fs.readFileSync(abs, 'utf8')), order: i + 1 };
         });
         const batch = { batch: id, target: 'live', expires: new Date(Date.now() + hours * 3600e3).toISOString(), migrations };

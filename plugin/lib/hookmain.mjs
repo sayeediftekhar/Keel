@@ -6,12 +6,16 @@ import { makeEnv, fetchGithubRemote, gitToplevel, registry, register } from './r
 
 /** Which projects does this tool call touch? The session's project and the git toplevel of cwd. */
 function candidates(event) {
+  // One real path per project: CLAUDE_PROJECT_DIR may be spelled through a
+  // symlink while git reports the resolved path, and both must evaluate (and
+  // register) as the same project.
+  const real = (p) => { try { return fs.realpathSync(p); } catch { return p; } };
   const out = [];
   const pd = process.env.CLAUDE_PROJECT_DIR;
-  if (pd) out.push(pd);
+  if (pd) out.push(real(pd));
   const top = event.cwd && fs.existsSync(event.cwd) ? gitToplevel(event.cwd) : null;
-  if (top && !out.includes(top)) out.push(top);
-  if (!out.length) out.push(event.cwd || process.cwd());
+  if (top && !out.includes(real(top))) out.push(real(top));
+  if (!out.length) out.push(real(event.cwd || process.cwd()));
   return out;
 }
 

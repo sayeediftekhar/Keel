@@ -118,7 +118,7 @@ const readOr = (file, fallback = '') => { try { return fs.readFileSync(file, 'ut
 export function syncArbiter(projectDir) {
   const file = claudeMd(projectDir);
   const before = readOr(file);
-  const had = ARB_BEGIN_RE.test(before) || before.split('\n').some((l) => ARB_BEGIN_RE.test(l));
+  const had = before.split('\n').some((l) => ARB_BEGIN_RE.test(l));
   const stripped = stripBlock(before, ARB_BEGIN_RE, ARB_END);
   // Keep the authorization block after the rules: strip it, append rules, then re-append it.
   const auth = extractBlock(stripped, AUTH_BEGIN_RE, AUTH_END);

@@ -51,7 +51,7 @@ export function plantedCases(policy, projectDir) {
   const abs = (rel) => path.join(projectDir, rel);
   const cases = {};
   if (g.push.mode === 'block') cases.push = [[bash(`git push origin ${b0}`), bash(`git push origin HEAD:${b0}`), { tool_name: 'mcp__github__push_files', tool_input: { branch: b0 } }], [bash('git push origin keel-doctor/probe')]];
-  if (g.merge.agent !== 'allow') cases.merge = [[bash('gh pr merge 1 --squash'), bash('gh pr merge 1 --auto --admin'), { tool_name: 'mcp__github__merge_pull_request', tool_input: { pullNumber: 1 } }], g.merge.agent === 'auto-merge-only' ? [bash('gh pr merge 1 --auto --squash')] : []];
+  if (g.merge.agent !== 'allow') cases.merge = [[bash('gh pr merge 1 --squash'), bash('gh pr merge 1 --auto --admin'), bash('gh pr review 1 --approve'), { tool_name: 'mcp__github__merge_pull_request', tool_input: { pullNumber: 1 } }], [bash('gh pr review 1 --comment -b "looks fine"'), ...(g.merge.agent === 'auto-merge-only' ? [bash('gh pr merge 1 --auto --squash')] : [])]];
   if (g.migration.live !== 'allow') {
     cases.migration = [[
       { tool_name: 'mcp__supabase__apply_migration', tool_input: { project_id: liveProject, name: 'keel_doctor_probe', query: probeSql } },

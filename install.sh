@@ -69,7 +69,11 @@ keel_rel_path() { # <host-root>
 host_root() {
   local h
   h="$(git -C "$ROOT" rev-parse --show-superproject-working-tree 2>/dev/null || true)"
-  [ -n "$h" ] && (cd "$h" && pwd -P)
+  # Prints nothing but still returns 0 when Keel is not a submodule: callers
+  # assign `host="$(host_root)"` under set -e, so a non-zero return would abort
+  # the script before their "~ not a submodule" message.
+  if [ -n "$h" ]; then (cd "$h" && pwd -P); fi
+  return 0
 }
 
 scaffold_mcp() {

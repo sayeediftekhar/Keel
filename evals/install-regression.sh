@@ -166,6 +166,13 @@ rm -f "$H1/.claude/skills/dangling"; rmdir "$H1/.claude/skills/bogus-link-target
 out="$(drive_fn "$H1/.claude/keel" check_host)"
 if printf '%s' "$out" | grep -q "ok   /keel-secure"; then ok "check lists /keel-secure as discoverable"; else bad "check output should list /keel-secure"; fi
 
+# ---------------------------------------------------------------------------
+echo "[9] outside a submodule the shipped script explains instead of dying (set -e vs host_root)"
+out="$(cd "$S" && bash ./install.sh arbiter 2>&1)"; rc=$?
+if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q "isn't a submodule"; then ok "arbiter standalone exits 0 with the skip note"; else bad "arbiter standalone: rc=$rc out='$out'"; fi
+out="$(cd "$S" && bash ./install.sh check 2>&1)"; rc=$?
+if [ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q "runs from a consuming project"; then ok "check standalone exits 1 with its message"; else bad "check standalone: rc=$rc out='$out'"; fi
+
 echo
 echo "----------------------------------------"
 printf 'passed: %d   failed: %d\n' "$PASS" "$FAIL"

@@ -133,11 +133,19 @@ function governanceTargets(cmd) {
   const optVal = (names) => { for (let i = 0; i < args.length; i++) { for (const n of names) { if (args[i] === n) return args[i + 1]; if (args[i].startsWith(`${n}=`)) return args[i].slice(n.length + 1); } } return undefined; };
   const t = [...cmd.redirects];
   if (['rm', 'unlink', 'rmdir', 'truncate', 'chmod', 'chown', 'chgrp', 'touch', 'shred', 'tee', 'mkdir'].includes(prog)) t.push(...nonFlags);
-  if (prog === 'mv') t.push(...nonFlags);
   if (['cp', 'install', 'rsync', 'ln', 'mv'].includes(prog)) {
     const dir = optVal(['-t', '--target-directory']);
-    if (dir) t.push(dir, ...nonFlags.filter((a) => a !== dir).map((src) => path.join(dir, base(src))));
-    else t.push(...nonFlags.slice(-1));
+    const srcs = dir ? nonFlags.filter((a) => a !== dir) : nonFlags.slice(0, -1);
+    const dest = dir ?? nonFlags[nonFlags.length - 1];
+    if (prog === 'mv') t.push(...srcs); // moving a governed file away changes it
+    if (dest !== undefined) {
+      // A tree copy can carry anything, so the directory it lands in is the target.
+      // A file copy lands at <dest>/<name> (or at <dest> itself when that is a
+      // file), never on the directory around it: `cp notes.txt .` is not an edit
+      // of the governance files that live in `.`.
+      const tree = prog === 'rsync' || srcs.some((s) => s.endsWith('/')) || args.some((a) => a === '--recursive' || a === '--archive' || /^-[a-zA-Z]*[rRa]/.test(a));
+      t.push(tree ? dest : { path: dest, exact: true }, ...srcs.map((s) => path.join(dest, base(s))));
+    }
   }
   if (prog === 'dd') for (const a of args) if (a.startsWith('of=')) t.push(a.slice(3));
   if ((prog === 'sed' || prog === 'perl' || prog === 'ruby') && args.some((a) => /^-[a-zA-Z]*i/.test(a) || a.startsWith('--in-place'))) t.push(...nonFlags);
@@ -164,18 +172,21 @@ function governanceBash(cmd, cwd, ctx) {
   return d.allow ? null : d;
 }
 
+/** A target is a path string, or { path, exact } when only the path itself (not a directory holding governed files) counts. */
+const targetPath = (t) => (typeof t === 'string' ? t : t?.path);
+
 function governance(targets, cwd, ctx) {
   if (ctx.policy.gates.governance.mode !== 'block') return ALLOW;
   for (const t of targets) {
-    if (!t) continue;
-    const hit = governedPath(t, cwd, ctx);
+    if (!targetPath(t)) continue;
+    const hit = governedPath(targetPath(t), cwd, ctx, { exact: typeof t === 'object' && t.exact });
     if (hit) return block('governance', `${hit} is (or contains) a Keel governance file. Agents can't change their own gates; the approver edits keel.policy.json and runs \`keel compile\`.`);
   }
   return ALLOW;
 }
 
-/** Is `target` a governed file, or a directory containing one? Symlinks resolved, case-insensitive. */
-function governedPath(target, cwd, ctx) {
+/** Is `target` a governed file, or (unless exact) a directory containing one? Symlinks resolved, case-insensitive. */
+function governedPath(target, cwd, ctx, { exact = false } = {}) {
   const real = (p) => safe(() => ctx.env.realpath?.(p), null) ?? p;
   const abs = real(path.resolve(cwd, expandHome(target)));
   const low = (s) => s.toLowerCase();
@@ -190,6 +201,7 @@ function governedPath(target, cwd, ctx) {
     const rel = path.relative(projectReal, abs).split(path.sep).join('/');
     if (rel.startsWith('..') || path.isAbsolute(rel)) continue;
     if (matchesAny(low(rel), [low(g)])) return rel;
+    if (exact) continue;
     // a directory (or the project root) that holds governed files
     const literalPrefix = g.split('*')[0].replace(/\/$/, '');
     if (rel === '' || low(literalPrefix).startsWith(`${low(rel)}/`)) return rel || '.';
@@ -219,8 +231,9 @@ function ledgerBlock(what) { return block('ledger', what); }
 /** Project-relative POSIX path of a tool target, or null when outside the project. */
 function relToProject(target, cwd, ctx) {
   if (!target) return null;
-  const abs = path.resolve(cwd, expandHome(target));
-  const rel = path.relative(ctx.projectDir, abs).split(path.sep).join('/');
+  const real = (p) => safe(() => ctx.env.realpath?.(p), null) ?? p;
+  const abs = real(path.resolve(cwd, expandHome(target)));
+  const rel = path.relative(real(ctx.projectDir), abs).split(path.sep).join('/');
   if (rel.startsWith('..') || path.isAbsolute(rel)) return null;
   return rel;
 }
@@ -278,7 +291,7 @@ function ledgerBash(cmd, cwd, ctx) {
   if (isKeel) return ledgerBlock('`keel approve` is run by the human in their own terminal, never by the agent. Say which gate you are waiting on and stop.');
   // Shell rewrites of a ledger (redirection, sed -i, tee, mv/cp/rm, …) bypass the Edit-tool check above.
   for (const t of governanceTargets(cmd)) {
-    const rel = relToProject(t, cwd, ctx);
+    const rel = relToProject(targetPath(t), cwd, ctx);
     if (isLedgerPath(rel, ctx)) return ledgerBlock(`${rel} is a feature ledger: edit it with the Edit tool (gate boxes stay human-only), never rewrite it from the shell.`);
   }
   return null;
@@ -627,6 +640,13 @@ function mergeBash(cmd, ctx) {
     if (!auto) return mergeBlock('`gh pr merge` without --auto');
     return null;
   }
+  // Approving is the approver's act. While the agent's `gh` runs on a human's
+  // token (before the GitHub App is wired, or in a cloud session) an approval
+  // from here would satisfy keel-rigor and the code-owner review as that human.
+  const approveBlock = block('merge', 'approving a pull request is the approver\'s act, done in their own session; an agent never approves (it would count as the human\'s review). Ask for the review and stop.');
+  if (prog === 'gh' && a[0] === 'pr' && a[1] === 'review' && a.some((x) => x === '--approve' || x === '-a')) return approveBlock;
+  if (prog === 'gh' && a[0] === 'api' && /\/pulls\/\d+\/reviews\b|addPullRequestReview|submitPullRequestReview/.test(a.join(' ')) && /\bAPPROVE\b/.test(a.join(' '))) return approveBlock;
+  if (['curl', 'wget', 'http', 'https'].includes(prog) && /api\.github\.com\S*(\/pulls\/\d+\/reviews\b|graphql)/.test(a.join(' ')) && /\bAPPROVE\b/.test(a.join(' '))) return approveBlock;
   if (prog === 'gh' && a[0] === 'alias' && a[1] === 'set' && /pr\s+merge|merge_pull|\bpush\b/.test(a.slice(2).join(' '))) {
     return block('merge', 'a gh alias that wraps `pr merge` or `push` would hide the action from the gate. Use the commands directly.');
   }
