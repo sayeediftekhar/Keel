@@ -1,13 +1,19 @@
 // keel init: everything a new (or existing) project needs before `keel compile`.
 //
 //   1. a starter keel.policy.json (never overwritten);
-//   2. the always-on rules — the keel-v2 router + LAWS — as ONE marker-managed
-//      block in the project's CLAUDE.md (replaced in place on re-run; the same
-//      block `install.sh arbiter` writes in the submodule layout);
+//   2. the always-on rules as ONE marker-managed block in the project's
+//      CLAUDE.md (replaced in place on re-run): Keel's Tier-1 router only —
+//      lane rule, surface names, rigor lines, invariant names, authorities
+//      index, truth order — plus one @docs/INDEX.md import (D20a). The full
+//      router and LAWS load on demand through the keel-v2 skill;
 //   3. the standing authorization + precedence block in CLAUDE.md (D1/D6:
 //      FAST ends as an auto-merging PR, HEAVY waits for the approver);
 //   4. the project files Keel's pipeline reads — CONTEXT.md, GLOSSARY.md,
-//      CODING_STANDARDS.md, DESIGN.md, .scratch/ — scaffolded only if absent.
+//      CODING_STANDARDS.md, DESIGN.md, LAWS.md, LEARNINGS.md, docs/INDEX.md,
+//      docs/ARCHITECTURE.md, .scratch/ — scaffolded only if absent.
+//
+// Budget (lean-context Tier 1): what init writes into CLAUDE.md, with its
+// import, stays within ~80 lines and ~1.5k tokens; test/init.test.mjs holds it.
 //
 // The plugin root is the repository root (marketplace source "."), so the
 // rules and templates ship with the plugin and are read from here.
@@ -19,16 +25,18 @@ import { POLICY_FILE, readPolicyFile } from './policy.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const KEEL_ROOT = path.join(HERE, '..', '..');
-export const ARBITER = path.join(KEEL_ROOT, 'skills', 'keel-v2', 'CLAUDE.md');
-export const LAWS = path.join(KEEL_ROOT, 'skills', 'keel-v2', 'LAWS.md');
 export const TEMPLATES = path.join(KEEL_ROOT, 'plugin', 'templates');
+export const TIER1 = path.join(TEMPLATES, 'keel-tier1.md');
+export const INDEX_IMPORT = '@docs/INDEX.md';
 export const STANDARDS_TEMPLATE = path.join(KEEL_ROOT, 'conventions', 'CODING_STANDARDS.template.md');
 
 // One marker vocabulary for both installers; any older "keel-v2 arbiter" block is replaced too.
-export const ARB_BEGIN = '# >>> keel-v2 arbiter (managed by Keel — keel init / install.sh arbiter) — do not edit between markers >>>';
+export const ARB_BEGIN =
+  '# >>> keel-v2 arbiter (managed by Keel — keel init / install.sh arbiter) — do not edit between markers >>>';
 export const ARB_END = '# <<< keel-v2 arbiter <<<';
 const ARB_BEGIN_RE = /^# >>> keel-v2 arbiter .*>>>\s*$/;
-export const AUTH_BEGIN = '# >>> keel standing authorization (managed by `keel init`) — do not edit between markers >>>';
+export const AUTH_BEGIN =
+  '# >>> keel standing authorization (managed by `keel init`) — do not edit between markers >>>';
 export const AUTH_END = '# <<< keel standing authorization <<<';
 const AUTH_BEGIN_RE = /^# >>> keel standing authorization .*>>>\s*$/;
 
@@ -41,7 +49,10 @@ export const STARTER_POLICY = {
     value: ['lib/money/**'], scope: [], pii: [], access: ['lib/auth/**', 'middleware.ts'],
     schema: ['supabase/migrations/**', 'prisma/migrations/**'], secrets: ['.env*'],
   },
-  environments: { live: { markers: ['DATABASE_URL'], supabaseProjectIds: [] }, test: { supabaseProjectIds: [], guardFile: null } },
+  environments: {
+    live: { markers: ['DATABASE_URL'], supabaseProjectIds: [] },
+    test: { supabaseProjectIds: [], guardFile: null },
+  },
   backPressure: ['typecheck', 'unit', 'build'],
   checks: { typecheck: 'npx tsc --noEmit', unit: 'npm test', build: 'npm run build' },
 };
@@ -63,50 +74,40 @@ function appendBlock(text, block) {
   return `${head ? `${head}\n\n` : ''}${block}\n`;
 }
 
-/** The always-on rules: locator + router + laws, one block. */
-export function arbiterBlock() {
-  const router = fs.readFileSync(ARBITER, 'utf8').replace(/\s+$/, '');
-  const laws = fs.readFileSync(LAWS, 'utf8').replace(/\s+$/, '');
+/** The always-on rules: Keel's Tier-1 router, and the docs index import unless the project has its own. */
+export function arbiterBlock({ importIndex = true } = {}) {
+  const router = fs.readFileSync(TIER1, 'utf8').replace(/\s+$/, '');
   return [
     ARB_BEGIN,
-    '<!-- Keel rules ship with the `keel` plugin: lanes are /keel:keel-dev, /keel:keel-design, /keel:keel-marketing, /keel:keel-content, /keel:keel-research, /keel:keel-secure, /keel:keel-ops (+ keel-finance, keel-legal); conventions/ and MEMORY-CONTRACT.md live in the plugin directory. Re-run `keel init` after updating the plugin to refresh this block. -->',
-    '',
+    '<!-- From the `keel` plugin; `keel init` refreshes it after a plugin update. -->',
     router,
-    '',
-    laws,
+    ...(importIndex ? ['', INDEX_IMPORT] : []),
     ARB_END,
   ].join('\n');
 }
 
 /** The standing authorization + precedence block (docs/v3/GUIDE.md §1.6-1.6b), filled from the policy. */
 export function authorizationBlock(policy) {
-  const approver = policy?.approver?.github && !/^YOUR-/.test(policy.approver.github) ? `@${policy.approver.github}` : 'the approver named in keel.policy.json';
+  const approver = policy?.approver?.github && !/^YOUR-/.test(policy.approver.github)
+    ? `@${policy.approver.github}`
+    : 'the approver named in keel.policy.json';
   const protectedBranches = (policy?.protectedBranches ?? ['main']).join(', ');
   return [
     AUTH_BEGIN,
     '## Standing authorization (Keel v3)',
-    '- FAST work (no danger surface; "LIGHT" in the policy vocabulary): you may',
-    '  commit on a feature branch, push it, open a PR whose description starts',
-    '  with the rigor record line ("Rigor: FAST — surfaces 1-11 scanned, all',
-    '  no."), and enable auto-merge with `gh pr merge --auto`. GitHub merges it',
-    '  when the required checks pass.',
-    `- HEAVY work: open the PR with "Rigor: HEAVY — <surfaces>" and stop.`,
+    '- FAST work (no danger surface; "LIGHT" in the policy): commit on a feature branch, push it, open a PR',
+    '  whose description starts with the Rigor line, and enable `gh pr merge --auto`; GitHub merges on green.',
+    '- HEAVY work: open the PR with "Rigor: HEAVY — <surfaces>" and stop.',
     `  ${approver} reviews and approves; auto-merge then completes it.`,
-    '- Live migrations: prepare them, apply to the test database, then',
-    '  `keel batch create <id> <files>` and open a PR. After the approver merges',
-    '  that PR you may apply exactly those migrations to live, in order.',
+    '- Live migrations: apply to the test database first, then `keel batch create <id> <files>` and open a',
+    '  PR. After the approver merges it you may apply exactly those migrations to live, in order.',
     `- Never use --admin, never push to ${protectedBranches}, never deploy to production.`,
     '',
     '## Precedence (Keel)',
-    '- Keel governs process: rigor (FAST/HEAVY), laws, gates and approvals.',
-    '  Where these rules differ from Claude Code\'s default behavior, follow Keel.',
-    '- Keel\'s gates are final. If a hook blocks an action, don\'t retry it another',
-    '  way; take the path the message names, or stop and ask.',
-    '- For the work itself, use Claude Code\'s built-ins by default: plan mode for',
-    '  HEAVY plans, /code-review and /security-review for review, Workflows or',
-    '  /loop for parallel or unattended runs. Use a Keel lane\'s specialist only',
-    '  when the lane names one and it\'s installed; otherwise fall back to the',
-    '  built-in.',
+    '- Keel governs process (rigor, laws, gates, approvals); where it differs from Claude Code\'s defaults,',
+    '  follow Keel. Its gates are final: if a hook blocks, don\'t retry another way; take the path it names.',
+    '- For the work itself use Claude Code\'s built-ins (plan mode, /code-review, /security-review,',
+    '  Workflows, /loop); a lane\'s specialist only when the lane names one and it is installed.',
     AUTH_END,
   ].join('\n');
 }
@@ -122,7 +123,10 @@ export function syncArbiter(projectDir) {
   const stripped = stripBlock(before, ARB_BEGIN_RE, ARB_END);
   // Keep the authorization block after the rules: strip it, append rules, then re-append it.
   const auth = extractBlock(stripped, AUTH_BEGIN_RE, AUTH_END);
-  let next = appendBlock(stripBlock(stripped, AUTH_BEGIN_RE, AUTH_END), arbiterBlock());
+  const own = stripBlock(stripped, AUTH_BEGIN_RE, AUTH_END);
+  // One docs index import: the project's own line wins over the block's.
+  const importIndex = !own.split('\n').some((l) => l.trim() === INDEX_IMPORT);
+  let next = appendBlock(own, arbiterBlock({ importIndex }));
   if (auth) next = appendBlock(next, auth);
   fs.writeFileSync(file, next);
   return had ? 'replaced' : 'added';
@@ -157,7 +161,10 @@ export function hasArbiter(projectDir) {
 
 function projectName(projectDir, given) {
   if (given) return given;
-  try { const n = JSON.parse(fs.readFileSync(path.join(projectDir, 'package.json'), 'utf8')).name; if (n) return String(n).replace(/^@[^/]+\//, ''); } catch { /* no package.json */ }
+  try {
+    const n = JSON.parse(fs.readFileSync(path.join(projectDir, 'package.json'), 'utf8')).name;
+    if (n) return String(n).replace(/^@[^/]+\//, '');
+  } catch { /* no package.json */ }
   return path.basename(path.resolve(projectDir));
 }
 
@@ -169,13 +176,19 @@ function scaffolds(name) {
     ['GLOSSARY.md', path.join(TEMPLATES, 'GLOSSARY.md'), fill],
     ['CODING_STANDARDS.md', STANDARDS_TEMPLATE, (t) => fill(t.replace(/<!--[\s\S]*?-->\n\n?/, ''))],
     ['DESIGN.md', path.join(TEMPLATES, 'DESIGN.md'), fill],
+    ['LAWS.md', path.join(TEMPLATES, 'LAWS.md'), fill],
+    ['LEARNINGS.md', path.join(TEMPLATES, 'LEARNINGS.md'), fill],
+    ['docs/INDEX.md', path.join(TEMPLATES, 'docs-INDEX.md'), fill],
+    ['docs/ARCHITECTURE.md', path.join(TEMPLATES, 'ARCHITECTURE.md'), fill],
     ['.scratch/README.md', path.join(TEMPLATES, 'scratch-README.md'), fill],
   ];
 }
 
 /** Run init. Returns { policy, arbiter, authorization, scaffolded, skipped, next }. */
 export function init(projectDir, { scaffold = true, name } = {}) {
-  const result = { policy: 'kept', arbiter: null, authorization: null, scaffolded: [], skipped: [], next: [] };
+  const result = {
+    policy: 'kept', arbiter: null, authorization: null, scaffolded: [], skipped: [], next: [],
+  };
   const policyPath = path.join(projectDir, POLICY_FILE);
   if (!fs.existsSync(policyPath)) {
     fs.writeFileSync(policyPath, `${JSON.stringify(STARTER_POLICY, null, 2)}\n`);
@@ -196,10 +209,16 @@ export function init(projectDir, { scaffold = true, name } = {}) {
       result.scaffolded.push(rel);
     }
   }
-  const placeholder = !policy || /^YOUR-/.test(policy.approver.github) || /^your-keel-app/.test(policy.agentIdentity.github);
-  if (placeholder) result.next.push(`edit ${POLICY_FILE}: approver, agentIdentity, danger paths (surfaces), checks — then run \`keel init\` again so the standing authorization names the approver`);
-  result.next.push('keel compile   # lock, deny rules, CODEOWNERS, CI, ruleset — commit in one PR marked "Rigor: HEAVY — governance"');
-  result.next.push('gh api -X POST repos/<owner>/<repo>/rulesets --input .keel/github-ruleset.json   # a repo admin, once');
+  const placeholder = !policy || /^YOUR-/.test(policy.approver.github)
+    || /^your-keel-app/.test(policy.agentIdentity.github);
+  if (placeholder) {
+    result.next.push(`edit ${POLICY_FILE}: approver, agentIdentity, danger paths (surfaces), checks — ` +
+      'then run `keel init` again so the standing authorization names the approver');
+  }
+  result.next.push('keel compile   # lock, deny rules, CODEOWNERS, CI, ruleset — ' +
+    'commit in one PR marked "Rigor: HEAVY — governance"');
+  result.next.push(
+    'gh api -X POST repos/<owner>/<repo>/rulesets --input .keel/github-ruleset.json   # a repo admin, once');
   result.next.push('keel doctor    # every required line ENFORCED or OK');
   return result;
 }
@@ -207,8 +226,9 @@ export function init(projectDir, { scaffold = true, name } = {}) {
 export function formatInit(r) {
   const lines = [];
   lines.push(`${r.policy === 'written' ? '+' : '='} ${POLICY_FILE} ${r.policy}`);
-  lines.push(`${r.arbiter === 'added' ? '+' : '~'} CLAUDE.md: keel-v2 router + LAWS block ${r.arbiter}`);
-  lines.push(`${r.authorization === 'added' ? '+' : '~'} CLAUDE.md: standing authorization + precedence block ${r.authorization}`);
+  lines.push(`${r.arbiter === 'added' ? '+' : '~'} CLAUDE.md: keel-v2 Tier-1 router block ${r.arbiter}`);
+  lines.push(`${r.authorization === 'added' ? '+' : '~'} CLAUDE.md: ` +
+    `standing authorization + precedence block ${r.authorization}`);
   for (const f of r.scaffolded) lines.push(`+ ${f} scaffolded — fill it in`);
   for (const f of r.skipped) lines.push(`= ${f} exists, left alone`);
   lines.push('', 'Next:');

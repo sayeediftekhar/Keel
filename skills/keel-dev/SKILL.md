@@ -34,7 +34,8 @@ repo. Topic/market research belongs to **keel-research**.
 Spine skills load as `mattpocock-skills:<name>`. A bare name works unless
 Claude Code ships a built-in with the same name — then invoke the prefixed form,
 or the built-in runs instead. Today that is `mattpocock-skills:code-review`: the
-built-in `/code-review` hunts bugs in a diff but has no Standards/Spec axes.
+built-in `/code-review` hunts bugs in a diff but has no Standards/Spec axes. Phase
+5 runs both: they check different things, and neither replaces the other.
 
 | Phase | Default (Pocock spine) | Opt-in power-tools | Rigor |
 |---|---|---|---|
@@ -45,13 +46,13 @@ built-in `/code-review` hunts bugs in a diff but has no Standards/Spec axes.
 | 2 · Spec | `to-spec` (synthesize conversation → `spec.md`) **+ §Architecture** (components, data flow, trust boundaries, failure modes; ADRs) **+ §Threat model** (per trust boundary, STRIDE-lite, each threat mapped to a LAWS invariant and the slice that carries the mitigation) — shapes in conventions §4; `prototype` for a throwaway spike when a state model, logic or UI shape is still in doubt | — | HEAVY |
 | 3 · Decompose | `to-tickets` → `.scratch/<feat>/issues/NN.md` (or tracker issues), tracer-bullet slices + blocking edges (+ expand/contract for wide refactors) | — | HEAVY |
 | 4 · Build | `implement` — ticket-by-ticket, `tdd` at seams; `implement-spec` to run the whole approved ticket set | parallel Claude Code sessions, one per frontier ticket, each in its own worktree | HEAVY→strict red-green-refactor; FAST→pragmatic. Autonomy **stops at** the merge and deploy gates (FAST commits and opens its PR under the standing authorization; HEAVY merges wait for the approver) |
-| 5 · Review | `mattpocock-skills:code-review` — two-axis (Standards = the project's `CODING_STANDARDS.md` over a Fowler baseline / Spec), parallel subagents | built-in `/code-review` as a second pass (correctness bugs — a different axis) | always |
+| 5 · Review | `mattpocock-skills:code-review` — two-axis (Standards = the project's `CODING_STANDARDS.md` over a Fowler baseline / Spec), parallel subagents **+ the built-in `/code-review` bug pass (correctness — a different axis), required** | — | always |
 | 5b · Security | → **keel-secure** (VibeSec) over the diff, **checked against §Threat model** — every listed threat shows its mitigation landed | built-in `/security-review` as a second pass | mandatory on trust-boundary diffs (keel-v2 tripwire) |
 | 6 · Verify/QA | **keel-qa** (UI: real browser, evidence per acceptance criterion); **keel-verify** (non-UI: run the real checks, show the output, then claim) | design questions → **keel-design** | always (in-turn on FAST) |
 | 7 · Ship | the **Ship checklist** (§Gates) with `keel-verify` evidence per line; `pr` writes the PR body; `wizard` scripts the steps only the human can do (secrets, dashboards, cutovers); on Vercel, `vercel:deployments-cicd` to promote | — | HEAVY; **stops at human gate**, never auto-deploys |
 | 8 · Debug | `diagnosing-bugs` | — | as needed |
 | 9 · Arch health | `improve-codebase-architecture` + `codebase-design` (deep modules) | — | periodic (Maintain loop) |
-| 10 · Learn | `retro` on the session → each lesson to its one home (MEMORY-CONTRACT → *Where a lesson goes*) | — | after ship / big sessions |
+| 10 · Learn | `retro` on the session → each lesson to its one home (MEMORY-CONTRACT → *Where a lesson goes*; project traps → `LEARNINGS.md`); re-run the three feedback signals (Ship line 9) over the session's PRs and file each hit as a separate ticket; then the `doc-sync` skill drains `CONTEXT.md` and writes the handoff | — | after ship / big sessions |
 | 11 · Maintain | the recurring jobs in *Maintain* below | — | production projects |
 
 ## Phase exits — advance only when the line is true
@@ -60,7 +61,7 @@ built-in `/code-review` hunts bugs in a diff but has no Standards/Spec axes.
 - **Spec:** the spec names every behaviour to build and every one deliberately left out; on HEAVY it carries §Architecture and §Threat model (conventions §4).
 - **Decompose:** each ticket is a vertical slice with acceptance criteria and blocking edges; the frontier is non-empty.
 - **Build:** the ticket's acceptance criteria pass under tests; the slice is ticked in `00-status.md`.
-- **Review:** both axes report no open findings above nit, or each is fixed or explicitly waived by the human.
+- **Review:** both axes report no open findings above nit, and the built-in `/code-review` bug pass ran on the final diff with each finding fixed or explicitly waived by the human.
 - **Verify/QA:** every acceptance criterion has pass/fail evidence (the keel-qa report; `keel-verify` output for non-UI).
 - **Ship:** every Ship-checklist line has evidence; the human has approved; nothing deploys on an agent's say-so.
 
@@ -91,6 +92,24 @@ ledger (`00-status.md`) uses them verbatim, and tooling parses them.
 | **G2 Spec** | 2 · Spec | `spec.md` — behaviour **+ §Architecture + §Threat model** (conventions §4) | hard gate | skipped |
 | **G3 Plan** | 3 · Decompose | `issues/NN.md` — the tickets **are** the approved plan in keel-v2 §2.2 terms. No product code before G3. | hard gate | skipped |
 | **Ship** | 6 · Verify → 7 · Ship | the **Ship checklist** (below) with `keel-verify` / `keel-qa` evidence; then keel-v2 §1.4 / §2.4-2.5 decide the ending: FAST → the PR with its `Rigor: FAST` line auto-merges on green; HEAVY → the PR with its `Rigor: HEAVY` line waits for the approver's GitHub review, then auto-merge completes it. Deploys to production, sends and live migrations stay the human's (approved batch, explicit go) | hard gate (approver reviews the PR) | auto on green (audited later) |
+
+**HEAVY features walk the seven rungs at G1 and G2** (FAST never does; it is
+ceremony a no-surface change doesn't need). The rungs are Keel's
+`docs/SYSTEMS_THINKING_FRAMEWORK.md` (in the plugin directory); load it at G1,
+not before. The project's applied answers live in `docs/ARCHITECTURE.md`.
+- **G1 Align — rungs 1 Boundaries, 3 Change surfaces, 7 Sequencing:** name the
+  module(s) the feature lands in and each one's one-sentence job (no "and
+  also"); say which parts are stable and which volatile; confirm the
+  load-bearing pieces it needs already exist (Phase 0) or make them the first
+  slice. A new module or a changed job is a row in the `ARCHITECTURE.md` module
+  map, approved with G1.
+- **G2 Spec — rungs 2 Contracts, 4 Enforce by structure, 5 Scale:** §Architecture
+  names each new or changed interface (the vending-machine test: could the
+  inside be swapped without callers noticing?), the impossible states the
+  design rules out by construction, and the expected change radius; a radius
+  of 3+ modules is a coupling alarm to resolve in the spec, not in the build.
+  Any new commit-blocking invariant goes to `LAWS.md` with its two layers.
+- Rung 6 (Feedback) runs at Ship and retro; rung 7's slice order is G3's ticket order.
 
 How keel-v2's HEAVY rules map onto these gates: §2.1 route-first is the
 `Rigor:` line at the top of the ledger; §2.2 plan-before-code is satisfied by
@@ -127,9 +146,14 @@ and undone. HEAVY: every line. FAST: lines 1-3 (the rest usually don't apply;
 say "n/a" rather than skip silently).
 1. **Verified** — full test suite + build green on the exact commit; the real
    flow exercised (`keel-qa` for UI). Output pasted, not described.
-2. **Reviewed** — `mattpocock-skills:code-review` two-axis pass done; keel-v2
-   tripwires all pass; trust-boundary diffs passed keel-secure against the
-   §Threat model.
+2. **Reviewed** — `mattpocock-skills:code-review` two-axis pass done **and**
+   the built-in `/code-review` bug pass run on the final diff (required, not a
+   power-tool: model review misses bugs a dedicated bug hunt finds); findings
+   fixed or waived by the human; keel-v2 tripwires all pass; trust-boundary
+   diffs passed keel-secure against the §Threat model. CI's quality floor
+   (dependency audit, secret scan, and SAST/architecture rules where the policy
+   turns them on) is green; on HEAVY the PR body names `Feature: <slug>` so
+   `keel-rigor` finds the spec's §Threat model.
 3. **Reversible** — how to roll back, in one line (revert commit / feature
    flag off / previous deployment via the Vercel plugin). If the answer is
    "can't", say so and stop.
@@ -147,6 +171,15 @@ say "n/a" rather than skip silently).
 8. **Recorded** — `00-status.md` Ship line ready for the human; ADRs for any
    architecture decision made during build written to their home
    (MEMORY-CONTRACT → *Where a lesson goes*); `retro` queued.
+9. **Feedback signals** (Systems Thinking rung 6; one line each in the PR
+   body; FAST skips it and `retro` covers FAST PRs in batch): **change
+   radius** — how many modules this diff touched besides its own (0–1
+   healthy, 3+ = coupling); **explanation test**
+   — does every touched module still do one job you can say in one sentence?;
+   **surprise test** — did anything unconnected break or need editing? Each hit
+   is filed as its **own** refactoring ticket (`.scratch/<feat>/issues/` or the
+   tracker), never fixed in this PR; a surprise also gets a `LEARNINGS.md`
+   entry (Trap → Rule → Why) via `retro` or the `doc-sync` skill.
 
 ## Maintain — keeping a shipped product healthy
 Maintenance is dev work on a schedule. Each job runs as a scheduled Claude Code

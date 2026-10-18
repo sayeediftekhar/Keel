@@ -54,6 +54,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # the limits ratchet compares a PR with its base
 
       - uses: actions/setup-node@v4
         with:
@@ -62,6 +64,15 @@ jobs:
       - name: Every gate hook fails closed
         run: |
           jq -e '[.hooks.PreToolUse[].hooks[] | select(.onFailure != "block")] | length == 0' plugin/hooks/hooks.json
+
+      - name: Clean-code limits (D20e, fail mode, files this PR changes)
+        # Keel holds itself to the limits it compiles into projects: no changed file gets worse than
+        # its base (file length, function length, line length, complexity); new files meet the caps.
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node plugin/ci/keel-ci.mjs limits --mode=fail
 
       - name: Plugin tests
         run: node --test plugin/test/*.test.mjs
@@ -75,3 +86,13 @@ jobs:
           node plugin/bin/keel.mjs doctor --dir "$d" --offline --allow-unproven || true
           test -f "$d/.keel/policy.lock.json" && grep -q '^# >>> keel-v2 arbiter' "$d/CLAUDE.md" && grep -q '^# >>> keel standing authorization' "$d/CLAUDE.md"
           test -f "$d/CONTEXT.md" && test -f "$d/GLOSSARY.md" && test -f "$d/CODING_STANDARDS.md" && test -f "$d/DESIGN.md" && test -f "$d/.scratch/README.md"
+          test -f "$d/LAWS.md" && test -f "$d/LEARNINGS.md" && test -f "$d/docs/INDEX.md" && test -f "$d/docs/ARCHITECTURE.md"
+
+      - name: Tier-1 budget (D20a) — a fresh CLAUDE.md + its import stay within ~80 lines / ~1.5k tokens (est.)
+        run: |
+          d=$(mktemp -d); git -C "$d" init -q -b main
+          node plugin/bin/keel.mjs init --dir "$d" >/dev/null
+          lines=$(cat "$d/CLAUDE.md" "$d/docs/INDEX.md" | wc -l)
+          tokens=$(node --input-type=module -e "import { estimateTokens } from './plugin/ci/keel-ci.mjs'; import fs from 'node:fs'; console.log(estimateTokens(fs.readFileSync('$d/CLAUDE.md', 'utf8') + fs.readFileSync('$d/docs/INDEX.md', 'utf8')))")
+          echo "Tier 1: $lines lines, ~$tokens tokens (est., conservative; not tokenizer-measured)"
+          test "$lines" -le 80 && test "$tokens" -le 1500

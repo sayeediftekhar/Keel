@@ -10,133 +10,45 @@
 // and database credentials are the layers that stop that.
 
 import path from 'node:path';
+import { tokenize } from './tokenize.mjs';
 
-const OPS = ['&&', '||', '|&', ';;', ';', '|', '&', '\n', '(', ')', '{', '}'];
-
-function ansiC(s) {
-  return s.replace(/\\(x[0-9a-fA-F]{1,2}|[0-7]{1,3}|.)/g, (_, e) => {
-    if (e[0] === 'x') return String.fromCharCode(parseInt(e.slice(1), 16));
-    if (/^[0-7]+$/.test(e)) return String.fromCharCode(parseInt(e, 8));
-    return { n: '\n', t: '\t', r: '\r', e: '\x1b', a: '\x07', '\\': '\\', "'": "'", '"': '"' }[e] ?? e;
-  });
-}
-
-/** Tokens: {t:'word', v} | {t:'op', v} | {t:'redir', v}. Here-docs become here-strings. */
-export function tokenize(src) {
-  const tokens = [];
-  const subs = [];
-  const skips = [];
-  let word = null;
-  const push = () => {
-    if (word === null) return;
-    // ${IFS} / $IFS word-splits in a real shell.
-    for (const part of word.split(/\$\{IFS\}|\$IFS(?![A-Za-z0-9_])/)) if (part !== '') tokens.push({ t: 'word', v: part });
-    word = null;
-  };
-  const add = (s) => { word = (word ?? '') + s; };
-  const readParen = (i) => {
-    let depth = 1; let j = i + 1; let q = null;
-    for (; j < src.length; j++) {
-      const c = src[j];
-      if (q) { if (c === q) q = null; else if (c === '\\' && q === '"') j++; continue; }
-      if (c === "'" || c === '"') { q = c; continue; }
-      if (c === '(') depth++;
-      else if (c === ')') { depth--; if (depth === 0) break; }
-    }
-    return [src.slice(i + 1, j), j];
-  };
-
-  for (let i = 0; i < src.length; i++) {
-    const c = src[i];
-    if (c === '\\' && i + 1 < src.length) { if (src[i + 1] !== '\n') add(src[i + 1]); i++; continue; }
-    if (c === '$' && src[i + 1] === "'") {
-      let j = i + 2; let raw = '';
-      for (; j < src.length && src[j] !== "'"; j++) { if (src[j] === '\\') { raw += src[j] + (src[j + 1] ?? ''); j++; } else raw += src[j]; }
-      add(ansiC(raw)); i = j; continue;
-    }
-    if (c === "'") {
-      const end = src.indexOf("'", i + 1);
-      add(src.slice(i + 1, end === -1 ? src.length : end));
-      i = end === -1 ? src.length : end;
-      continue;
-    }
-    if (c === '"') {
-      let j = i + 1; let buf = '';
-      for (; j < src.length && src[j] !== '"'; j++) {
-        if (src[j] === '\\' && j + 1 < src.length && '"\\$`'.includes(src[j + 1])) { buf += src[j + 1]; j++; continue; }
-        if (src[j] === '$' && src[j + 1] === '(') { const [inner, end] = readParen(j + 1); subs.push(inner); buf += `$(${inner})`; j = end; continue; }
-        if (src[j] === '`') { const end = src.indexOf('`', j + 1); const inner = src.slice(j + 1, end === -1 ? src.length : end); subs.push(inner); buf += `\`${inner}\``; j = end === -1 ? src.length : end; continue; }
-        buf += src[j];
-      }
-      word = (word ?? '') + buf;
-      i = j;
-      continue;
-    }
-    if (c === '$' && src[i + 1] === '(') { const [inner, end] = readParen(i + 1); subs.push(inner); add(`$(${inner})`); i = end; continue; }
-    if (c === '`') { const end = src.indexOf('`', i + 1); const inner = src.slice(i + 1, end === -1 ? src.length : end); subs.push(inner); add(`\`${inner}\``); i = end === -1 ? src.length : end; continue; }
-    if (c === '#' && word === null) { const nl = src.indexOf('\n', i); i = nl === -1 ? src.length : nl - 1; continue; }
-    if (c === '<' && src[i + 1] === '<' && src[i + 2] !== '<') {
-      // here-document: <<[-]DELIM … DELIM. The body starts after the end of
-      // this line; read it now and skip over it when the scan reaches it.
-      push();
-      let j = i + 2; if (src[j] === '-') j++;
-      while (src[j] === ' ') j++;
-      let delim = '';
-      if (src[j] === "'" || src[j] === '"') { const q = src[j]; const e = src.indexOf(q, j + 1); delim = src.slice(j + 1, e === -1 ? src.length : e); j = e === -1 ? src.length : e + 1; }
-      else { while (j < src.length && /[^\s;&|<>()]/.test(src[j])) delim += src[j++]; }
-      const lastSkip = skips.length ? skips[skips.length - 1].end : -1;
-      const nl = src.indexOf('\n', Math.max(j, lastSkip));
-      let body = '';
-      if (nl !== -1) {
-        let k = nl + 1; const lines = [];
-        while (k < src.length) {
-          const e = src.indexOf('\n', k); const line = src.slice(k, e === -1 ? src.length : e);
-          k = e === -1 ? src.length : e + 1;
-          if (line.replace(/^\t+/, '') === delim) break;
-          lines.push(line);
-        }
-        body = lines.join('\n');
-        skips.push({ start: nl + 1, end: k });
-      }
-      tokens.push({ t: 'redir', v: '<<<' });
-      tokens.push({ t: 'word', v: body });
-      i = j - 1;
-      continue;
-    }
-    if (c === '>' || c === '<') {
-      if (word !== null && /^(\d+|&)$/.test(word)) word = null; else push();
-      let j = i + 1;
-      if (c === '<' && src[j] === '<' && src[j + 1] === '<') j += 2; // here-string
-      else if (src[j] === '>' || src[j] === '|' || src[j] === '&') j++;
-      tokens.push({ t: 'redir', v: src.slice(i, j) });
-      i = j - 1;
-      continue;
-    }
-    if (c === ' ' || c === '\t') { push(); continue; }
-    if (c === '\n' && skips.length && skips[0].start === i + 1) {
-      push(); tokens.push({ t: 'op', v: '\n' });
-      i = skips.shift().end - 1;
-      continue;
-    }
-    const op = OPS.find((o) => src.startsWith(o, i));
-    if (op && !((op === '{' || op === '}') && word !== null)) { push(); tokens.push({ t: 'op', v: op }); i += op.length - 1; continue; }
-    add(c);
-  }
-  push();
-  return { tokens, subs };
-}
+export { tokenize };
 
 const ASSIGN = /^[A-Za-z_][A-Za-z0-9_]*=/;
-const PASSTHRU = new Set(['sudo', 'nohup', 'time', 'command', 'exec', 'builtin', 'doas', 'chronic', 'caffeinate', 'ionice', 'unbuffer']);
+const PASSTHRU = new Set([
+  'sudo', 'nohup', 'time', 'command', 'exec', 'builtin', 'doas', 'chronic', 'caffeinate', 'ionice', 'unbuffer',
+]);
 const SHELLS = new Set(['sh', 'bash', 'zsh', 'dash', 'ksh', 'fish']);
 const RUNNERS = new Set(['npx', 'bunx', 'pnpx']);
 
 export const base = (p) => path.basename(String(p ?? ''));
 
-const expandVars = (s, vars) => String(s).replace(/\$\{([A-Za-z_][A-Za-z0-9_]*)\}|\$([A-Za-z_][A-Za-z0-9_]*)/g, (m, a, b) => {
-  const k = a ?? b;
-  return Object.prototype.hasOwnProperty.call(vars, k) ? vars[k] : m;
-});
+const expandVars = (s, vars) => String(s).replace(
+  /\$\{([A-Za-z_][A-Za-z0-9_]*)\}|\$([A-Za-z_][A-Za-z0-9_]*)/g,
+  (m, a, b) => {
+    const k = a ?? b;
+    return Object.prototype.hasOwnProperty.call(vars, k) ? vars[k] : m;
+  },
+);
+
+/** `export X=…` / `declare [-x] X=…` set shell variables for later commands. */
+function exportVars(argv, vars) {
+  if (argv[0] !== 'export'
+    && !(argv[0] === 'declare' && argv.slice(1).every((a) => ASSIGN.test(a) || a === '-x'))) return;
+  for (const a of argv.slice(1)) {
+    if (ASSIGN.test(a)) {
+      const eq = a.indexOf('=');
+      vars[a.slice(0, eq)] = a.slice(eq + 1);
+    }
+  }
+}
+
+/** A redirect and its target word: here-string text, an input file, or an output path (not `>&2`). */
+function addRedirect(cmd, op, target) {
+  if (op === '<<<') cmd.stdinText = target;
+  else if (op.startsWith('<')) cmd.inputs.push(target);
+  else if (!/^&?\d+$/.test(target)) cmd.redirects.push(target);
+}
 
 /** Parse into simple commands: [{argv, assigns, redirects, inputs, stdinText, pipedFrom, dynamic}]. */
 export function parseCommands(src, depth = 0, vars = {}) {
@@ -155,9 +67,7 @@ export function parseCommands(src, depth = 0, vars = {}) {
         for (const [k, v] of Object.entries(c.assigns)) vars[k] = expandVars(v, vars);
       }
       c.argv = c.argv.map((a) => expandVars(a, vars));
-      if (c.argv[0] === 'export' || c.argv[0] === 'declare' && c.argv.slice(1).every((a) => ASSIGN.test(a) || a === '-x')) {
-        for (const a of c.argv.slice(1)) if (ASSIGN.test(a)) { const eq = a.indexOf('='); vars[a.slice(0, eq)] = a.slice(eq + 1); }
-      }
+      exportVars(c.argv, vars);
       const unwrapped = unwrap(c, depth, vars);
       out.push(...unwrapped);
       prev = unwrapped[unwrapped.length - 1] ?? c;
@@ -171,9 +81,7 @@ export function parseCommands(src, depth = 0, vars = {}) {
     if (tk.t === 'redir') {
       const next = tokens[i + 1];
       if (next && next.t === 'word') {
-        if (tk.v === '<<<') cur.stdinText = next.v;
-        else if (tk.v.startsWith('<')) cur.inputs.push(next.v);
-        else if (!/^&?\d+$/.test(next.v)) cur.redirects.push(next.v);
+        addRedirect(cur, tk.v, next.v);
         i++;
       }
       continue;
@@ -190,72 +98,114 @@ export function parseCommands(src, depth = 0, vars = {}) {
   return out;
 }
 
+/** A wrapper's leading flags off argv (in place), with the value of each flag that takes one, then `operands`. */
+const stripFlags = (takesValue, operands = 0) => (argv) => {
+  argv.shift();
+  while (argv.length && argv[0].startsWith('-')) {
+    const f = argv.shift();
+    if (takesValue(f)) argv.shift();
+  }
+  argv.splice(0, operands);
+};
+
+const passthruFlags = stripFlags((f) => ['-u', '-g', '-n', '-c', '-t'].includes(f));
+const runnerFlags = stripFlags((f) => f === '-p' || f === '--package');
+const timeoutFlags = stripFlags((f) => ['-s', '-k', '--signal', '--kill-after'].includes(f), 1); // then duration
+
+/** Wrappers that run the rest of their argv as the program: how to peel each one off. */
+const PREFIXES = new Map([
+  ...[...PASSTHRU].map((p) => [p, passthruFlags]),
+  ...[...RUNNERS].map((p) => [p, runnerFlags]),
+  ['nice', stripFlags((f) => f === '-n')],
+  ['timeout', timeoutFlags],
+  ['gtimeout', timeoutFlags],
+  ['stdbuf', stripFlags((f) => /^-[ioe]$/.test(f))],
+  ['xargs', stripFlags((f) => /^-[IdLnPsEa]$/.test(f))],
+]);
+
+const watchFlags = stripFlags((f) => f === '-n' || f === '--interval');
+
+/** `find … -exec CMD ;` → {head: the find itself, exec: CMD}, or null without -exec. */
+function findExec(argv) {
+  const k = argv.findIndex((a) => ['-exec', '-execdir', '-ok', '-okdir'].includes(a));
+  if (k < 0) return null;
+  const rest = argv.slice(k + 1);
+  const end = rest.findIndex((a) => a === ';' || a === '+' || a === '\;');
+  return { head: argv.slice(0, k), exec: rest.slice(0, end < 0 ? rest.length : end) };
+}
+
+/** `env [-flags] [X=…]… CMD` → CMD's argv; its assignments go into `assigns`. */
+function envArgs(argv, assigns) {
+  const rest = argv.slice(1);
+  while (rest.length && (rest[0].startsWith('-') || ASSIGN.test(rest[0]))) {
+    const t = rest.shift();
+    if (ASSIGN.test(t)) { const eq = t.indexOf('='); assigns[t.slice(0, eq)] = t.slice(eq + 1); }
+    else if (t === '-u' || t === '-C' || t === '-S') rest.shift();
+  }
+  return rest;
+}
+
+/** `pnpm|yarn exec|dlx CMD` and `npm exec|x [-p PKG] [--] CMD` → CMD's argv, or null for anything else. */
+function packageExec(prog, argv) {
+  if ((prog === 'pnpm' || prog === 'yarn') && ['exec', 'dlx'].includes(argv[1])) return argv.slice(2);
+  if (prog !== 'npm' || (argv[1] !== 'exec' && argv[1] !== 'x')) return null;
+  const rest = argv.slice(2);
+  while (rest.length && rest[0].startsWith('-') && rest[0] !== '--') {
+    const f = rest.shift();
+    if (f === '-p' || f === '--package') rest.shift();
+  }
+  if (rest[0] === '--') rest.shift();
+  const dd = rest.indexOf('--'); if (dd > 0) rest.splice(dd, 1);
+  return rest;
+}
+
+/** The script a shell runs: its -c argument, a here-string, or `echo … |` piped in; null when we can't see it. */
+function shellScript(argv, cmd) {
+  for (let k = 1; k < argv.length && argv[k].startsWith('-'); k++) {
+    if (!/^-[a-z]*c[a-z]*$/i.test(argv[k]) || argv[k].startsWith('--')) continue;
+    const s = argv[k + 1] === '--' ? k + 2 : k + 1;
+    if (argv[s] !== undefined) return argv[s];
+  }
+  if (cmd.stdinText) return cmd.stdinText;
+  const src = cmd.pipedFrom;
+  if (src && ['echo', 'printf'].includes(base(src.argv[0]))) {
+    return src.argv.slice(1).filter((a) => !/^-[neE]+$/.test(a)).join(' ');
+  }
+  return null;
+}
+
+const leftover = (cmd, argv) => argv.length || cmd.redirects.length || cmd.inputs.length;
+
 /** Peel wrappers off a simple command until the real program is argv[0]. */
 function unwrap(cmd, depth, vars) {
   let argv = [...cmd.argv];
   const assigns = { ...cmd.assigns };
   const keep = (a) => ({ ...cmd, argv: a, assigns, dynamic: /[$`]/.test(a[0] ?? '') });
-  const inner = (script) => parseCommands(script, depth + 1, { ...vars }).map((c) => ({ ...c, assigns: { ...assigns, ...c.assigns } }));
+  const inner = (script) => parseCommands(script, depth + 1, { ...vars })
+    .map((c) => ({ ...c, assigns: { ...assigns, ...c.assigns } }));
   for (let guard = 0; guard < 12 && argv.length; guard++) {
     const prog = base(argv[0]);
-    if (PASSTHRU.has(prog)) { argv.shift(); while (argv.length && argv[0].startsWith('-')) { const f = argv.shift(); if (['-u', '-g', '-n', '-c', '-t'].includes(f)) argv.shift(); } continue; }
-    if (prog === 'nice') { argv.shift(); while (argv.length && argv[0].startsWith('-')) { const f = argv.shift(); if (f === '-n') argv.shift(); } continue; }
-    if (prog === 'timeout' || prog === 'gtimeout') {
-      argv.shift();
-      while (argv.length && argv[0].startsWith('-')) { const f = argv.shift(); if (['-s', '-k', '--signal', '--kill-after'].includes(f)) argv.shift(); }
-      argv.shift(); // duration
-      continue;
-    }
-    if (prog === 'stdbuf') { argv.shift(); while (argv.length && argv[0].startsWith('-')) { const f = argv.shift(); if (/^-[ioe]$/.test(f)) argv.shift(); } continue; }
-    if (prog === 'watch') {
-      argv.shift();
-      while (argv.length && argv[0].startsWith('-')) { const f = argv.shift(); if (['-n', '--interval', '-d'].includes(f) && f !== '-d') argv.shift(); }
-      return inner(argv.join(' '));
-    }
+    const peel = PREFIXES.get(prog);
+    if (peel) { peel(argv); continue; }
+    if (prog === 'watch') { watchFlags(argv); return inner(argv.join(' ')); }
     if (prog === 'find') {
-      const k = argv.findIndex((a) => ['-exec', '-execdir', '-ok', '-okdir'].includes(a));
-      if (k < 0) break;
-      const rest = argv.slice(k + 1);
-      const end = rest.findIndex((a) => a === ';' || a === '+' || a === '\\;');
-      return [keep(argv.slice(0, k)), ...unwrap({ ...cmd, argv: rest.slice(0, end < 0 ? rest.length : end) }, depth, vars)];
+      const found = findExec(argv);
+      if (!found) break;
+      return [keep(found.head), ...unwrap({ ...cmd, argv: found.exec }, depth, vars)];
     }
     if (prog === 'env') {
-      const rest = argv.slice(1);
-      while (rest.length && (rest[0].startsWith('-') || ASSIGN.test(rest[0]))) {
-        const t = rest.shift();
-        if (ASSIGN.test(t)) { const eq = t.indexOf('='); assigns[t.slice(0, eq)] = t.slice(eq + 1); }
-        else if (t === '-u' || t === '-C' || t === '-S') rest.shift();
-      }
-      if (!rest.length) return [keep(['env'])];
-      argv = rest; continue;
+      argv = envArgs(argv, assigns);
+      if (!argv.length) return [keep(['env'])];
+      continue;
     }
-    if (prog === 'xargs') { argv.shift(); while (argv.length && argv[0].startsWith('-')) { const f = argv.shift(); if (/^-[IdLnPsEa]$/.test(f)) argv.shift(); } continue; }
-    if (RUNNERS.has(prog)) { argv.shift(); while (argv.length && argv[0].startsWith('-')) { const f = argv.shift(); if (f === '-p' || f === '--package') argv.shift(); } continue; }
-    if ((prog === 'pnpm' || prog === 'yarn') && ['exec', 'dlx'].includes(argv[1])) { argv = argv.slice(2); continue; }
-    if (prog === 'npm' && (argv[1] === 'exec' || argv[1] === 'x')) {
-      let rest = argv.slice(2);
-      while (rest.length && rest[0].startsWith('-') && rest[0] !== '--') { const f = rest.shift(); if (f === '-p' || f === '--package') rest.shift(); }
-      if (rest[0] === '--') rest.shift();
-      const dd = rest.indexOf('--'); if (dd > 0) rest.splice(dd, 1);
-      argv = rest; continue;
-    }
+    const run = packageExec(prog, argv);
+    if (run) { argv = run; continue; }
     if (SHELLS.has(prog)) {
-      let k = 1;
-      while (k < argv.length && argv[k].startsWith('-')) {
-        if (/^-[a-z]*c[a-z]*$/i.test(argv[k]) && !argv[k].startsWith('--')) {
-          let s = k + 1; if (argv[s] === '--') s++;
-          if (argv[s] !== undefined) return inner(argv[s]);
-        }
-        k++;
-      }
-      if (cmd.stdinText) return inner(cmd.stdinText);
-      const src = cmd.pipedFrom;
-      if (src && ['echo', 'printf'].includes(base(src.argv[0]))) return inner(src.argv.slice(1).filter((a) => !/^-[neE]+$/.test(a)).join(' '));
-      if (argv[k] === undefined) return [keep(argv)]; // reads a script from stdin we can't see
-      return [keep(argv)];
+      const script = shellScript(argv, cmd); // null: reads a script from stdin we can't see
+      return script === null ? [keep(argv)] : inner(script);
     }
     if (prog === 'eval') return inner(argv.slice(1).join(' '));
     break;
   }
-  return argv.length || cmd.redirects.length || cmd.inputs.length ? [keep(argv)] : [];
+  return leftover(cmd, argv) ? [keep(argv)] : [];
 }

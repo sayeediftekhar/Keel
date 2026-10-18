@@ -6,7 +6,8 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { compile } from '../lib/compile.mjs';
 
-export const sh = (cwd, cmd, args) => execFileSync(cmd, args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+export const sh = (cwd, cmd, args) =>
+  execFileSync(cmd, args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
 const git = (cwd, ...a) => sh(cwd, 'git', a);
 
 export const BASE_POLICY = {
@@ -38,7 +39,9 @@ export function makeRepo(policy = BASE_POLICY, { extraFiles = {} } = {}) {
   git(dir, 'config', 'commit.gpgsign', 'false');
   git(dir, 'remote', 'add', 'origin', origin);
   write(dir, 'keel.policy.json', `${JSON.stringify(policy, null, 2)}\n`);
-  write(dir, 'package.json', JSON.stringify({ name: 'fixture', scripts: { test: 'node -e 0', 'db:deploy': 'prisma migrate deploy' } }));
+  write(dir, 'package.json', JSON.stringify({
+    name: 'fixture', scripts: { test: 'node -e 0', 'db:deploy': 'prisma migrate deploy' },
+  }));
   write(dir, 'test/setup.js', '// keel-test-db-guard\n');
   for (const [rel, content] of Object.entries(extraFiles)) write(dir, rel, content);
   compile(dir, { write: true });
@@ -81,7 +84,9 @@ export function fakeGithub(origin) {
       const [meta, file] = line.split('\t');
       const sha = meta.split(' ')[2];
       if (dirs.some((d) => file.startsWith(d)) && file.endsWith('.sql')) remoteBlobs.set(file, sha);
-      if (file.startsWith('.keel/approvals/') && file.endsWith('.json')) approvals.push(JSON.parse(sh(origin, 'git', ['show', `${branch}:${file}`])));
+      if (file.startsWith('.keel/approvals/') && file.endsWith('.json')) approvals.push(
+        JSON.parse(sh(origin, 'git', ['show', `${branch}:${file}`])),
+      );
     }
     return { approvals, remoteBlobs };
   };

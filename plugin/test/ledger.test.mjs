@@ -53,7 +53,8 @@ const ctx = (ledgerText, over = {}) => ({
 });
 const run = (ev, ledgerText = LEDGER_BLOCKED, over) => decide({ cwd: P, ...ev }, ctx(ledgerText, over));
 const B = (c) => ({ tool_name: 'Bash', tool_input: { command: c } });
-const E = (file_path, old_string, new_string) => ({ tool_name: 'Edit', tool_input: { file_path, old_string, new_string } });
+const E = (file_path, old_string, new_string) =>
+  ({ tool_name: 'Edit', tool_input: { file_path, old_string, new_string } });
 const W = (file_path, content) => ({ tool_name: 'Write', tool_input: { file_path, content } });
 const M = (file_path, edits) => ({ tool_name: 'MultiEdit', tool_input: { file_path, edits } });
 
@@ -73,19 +74,26 @@ expectBlock('Edit flipping G3 to [x]', E(L, '- [ ] G3 Plan  — awaiting approva
 expectBlock('Edit flipping Ship', E(L, '- [ ] Ship     — not reached', '- [x] Ship — done'));
 expectBlock('Edit with a capital X', E(L, '- [ ] G3 Plan', '- [X] G3 Plan'));
 expectBlock('Write rewriting the ledger with G3 newly checked', W(L, LEDGER_OPEN));
-expectBlock('MultiEdit sneaking a gate flip among slice edits', M(L, [{ old_string: '- [ ] 01', new_string: '- [x] 01' }, { old_string: '- [ ] G3 Plan', new_string: '- [x] G3 Plan' }]));
+expectBlock('MultiEdit sneaking a gate flip among slice edits', M(L, [
+  { old_string: '- [ ] 01', new_string: '- [x] 01' }, { old_string: '- [ ] G3 Plan', new_string: '- [x] G3 Plan' },
+]));
 expectBlock('relative ledger path', E('.scratch/invoicing/00-status.md', '- [ ] G3 Plan', '- [x] G3 Plan'));
 expectAllow('Edit ticking a slice', E(L, '- [ ] 01 — invoice totals', '- [x] 01 — invoice totals'));
-expectAllow('Edit adding an open decision', E(L, '## Slices', '## Open decisions\n- rounding: needs human\n\n## Slices'));
+expectAllow('Edit adding an open decision',
+  E(L, '## Slices', '## Open decisions\n- rounding: needs human\n\n## Slices'));
 expectAllow('Write re-emitting already-approved gates', W(L, LEDGER_BLOCKED));
-expectAllow('Write of an approved ledger that already had G3 checked on disk', W(L, LEDGER_OPEN.replace('- [ ] 01', '- [x] 01')), LEDGER_OPEN);
-expectAllow('a "G3" in prose, not a gate line', E(L, '## Open decisions', '## Open decisions\n- waiting on G3 approval from Ada'));
-expectAllow('00-status.md outside the ledger dir is just a file', E(`${P}/docs/00-status.md`, '- [ ] G3', '- [x] G3'), LEDGER_OPEN);
+expectAllow('Write of an approved ledger that already had G3 checked on disk',
+  W(L, LEDGER_OPEN.replace('- [ ] 01', '- [x] 01')), LEDGER_OPEN);
+expectAllow('a "G3" in prose, not a gate line',
+  E(L, '## Open decisions', '## Open decisions\n- waiting on G3 approval from Ada'));
+expectAllow('00-status.md outside the ledger dir is just a file',
+  E(`${P}/docs/00-status.md`, '- [ ] G3', '- [x] G3'), LEDGER_OPEN);
 
 // Rule 2 — no product code while a HEAVY feature waits at a gate
 expectBlock('Write src while blocked on G3', W(`${P}/src/invoice.ts`, 'export const x = 1'));
 expectBlock('Edit src while blocked on G3', E(`${P}/src/invoice.ts`, 'a', 'b'));
-expectBlock('NotebookEdit while blocked', { tool_name: 'NotebookEdit', tool_input: { notebook_path: `${P}/analysis.ipynb` } });
+expectBlock('NotebookEdit while blocked',
+  { tool_name: 'NotebookEdit', tool_input: { notebook_path: `${P}/analysis.ipynb` } });
 expectAllow('ticket under .scratch while blocked', W(`${P}/.scratch/invoicing/issues/02-tax.md`, '# 02'));
 expectAllow('spec.md (markdown) while blocked', W(`${P}/docs/spec.md`, '# spec'));
 expectAllow('GLOSSARY.md while blocked', W(`${P}/GLOSSARY.md`, '# g'));
@@ -115,25 +123,43 @@ expectAllow('keel batch status', B('node plugin/bin/keel.mjs batch status'));
 expectAllow('sed -i on a ticket', B("sed -i 's/ready/done/' .scratch/invoicing/issues/01.md"));
 
 test('gates.ledger.mode off disables both rules', () => {
-  const off = normalizePolicy({ version: 1, approver: { github: 'h' }, agentIdentity: { github: 'a[bot]' }, gates: { ledger: { mode: 'off' } } });
+  const off = normalizePolicy({
+    version: 1, approver: { github: 'h' }, agentIdentity: { github: 'a[bot]' }, gates: { ledger: { mode: 'off' } },
+  });
   const c = { ...ctx(LEDGER_BLOCKED), policy: off };
   assert.equal(decide({ cwd: P, ...E(L, '- [ ] G3 Plan', '- [x] G3 Plan') }, c).allow, true);
   assert.equal(decide({ cwd: P, ...W(`${P}/src/x.ts`, 'x') }, c).allow, true);
 });
 test('gates.ledger.dir moves the ledger root', () => {
-  const p2 = normalizePolicy({ version: 1, approver: { github: 'h' }, agentIdentity: { github: 'a[bot]' }, gates: { ledger: { dir: 'work/features' } } });
-  const c = { ...ctx(LEDGER_BLOCKED, { ledgers: () => [{ rel: 'work/features/inv/00-status.md', text: LEDGER_BLOCKED }] }), policy: p2 };
-  assert.equal(decide({ cwd: P, ...E(`${P}/work/features/inv/00-status.md`, '- [ ] G3 Plan', '- [x] G3 Plan') }, c).gate, 'ledger');
-  assert.equal(decide({ cwd: P, ...E(L, '- [ ] G3 Plan', '- [x] G3 Plan') }, c).allow, true, 'old dir is not a ledger under this policy');
+  const p2 = normalizePolicy({
+    version: 1, approver: { github: 'h' }, agentIdentity: { github: 'a[bot]' },
+    gates: { ledger: { dir: 'work/features' } },
+  });
+  const c = {
+    ...ctx(LEDGER_BLOCKED, { ledgers: () => [{ rel: 'work/features/inv/00-status.md', text: LEDGER_BLOCKED }] }),
+    policy: p2,
+  };
+  assert.equal(
+    decide({ cwd: P, ...E(`${P}/work/features/inv/00-status.md`, '- [ ] G3 Plan', '- [x] G3 Plan') }, c).gate, 'ledger',
+  );
+  assert.equal(
+    decide({ cwd: P, ...E(L, '- [ ] G3 Plan', '- [x] G3 Plan') }, c).allow,
+    true,
+    'old dir is not a ledger under this policy',
+  );
 });
 
 // --------------------------------------------------- part 2: end to end
 
 function gate(dir, event) {
-  const r = spawnSync(process.execPath, [GATE], { input: JSON.stringify({ cwd: dir, ...event }), env: { ...process.env, CLAUDE_PROJECT_DIR: dir }, encoding: 'utf8' });
+  const r = spawnSync(process.execPath, [GATE], {
+    input: JSON.stringify({ cwd: dir, ...event }), env: { ...process.env, CLAUDE_PROJECT_DIR: dir }, encoding: 'utf8',
+  });
   return { code: r.status, err: r.stderr };
 }
-const keel = (dir, ...a) => spawnSync(process.execPath, [KEEL, '--dir', dir, ...a], { cwd: dir, env: { ...process.env, KEEL_APPROVER: 'Ada' }, encoding: 'utf8' });
+const keel = (dir, ...a) => spawnSync(process.execPath, [KEEL, '--dir', dir, ...a], {
+  cwd: dir, env: { ...process.env, KEEL_APPROVER: 'Ada' }, encoding: 'utf8',
+});
 
 test('e2e: the real hook holds the plan gate, keel approve releases it', () => {
   const { dir } = makeRepo();
@@ -145,17 +171,25 @@ test('e2e: the real hook holds the plan gate, keel approve releases it', () => {
   assert.equal(r.code, 2); assert.match(r.err, /\[ledger\] gate G3/);
   r = gate(dir, B('keel approve invoicing G3 "ok"'));
   assert.equal(r.code, 2); assert.match(r.err, /run by the human/);
-  assert.equal(gate(dir, W(path.join(dir, '.scratch/invoicing/issues/02.md'), '# 02')).code, 0, 'tickets stay editable');
-  assert.equal(gate(dir, E(ledger, '- [ ] 01 — invoice totals', '- [x] 01 — invoice totals')).code, 0, 'slices stay editable');
+  assert.equal(
+    gate(dir, W(path.join(dir, '.scratch/invoicing/issues/02.md'), '# 02')).code, 0, 'tickets stay editable',
+  );
+  assert.equal(
+    gate(dir, E(ledger, '- [ ] 01 — invoice totals', '- [x] 01 — invoice totals')).code, 0, 'slices stay editable',
+  );
 
   const a = keel(dir, 'approve', 'invoicing', 'G3', 'tickets look right');
   assert.equal(a.status, 0, a.stderr);
   const text = fs.readFileSync(ledger, 'utf8');
-  assert.match(text, /^- \[x\] G3 Plan — approved \d{4}-\d{2}-\d{2} by Ada: "tickets look right"  \(docs: issues\/\)$/m);
+  assert.match(
+    text, /^- \[x\] G3 Plan — approved \d{4}-\d{2}-\d{2} by Ada: "tickets look right"  \(docs: issues\/\)$/m,
+  );
   assert.match(text, /\*\*Blocked on:\*\* nothing/);
   assert.match(text, /^- \[x\] G1 Align — approved 2026-10-01 by Ada: "yes"/m, 'other lines untouched');
   assert.match(text, /^- \[ \] Ship/m);
-  assert.equal(gate(dir, W(path.join(dir, 'src/invoice.ts'), 'export const x = 1')).code, 0, 'code flows once approved');
+  assert.equal(
+    gate(dir, W(path.join(dir, 'src/invoice.ts'), 'export const x = 1')).code, 0, 'code flows once approved',
+  );
   assert.equal(gate(dir, W(ledger, text)).code, 0, 'rewriting the approved ledger as-is is fine');
 
   const again = keel(dir, 'approve', 'invoicing', 'G3', 'again');
