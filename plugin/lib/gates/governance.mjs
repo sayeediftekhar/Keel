@@ -7,64 +7,89 @@ import { base } from '../shell.mjs';
 import { matchesAny } from '../glob.mjs';
 import { ALLOW, block, expandHome, safe } from './common.mjs';
 
+const FILE_ARG_PROGS = ['rm', 'unlink', 'rmdir', 'truncate', 'chmod', 'chown', 'chgrp', 'touch', 'shred', 'tee',
+  'mkdir'];
+const COPY_PROGS = ['cp', 'install', 'rsync', 'ln', 'mv'];
 
 export function governanceTargets(cmd) {
   const prog = base(cmd.argv[0]);
   const args = cmd.argv.slice(1);
   const nonFlags = args.filter((a) => !a.startsWith('-'));
-  const optVal = (names) => {
-    for (let i = 0; i < args.length; i++) {
-      for (const n of names) {
-        if (args[i] === n) return args[i + 1];
-        if (args[i].startsWith(`${n}=`)) return args[i].slice(n.length + 1);
-      }
-    }
-    return undefined;
-  };
   const t = [...cmd.redirects];
-  if (['rm', 'unlink', 'rmdir', 'truncate', 'chmod', 'chown', 'chgrp', 'touch', 'shred', 'tee', 'mkdir']
-    .includes(prog)) {
-    t.push(...nonFlags);
-  }
-  if (['cp', 'install', 'rsync', 'ln', 'mv'].includes(prog)) {
-    const dir = optVal(['-t', '--target-directory']);
-    const srcs = dir ? nonFlags.filter((a) => a !== dir) : nonFlags.slice(0, -1);
-    const dest = dir ?? nonFlags[nonFlags.length - 1];
-    if (prog === 'mv') t.push(...srcs); // moving a governed file away changes it
-    if (dest !== undefined) {
-      // A tree copy can carry anything, so the directory it lands in is the target.
-      // A file copy lands at <dest>/<name> (or at <dest> itself when that is a
-      // file), never on the directory around it: `cp notes.txt .` is not an edit
-      // of the governance files that live in `.`.
-      const tree = prog === 'rsync' || srcs.some((s) => s.endsWith('/'))
-        || args.some((a) => a === '--recursive' || a === '--archive' || /^-[a-zA-Z]*[rRa]/.test(a));
-      t.push(tree ? dest : { path: dest, exact: true }, ...srcs.map((s) => path.join(dest, base(s))));
+  if (FILE_ARG_PROGS.includes(prog)) t.push(...nonFlags);
+  if (COPY_PROGS.includes(prog)) t.push(...copyTargets(prog, args, nonFlags));
+  t.push(...inPlaceEditTargets(prog, args, nonFlags));
+  if (prog === 'git') t.push(...gitTargets(args));
+  return t;
+}
+
+/** `--name value` or `--name=value` for any of `names`, from the first argument that matches. */
+const optVal = (args, names) => {
+  for (let i = 0; i < args.length; i++) {
+    for (const n of names) {
+      if (args[i] === n) return args[i + 1];
+      if (args[i].startsWith(`${n}=`)) return args[i].slice(n.length + 1);
     }
   }
-  if (prog === 'dd') for (const a of args) if (a.startsWith('of=')) t.push(a.slice(3));
-  if ((prog === 'sed' || prog === 'perl' || prog === 'ruby')
-    && args.some((a) => /^-[a-zA-Z]*i/.test(a) || a.startsWith('--in-place'))) t.push(...nonFlags);
-  if ((prog === 'awk' || prog === 'gawk')
-    && args.some((a, i) => (a === '-i' && args[i + 1] === 'inplace') || a === '--include=inplace')) {
-    t.push(...nonFlags.slice(1));
-  }
-  if (prog === 'git') {
-    const sub = args[0]; const rest = args.slice(1);
-    const dd = rest.indexOf('--');
-    if (sub === 'rm' || sub === 'mv') t.push(...rest.filter((a) => !a.startsWith('-')));
-    // Restoring files from some other commit could swap in an older, weaker policy.
-    const source = sub === 'restore'
-      ? (rest.find((a) => a.startsWith('--source='))?.slice(9) ?? optValFrom(rest, ['-s', '--source']))
-      : sub === 'checkout' && dd > 0 ? rest.slice(0, dd).find((a) => !a.startsWith('-')) : undefined;
-    if (source && !isSafeRef(source)) {
-      t.push(...(dd >= 0 ? rest.slice(dd + 1) : rest.filter((a) => !a.startsWith('-') && a !== source)));
-    }
-    if (sub === 'reset' && rest.includes('--hard')) {
-      const ref = rest.find((a) => !a.startsWith('-'));
-      if (ref && !isSafeRef(ref)) t.push('.');
-    }
+  return undefined;
+};
+
+/** cp/install/rsync/ln/mv: where the copy lands, plus the sources for mv. */
+function copyTargets(prog, args, nonFlags) {
+  const t = [];
+  const dir = optVal(args, ['-t', '--target-directory']);
+  const srcs = dir ? nonFlags.filter((a) => a !== dir) : nonFlags.slice(0, -1);
+  const dest = dir ?? nonFlags[nonFlags.length - 1];
+  if (prog === 'mv') t.push(...srcs); // moving a governed file away changes it
+  if (dest !== undefined) {
+    // A tree copy can carry anything, so the directory it lands in is the target.
+    // A file copy lands at <dest>/<name> (or at <dest> itself when that is a
+    // file), never on the directory around it: `cp notes.txt .` is not an edit
+    // of the governance files that live in `.`.
+    const tree = prog === 'rsync' || srcs.some((s) => s.endsWith('/'))
+      || args.some((a) => a === '--recursive' || a === '--archive' || /^-[a-zA-Z]*[rRa]/.test(a));
+    t.push(tree ? dest : { path: dest, exact: true }, ...srcs.map((s) => path.join(dest, base(s))));
   }
   return t;
+}
+
+/** Files written in place: `dd of=`, `sed|perl|ruby -i`, `awk|gawk -i inplace`. */
+function inPlaceEditTargets(prog, args, nonFlags) {
+  if (prog === 'dd') return args.filter((a) => a.startsWith('of=')).map((a) => a.slice(3));
+  if ((prog === 'sed' || prog === 'perl' || prog === 'ruby')
+    && args.some((a) => /^-[a-zA-Z]*i/.test(a) || a.startsWith('--in-place'))) return nonFlags;
+  if ((prog === 'awk' || prog === 'gawk')
+    && args.some((a, i) => (a === '-i' && args[i + 1] === 'inplace') || a === '--include=inplace')) {
+    return nonFlags.slice(1);
+  }
+  return [];
+}
+
+/** git rm/mv paths, paths restored from an unsafe ref, and `.` for a hard reset to one. */
+function gitTargets(args) {
+  const t = [];
+  const sub = args[0]; const rest = args.slice(1);
+  const dd = rest.indexOf('--');
+  if (sub === 'rm' || sub === 'mv') t.push(...rest.filter((a) => !a.startsWith('-')));
+  // Restoring files from some other commit could swap in an older, weaker policy.
+  const source = gitRestoreSource(sub, rest, dd);
+  if (source && !isSafeRef(source)) {
+    t.push(...(dd >= 0 ? rest.slice(dd + 1) : rest.filter((a) => !a.startsWith('-') && a !== source)));
+  }
+  if (sub === 'reset' && rest.includes('--hard')) {
+    const ref = rest.find((a) => !a.startsWith('-'));
+    if (ref && !isSafeRef(ref)) t.push('.');
+  }
+  return t;
+}
+
+/** The ref `git restore --source` or `git checkout <ref> -- <paths>` reads from, if any. */
+function gitRestoreSource(sub, rest, dd) {
+  if (sub === 'restore') {
+    return rest.find((a) => a.startsWith('--source='))?.slice(9) ?? optValFrom(rest, ['-s', '--source']);
+  }
+  if (sub === 'checkout' && dd > 0) return rest.slice(0, dd).find((a) => !a.startsWith('-'));
+  return undefined;
 }
 const optValFrom = (args, names) => {
   const i = args.findIndex((a) => names.includes(a));
