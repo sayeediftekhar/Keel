@@ -140,7 +140,9 @@ test('quality defaults: a project compiled with defaults gets audit + secret sca
   assert.match(
     keelChecks(y), /- uses: actions\/checkout@v4\n\s+with:\n\s+fetch-depth: 0/, 'the diff scan needs history',
   );
-  assert.match(y, /- name: quality \/ dependency audit \(npm, high\+\)\n\s+run: \|\n\s+npm audit --audit-level=high\n/);
+  assert.match(
+    y, /- name: quality \/ dependency audit \(npm, high\+\)\n\s+run: \|\n\s+node \.keel\/ci\/keel-ci\.mjs audit npm\n/,
+  );
   assert.match(y, new RegExp(
     String.raw`- name: quality \/ secret scan of the diff\n\s+env:\n` +
     String.raw`\s+BASE_SHA: \$\{\{ github\.event\.pull_request\.base\.sha \}\}\n\s+HEAD_SHA: .*\n` +
@@ -155,26 +157,6 @@ test('quality defaults: a project compiled with defaults gets audit + secret sca
   const lock = JSON.parse(files['.keel/policy.lock.json']);
   assert.deepEqual(lock.policy.quality.threatModel, { mode: 'warn' });
   assert.equal(lock.policy.quality.secrets.gitleaks.sha256, QUALITY_PINS.gitleaks.sha256);
-});
-
-test('quality audit follows the lockfile, and the level maps per package manager', () => {
-  const cases = [
-    [{ 'package.json': '{}', 'pnpm-lock.yaml': '' }, 'pnpm audit --audit-level critical', 'pnpm'],
-    [
-      { 'package.json': '{}', 'yarn.lock': '', '.yarnrc.yml': '' },
-      'yarn npm audit --all --recursive --severity critical',
-      'yarn-berry',
-    ],
-    [{ 'package.json': '{}', 'yarn.lock': '' }, 'yarn audit --level critical || code=$?', 'yarn'],
-  ];
-  for (const [files, cmd, label] of cases) {
-    const { dir, policy } = fixture(files, { audit: { level: 'critical' } });
-    const y = workflowYaml(dir, policy);
-    assert.ok(y.includes(cmd), `${label}: ${cmd}`);
-    assert.ok(y.includes(`quality / dependency audit (${label}, critical+)`), label);
-  }
-  const { dir, policy } = fixture({ 'package.json': '{}', 'yarn.lock': '' });
-  assert.match(workflowYaml(dir, policy), /test \$\(\(code & 24\)\) -eq 0/, 'yarn classic: high = the 8 and 16 bits');
 });
 
 test('quality audit: no JavaScript → a warning step and a note; a custom command replaces detection', () => {

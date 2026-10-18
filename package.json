@@ -1,6 +1,6 @@
 {
   "name": "keel-governance",
-  "version": "3.0.0-alpha.3",
+  "version": "3.0.0-alpha.4",
   "description": "Keel: a rigor router, lane skills and enforced gates for AI coding agents. The `keel` CLI scaffolds, compiles and proves a project's governance policy.",
   "private": true,
   "license": "MIT",

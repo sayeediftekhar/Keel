@@ -3,10 +3,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { objectSha } from './hash.mjs';
 import { normalizeLimits, LIMIT_DEFAULTS } from '../ci/limits.mjs';
+import { allowErrors } from '../ci/audit.mjs';
 
 export const POLICY_FILE = 'keel.policy.json';
 export const LOCK_FILE = '.keel/policy.lock.json';
-export const KEEL_VERSION = '3.0.0-alpha.3';
+export const KEEL_VERSION = '3.0.0-alpha.4';
 
 const DEFAULT_GOVERNANCE = [
   'keel.policy.json',
@@ -217,13 +218,14 @@ function qualityErrors(q, oneOf, errs) {
   qualityKeyErrors(q, oneOf, errs);
   oneOf(q.audit?.level, LEVELS, 'quality.audit.level');
   if (q.audit?.command != null && !isStr(q.audit.command)) errs.push('quality.audit.command must be a command string');
+  errs.push(...allowErrors(q.audit?.allow));
   secretsErrors(q.secrets, oneOf, errs);
   qualityPathErrors(q, errs);
   limitsErrors(q.limits, errs);
 }
 
 const QUALITY_KEYS = {
-  audit: ['mode', 'level', 'command'], secrets: ['mode', 'engine', 'allowPaths', 'gitleaks'],
+  audit: ['mode', 'level', 'command', 'allow'], secrets: ['mode', 'engine', 'allowPaths', 'gitleaks'],
   sast: ['mode', 'rules'], architecture: ['mode', 'config', 'paths'], threatModel: ['mode'],
 };
 
@@ -305,16 +307,22 @@ function normalizeBudget(b) {
 
 function normalizeQuality(q) {
   return {
-    audit: {
-      mode: q.audit?.mode ?? 'fail',
-      level: q.audit?.level ?? 'high',
-      command: q.audit?.command ?? null,
-    },
+    audit: normalizeAudit(q.audit),
     secrets: normalizeSecretsFloor(q.secrets),
     sast: { mode: q.sast?.mode ?? 'off', rules: q.sast?.rules ?? null },
     architecture: normalizeArchitecture(q.architecture),
     threatModel: { mode: q.threatModel?.mode ?? 'warn' },
     limits: normalizeLimits(q.limits),
+  };
+}
+
+function normalizeAudit(a) {
+  return {
+    mode: a?.mode ?? 'fail',
+    level: a?.level ?? 'high',
+    command: a?.command ?? null,
+    // Only when set, so a policy without exceptions keeps the lock it had before D23.
+    ...(a?.allow?.length ? { allow: a.allow.map(({ id, reason, reviewBy }) => ({ id, reason, reviewBy })) } : {}),
   };
 }
 

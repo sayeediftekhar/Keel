@@ -105,12 +105,24 @@
       "type": "object", "additionalProperties": false,
       "properties": {
         "audit": {
-          "description": "Dependency audit for the detected package manager (npm, pnpm, Yarn classic or Berry). Other stacks set `command`.",
+          "description": "Dependency audit for the detected package manager (npm, pnpm, Yarn classic or Berry), run as JSON by keel-ci.mjs audit with the reviewed exceptions in `allow`. Other stacks set `command`.",
           "type": "object", "additionalProperties": false,
           "properties": {
             "mode": { "enum": ["fail", "warn", "off"], "default": "fail" },
             "level": { "enum": ["low", "moderate", "high", "critical"], "default": "high" },
-            "command": { "description": "Replaces the detected audit command, e.g. \"pipx run --spec pip-audit==2.9.0 pip-audit -r requirements.txt\".", "type": ["string", "null"] }
+            "command": { "description": "Replaces Keel's audit (allow included), e.g. \"pipx run --spec pip-audit==2.9.0 pip-audit -r requirements.txt\".", "type": ["string", "null"] },
+            "allow": {
+              "description": "Reviewed exceptions (D23): an advisory listed here doesn't fail the audit until its reviewBy date passes. Once that date passes it fails again; an entry no longer reported warns.",
+              "type": "array",
+              "items": {
+                "type": "object", "additionalProperties": false, "required": ["id", "reason", "reviewBy"],
+                "properties": {
+                  "id": { "description": "The GitHub advisory id the audit reports.", "type": "string", "pattern": "^[Gg][Hh][Ss][Aa](-[A-Za-z0-9]{4}){3}$" },
+                  "reason": { "description": "Why it doesn't apply or can't be fixed yet.", "type": "string", "minLength": 1 },
+                  "reviewBy": { "description": "YYYY-MM-DD; the exception holds through this day (UTC).", "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" }
+                }
+              }
+            }
           }
         },
         "secrets": {
