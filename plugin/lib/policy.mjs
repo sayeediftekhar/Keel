@@ -6,7 +6,7 @@ import { normalizeLimits, LIMIT_DEFAULTS } from '../ci/limits.mjs';
 
 export const POLICY_FILE = 'keel.policy.json';
 export const LOCK_FILE = '.keel/policy.lock.json';
-export const KEEL_VERSION = '3.0.0-alpha.3';
+export const KEEL_VERSION = '3.0.0-alpha.4';
 
 const DEFAULT_GOVERNANCE = [
   'keel.policy.json',
