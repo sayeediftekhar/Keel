@@ -47,6 +47,8 @@ export class PolicyError extends Error {}
 
 const isStr = (v) => typeof v === 'string' && v.length > 0;
 const strArr = (v) => Array.isArray(v) && v.every(isStr);
+// GitHub logins are case-insensitive: "Owner" and "owner" are one account.
+const sameLogin = (a, b) => isStr(a) && isStr(b) && a.toLowerCase() === b.toLowerCase();
 
 /** Validate a raw policy object and fill defaults. Throws PolicyError on any problem. */
 export function normalizePolicy(raw) {
@@ -58,7 +60,7 @@ export function normalizePolicy(raw) {
   if (!isStr(raw.agentIdentity?.github)) {
     errs.push('"agentIdentity.github" is required (the agent\'s own GitHub identity)');
   }
-  if (isStr(raw.approver?.github) && raw.approver.github === raw.agentIdentity?.github) {
+  if (sameLogin(raw.approver?.github, raw.agentIdentity?.github)) {
     errs.push('"agentIdentity" must differ from "approver": the agent cannot hold the approval stamp');
   }
   const surfaces = raw.surfaces ?? {};
