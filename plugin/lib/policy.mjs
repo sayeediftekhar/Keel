@@ -42,7 +42,8 @@ export function normalizePolicy(raw) {
   if (raw.version !== 1) errs.push('"version" must be 1');
   if (!isStr(raw.approver?.github)) errs.push('"approver.github" is required (the human who approves HEAVY work)');
   if (!isStr(raw.agentIdentity?.github)) errs.push('"agentIdentity.github" is required (the agent\'s own GitHub identity)');
-  if (isStr(raw.approver?.github) && raw.approver.github === raw.agentIdentity?.github) {
+  // GitHub logins are case-insensitive: "Owner" and "owner" are one account.
+  if (isStr(raw.approver?.github) && isStr(raw.agentIdentity?.github) && raw.approver.github.toLowerCase() === raw.agentIdentity.github.toLowerCase()) {
     errs.push('"agentIdentity" must differ from "approver": the agent cannot hold the approval stamp');
   }
   const surfaces = raw.surfaces ?? {};

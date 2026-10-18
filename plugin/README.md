@@ -173,7 +173,10 @@ public repo. Without it, `gh pr merge --auto` may merge immediately.
 The `keel-rigor` CI check also enforces HEAVY approval itself: a PR whose
 rigor record says HEAVY stays red until the approver has approved it (the
 check re-runs on each review), and a PR marked LIGHT that touches a danger
-path fails.
+path fails. A HEAVY PR authored by the approver themselves passes without a
+review: GitHub forbids self-approval, so their authorship is the approval
+(D17). The agent's identity never equals the approver's (the policy refuses
+it), so an agent-authored HEAVY PR always waits.
 
 ## Test-database guard
 

@@ -35,8 +35,9 @@ export function globToRegExp(pattern) {
   return new RegExp(`^${re}$`);
 }
 
-/** Pure: given changed files, a PR body, the policy and the PR's reviews, return {ok, message}. */
-export function rigorVerdict(changed, body, policy, reviews = []) {
+/** Pure: given changed files, a PR body, the policy, the PR's reviews and the PR author's
+ *  login, return {ok, message}. */
+export function rigorVerdict(changed, body, policy, reviews = [], author = '') {
   const rec = /^[\s>*-]*`?\s*Rigor:\s*(FAST|LIGHT|HEAVY)\b/im.exec(body ?? '');
   if (!rec) return { ok: false, message: 'The PR description needs a rigor record line, e.g. "Rigor: LIGHT — surfaces 1-11 scanned, all no." or "Rigor: HEAVY — surface 8 (schema)."' };
   const level = rec[1].toUpperCase();
@@ -48,6 +49,14 @@ export function rigorVerdict(changed, body, policy, reviews = []) {
     }
   }
   if (level === 'HEAVY') {
+    const approver = policy.approver.github.toLowerCase();
+    const who = String(author ?? '').trim().toLowerCase();
+    // D17: GitHub forbids approving your own PR, so HEAVY work the approver authored
+    // is taken as approved by its author. The agent's identity never equals the
+    // approver's (policy validation), so an agent-authored PR always waits below.
+    if (who && who === approver && who !== String(policy.agentIdentity?.github ?? '').toLowerCase()) {
+      return { ok: true, message: `HEAVY: authored by the approver @${policy.approver.github}. GitHub forbids self-approval, so the author's own review stands as the approval (D17); nobody else has reviewed this PR.` };
+    }
     // Latest review per reviewer; the approver's must be APPROVED.
     const latest = new Map();
     for (const r of reviews) if (r?.user?.login && ['APPROVED', 'CHANGES_REQUESTED', 'DISMISSED'].includes(r.state)) latest.set(r.user.login.toLowerCase(), r.state);
@@ -70,7 +79,7 @@ function rigor() {
       reviews = JSON.parse(`[${out.replace(/\]\s*\[/g, ',').replace(/^\[|\]$/g, '')}]`);
     } catch (e) { console.log(`::warning::couldn't read reviews: ${e.message}`); }
   }
-  const v = rigorVerdict(changed, process.env.PR_BODY ?? '', policy, reviews);
+  const v = rigorVerdict(changed, process.env.PR_BODY ?? '', policy, reviews, process.env.PR_AUTHOR ?? '');
   if (!v.ok) fail(v.message);
   console.log(v.message);
 }

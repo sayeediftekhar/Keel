@@ -8,6 +8,8 @@ import { normalizePolicy, PolicyError } from '../lib/policy.mjs';
 
 test('policy validation rejects an agent holding the approval stamp', () => {
   assert.throws(() => normalizePolicy({ ...BASE_POLICY, agentIdentity: { github: 'owner-human' } }), PolicyError);
+  // GitHub logins are case-insensitive, so this is the same account.
+  assert.throws(() => normalizePolicy({ ...BASE_POLICY, agentIdentity: { github: 'Owner-Human' } }), PolicyError);
 });
 
 test('policy validation rejects unknown keys and bad modes', () => {
@@ -73,7 +75,7 @@ test('ruleset: code-owner review, both keel checks, no bypass, no force push', (
   assert.ok(rs.rules.some((r) => r.type === 'non_fast_forward'));
 });
 
-test('workflow runs the back-pressure ladder and the rigor check, with PR body passed via env', () => {
+test('workflow runs the back-pressure ladder and the rigor check, with PR body and author passed via env', () => {
   const { dir } = makeRepo({ ...BASE_POLICY, ci: { postgres: true } });
   write(dir, 'package-lock.json', '{}');
   compile(dir, { write: true });
@@ -82,6 +84,7 @@ test('workflow runs the back-pressure ladder and the rigor check, with PR body p
   assert.match(y, /- name: install\n\s+run: \|\n\s+npm ci/);
   assert.match(y, /- name: unit\n\s+run: \|\n\s+npm test/);
   assert.match(y, /PR_BODY: \$\{\{ github\.event\.pull_request\.body \}\}/);
-  assert.ok(!/run:.*github\.event\.pull_request\.body/.test(y), 'PR body never interpolated into a shell line');
+  assert.match(y, /PR_AUTHOR: \$\{\{ github\.event\.pull_request\.user\.login \}\}/);
+  assert.ok(!/run:.*github\.event\.pull_request\./.test(y), 'PR body/author never interpolated into a shell line');
   assert.match(y, /image: postgres:16/);
 });
