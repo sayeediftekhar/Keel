@@ -62,11 +62,8 @@ function isEnvArg(a) {
   return false;
 }
 
-export function secretsBash(cmd, ctx) {
-  if (ctx.policy.gates.secrets.mode !== 'block') return null;
-  const prog = base(cmd.argv[0]);
-  const args = cmd.argv.slice(1);
-  const markers = ctx.policy.environments.live.markers;
+/** `printenv`, `env`, `set`, `export`: listing the environment or a live credential. */
+function envListingBlock(prog, args, markers) {
   if (prog === 'printenv' && (args.length === 0 || args.some((a) => markers.includes(a)))) {
     return secretsBlock(`\`printenv${args.length ? ` ${args.join(' ')}` : ''}\``);
   }
@@ -74,6 +71,11 @@ export function secretsBash(cmd, ctx) {
   if ((prog === 'set' || prog === 'export') && (args.length === 0 || args.every((a) => a === '-p'))) {
     return secretsBlock(`\`${prog}\``);
   }
+  return null;
+}
+
+/** `declare -p/-x`, `compgen -e`, /proc/…/environ: other ways to dump the environment. */
+function shellEnvBlock(cmd, prog, args) {
   if ((prog === 'declare' || prog === 'typeset') && args.length && args.every((a) => /^-[a-zA-Z]*[px]/.test(a))) {
     return secretsBlock(`\`${prog} ${args.join(' ')}\``);
   }
@@ -81,25 +83,29 @@ export function secretsBash(cmd, ctx) {
   if (args.some((a) => /\/proc\/[^/]+\/environ/.test(a)) || cmd.inputs.some((a) => /\/proc\/[^/]+\/environ/.test(a))) {
     return secretsBlock('reading a process environment');
   }
-  if (PRINTERS.has(prog) || cmd.dynamic) {
-    const m = markers.join('|');
-    const ref = m
-      ? new RegExp(`(\\$\\{?(${m})\\b|process\\.env(\\.(${m})\\b|\\[['"](${m})['"]\\])`
-        + `|environ[^\\n]*['"](${m})['"]|getenv\\(['"](${m})['"])`)
-      : null;
-    if (ref && args.some((a) => ref.test(a))) return secretsBlock(`\`${prog}\` with a live credential reference`);
-    const whole = new RegExp([
-      'process\\.env(?!\\s*(\\.\\s*[A-Za-z_]|\\[))', 'os\\.environ(?!\\s*(\\[|\\.get\\b))',
-      '\\bENV(?!\\s*\\[)\\b(?=.*(puts|p |print|inspect|to_h))', '%ENV', 'getenv\\(\\s*\\)',
-    ].join('|'));
-    if (['node', 'python', 'python3', 'ruby', 'perl', 'deno', 'bun', 'php'].includes(prog)
-      && args.some((a) => whole.test(a))) return secretsBlock(`\`${prog}\` printing the whole environment`);
-  }
-  // A credential literal typed into a command is already in the transcript, and
-  // usually on its way into a file or a request header. Use the env var instead.
-  if (cmd.argv.some((a) => SECRET_LITERAL.test(a)) || (cmd.stdinText && SECRET_LITERAL.test(cmd.stdinText))) {
-    return secretsBlock(`\`${prog}\` with a credential literal in the command (use an environment variable)`);
-  }
+  return null;
+}
+
+/** A printer or interpreter echoing a live credential, or the whole environment. */
+function printerBlock(cmd, prog, args, markers) {
+  if (!(PRINTERS.has(prog) || cmd.dynamic)) return null;
+  const m = markers.join('|');
+  const ref = m
+    ? new RegExp(`(\\$\\{?(${m})\\b|process\\.env(\\.(${m})\\b|\\[['"](${m})['"]\\])`
+      + `|environ[^\\n]*['"](${m})['"]|getenv\\(['"](${m})['"])`)
+    : null;
+  if (ref && args.some((a) => ref.test(a))) return secretsBlock(`\`${prog}\` with a live credential reference`);
+  const whole = new RegExp([
+    'process\\.env(?!\\s*(\\.\\s*[A-Za-z_]|\\[))', 'os\\.environ(?!\\s*(\\[|\\.get\\b))',
+    '\\bENV(?!\\s*\\[)\\b(?=.*(puts|p |print|inspect|to_h))', '%ENV', 'getenv\\(\\s*\\)',
+  ].join('|'));
+  if (['node', 'python', 'python3', 'ruby', 'perl', 'deno', 'bun', 'php'].includes(prog)
+    && args.some((a) => whole.test(a))) return secretsBlock(`\`${prog}\` printing the whole environment`);
+  return null;
+}
+
+/** A command that reads, copies or redirects an env file into the transcript. */
+function envFileBlock(cmd, prog, args) {
   if (cmd.inputs.some(isEnvArg)) return secretsBlock(`\`${prog} < env file\``);
   if (prog === 'dd' && args.some((a) => a.startsWith('if=') && isEnvArg(a.slice(3)))) {
     return secretsBlock('`dd` on an env file');
@@ -114,17 +120,36 @@ export function secretsBash(cmd, ctx) {
   } else if (READERS.has(prog) && args.some(isEnvArg)) {
     return secretsBlock(`\`${prog}\` on an env file`);
   }
-  // Recursive searches for a credential name would print the line from .env.
-  if (markers.length && args.some((a) => markers.some((m) => a.includes(m)))) {
-    const paths = args.filter((a) => !a.startsWith('-')).slice(1);
-    const wide = paths.length === 0 || paths.some((p) => p === '.' || p === './' || isEnvArg(p));
-    if ((prog === 'grep' || prog === 'egrep') && args.some((a) => /^-[a-zA-Z]*[rR]/.test(a) || a === '--recursive')
-      && wide) return secretsBlock('a recursive search for a credential name');
-    if ((prog === 'rg' || prog === 'ag') && args.some((a) => /^(--hidden|-u+|--no-ignore|--unrestricted)$/.test(a))) {
-      return secretsBlock('a hidden-file search for a credential name');
-    }
+  return null;
+}
+
+/** Recursive searches for a credential name would print the line from .env. */
+function credentialSearchBlock(prog, args, markers) {
+  if (!(markers.length && args.some((a) => markers.some((m) => a.includes(m))))) return null;
+  const paths = args.filter((a) => !a.startsWith('-')).slice(1);
+  const wide = paths.length === 0 || paths.some((p) => p === '.' || p === './' || isEnvArg(p));
+  if ((prog === 'grep' || prog === 'egrep') && args.some((a) => /^-[a-zA-Z]*[rR]/.test(a) || a === '--recursive')
+    && wide) return secretsBlock('a recursive search for a credential name');
+  if ((prog === 'rg' || prog === 'ag') && args.some((a) => /^(--hidden|-u+|--no-ignore|--unrestricted)$/.test(a))) {
+    return secretsBlock('a hidden-file search for a credential name');
   }
   return null;
+}
+
+export function secretsBash(cmd, ctx) {
+  if (ctx.policy.gates.secrets.mode !== 'block') return null;
+  const prog = base(cmd.argv[0]);
+  const args = cmd.argv.slice(1);
+  const markers = ctx.policy.environments.live.markers;
+  const shown = envListingBlock(prog, args, markers) ?? shellEnvBlock(cmd, prog, args)
+    ?? printerBlock(cmd, prog, args, markers);
+  if (shown) return shown;
+  // A credential literal typed into a command is already in the transcript, and
+  // usually on its way into a file or a request header. Use the env var instead.
+  if (cmd.argv.some((a) => SECRET_LITERAL.test(a)) || (cmd.stdinText && SECRET_LITERAL.test(cmd.stdinText))) {
+    return secretsBlock(`\`${prog}\` with a credential literal in the command (use an environment variable)`);
+  }
+  return envFileBlock(cmd, prog, args) ?? credentialSearchBlock(prog, args, markers);
 }
 
 /** Read, Grep and Glob: no env file read or searched into the transcript. */
