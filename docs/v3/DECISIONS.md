@@ -84,7 +84,7 @@ privilege, approvals, `keel doctor`) while breaking its context half: `keel init
 whole router and LAWS (263 lines, 14.8k characters, ~5.1k tokens est.) into every project's always-on
 `CLAUDE.md`, against a Tier-1 budget of ~80 lines / ~1.5k tokens. Nothing in CI measured code
 cleanliness, and Keel's own `gates.mjs` was 766 lines with 102 lines over 120 characters.
-(Numbering: D17 is claimed twice, by PR #12 and PR #13; this is D20, after both.)
+(Numbering: D17–D19 are the quality floor (PR #13); PR #12's decision, drafted as D17, is D21.)
 
 | # | Decision | Implication |
 |---|---|---|
@@ -100,3 +100,48 @@ Existing projects: re-run `keel init` (it replaces the managed block in place an
 missing files), then `keel compile` once and merge the result: the lock now carries
 `quality.limits`, `budget.mode` and the detected `formatter`, and `.keel/ci/` gains `limits.mjs`,
 `eslint.limits.mjs` (JS/TS projects) and `modules.json` (once the module map is filled in).
+
+## Self-authored HEAVY work (2026-10-18)
+
+Found while piloting on a real repo (sugabalance-website PR #22, authored by
+the approver): GitHub does not let a user approve their own pull request, so a
+HEAVY PR the approver authors can never get the approver's APPROVED review.
+`keel-rigor` stayed red by design; the PR merged only because the ruleset was
+not yet enforced (private repo, GitHub Free). With the ruleset active and
+`bypass_actors` empty, nobody could have merged it — including every
+governance PR, which §1.4 of the guide tells the approver to author and merge.
+
+| # | Decision | Implication |
+|---|---|---|
+| D21 | A HEAVY PR **authored by the approver** passes `keel-rigor` without a review; the author's own review is the approval | `rigorVerdict` reads the PR author (`PR_AUTHOR` ← `github.event.pull_request.user.login`, a new env var in the compiled workflow) and passes HEAVY when it equals `approver.github` (case-insensitive). Any other author — the agent's identity above all — still waits for the approver's APPROVED review. **Loss:** nobody but the author reviews the approver's HEAVY work; that is the same person who would have approved it. Projects compiled before this need `keel compile` again. |
+
+**Invariant kept:** an agent never counts as the approver. Policy validation
+already refuses `agentIdentity.github == approver.github`; it now compares
+case-insensitively (GitHub logins are), and the verdict refuses the exemption
+when the two logins coincide anyway. So the exemption is reachable only by the
+human's own account. If an agent runs on the approver's token (cloud session
+before the GitHub App is wired), Keel cannot tell them apart at any layer —
+`keel doctor` reports the identity as unproven until D15 is done, and the
+guide now says so instead of claiming `keel-rigor` still separates them.
+
+**Rejected:**
+- *(b) a second approver list* — does not help the main case, a solo
+  maintainer, and adds policy surface for a problem GitHub creates.
+- *the agent approves on the human's behalf* — the merge gate blocks
+  `gh pr review --approve` on purpose; an approval from the agent's shell
+  would pass as the human's review.
+- *keep `keel-rigor` strict and let the approver merge via a ruleset bypass* —
+  same number of human acts, but every governance PR then shows a red
+  required check and a logged rule bypass, and it needs a ruleset change
+  (a `RepositoryRole` admin bypass actor in `pull_request` mode) that cannot
+  be verified from a GitHub Free private repo.
+
+**Open, to verify when a ruleset is first enforced (paid plan or public
+repo):** the compiled ruleset also sets `require_code_owner_review: true`
+with `required_approving_review_count: 0`. If GitHub applies the code-owner
+rule at count 0, the approver's own danger-path PRs are still blocked at the
+GitHub layer (the sole code owner cannot approve their own PR) even though
+`keel-rigor` is green. The recorded fallback is that admin bypass actor in
+`pull_request` mode, which the agent cannot use (its identity is not a repo
+admin; the doctor checks that) and which GitHub logs — plus the matching
+`keel doctor` relaxation. Not changed here because it is unverified.

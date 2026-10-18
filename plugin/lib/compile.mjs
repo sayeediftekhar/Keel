@@ -112,6 +112,7 @@ export function workflowYaml(projectDir, policy) {
   return compileWorkflow(projectDir, policy).yaml;
 }
 
+// keel-checks' Postgres service when policy.ci.postgres is on (YAML at job indent).
 const POSTGRES_SERVICE = '    services:\n' +
   '      postgres:\n' +
   '        image: postgres:16\n' +
@@ -188,6 +189,7 @@ ${indent(steps.join('\n'), 6)}
         env:
           GH_TOKEN: \${{ github.token }}
           PR_NUMBER: \${{ github.event.pull_request.number }}
+          PR_AUTHOR: \${{ github.event.pull_request.user.login }}
           PR_BODY: \${{ github.event.pull_request.body }}
           BASE_SHA: \${{ github.event.pull_request.base.sha }}
           HEAD_SHA: \${{ github.event.pull_request.head.sha }}

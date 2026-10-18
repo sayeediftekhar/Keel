@@ -47,29 +47,70 @@ export class PolicyError extends Error {}
 
 const isStr = (v) => typeof v === 'string' && v.length > 0;
 const strArr = (v) => Array.isArray(v) && v.every(isStr);
+const isPlain = (v) => Boolean(v) && typeof v === 'object' && !Array.isArray(v);
+// GitHub logins are case-insensitive: "Owner" and "owner" are one account.
+const sameLogin = (a, b) => isStr(a) && isStr(b) && a.toLowerCase() === b.toLowerCase();
 
 /** Validate a raw policy object and fill defaults. Throws PolicyError on any problem. */
 export function normalizePolicy(raw) {
+  if (!isPlain(raw)) throw new PolicyError('policy must be a JSON object');
+  const errs = policyErrors(raw);
+  if (errs.length) throw new PolicyError(errs.join('\n'));
+
+  const defaultBranch = raw.defaultBranch ?? 'main';
+  return {
+    version: 1,
+    approver: { github: raw.approver.github },
+    agentIdentity: { github: raw.agentIdentity.github },
+    github: raw.github ? { owner: raw.github.owner, repo: raw.github.repo } : null,
+    defaultBranch,
+    protectedBranches: raw.protectedBranches ?? [defaultBranch],
+    surfaces: raw.surfaces ?? {},
+    governancePaths: [...new Set([...DEFAULT_GOVERNANCE, ...(raw.governancePaths ?? [])])],
+    environments: normalizeEnvironments(raw.environments),
+    migrations: {
+      dirs: raw.migrations?.dirs ?? ['supabase/migrations', 'prisma/migrations', 'migrations', 'db/migrations'],
+    },
+    gates: normalizeGates(raw.gates ?? {}),
+    backPressure: raw.backPressure ?? [],
+    checks: raw.checks ?? {},
+    budget: normalizeBudget(raw.budget ?? {}),
+    ci: normalizeCi(raw.ci),
+    quality: normalizeQuality(raw.quality ?? {}),
+  };
+}
+
+/** Every problem with a raw policy object, in the order they are reported. */
+function policyErrors(raw) {
   const errs = [];
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new PolicyError('policy must be a JSON object');
+  const oneOf = (val, allowed, name) => {
+    if (val !== undefined && !allowed.includes(val)) errs.push(`${name} must be one of ${allowed.join(', ')}`);
+  };
+  identityErrors(raw, errs);
+  gateErrors(raw.gates ?? {}, oneOf, errs);
+  checkErrors(raw, errs);
+  workflowValueErrors(raw, oneOf, errs);
+  qualityErrors(raw.quality, oneOf, errs);
+  return errs;
+}
+
+/** Top-level keys, version, the approver and agent identities, surfaces. */
+function identityErrors(raw, errs) {
   for (const k of Object.keys(raw)) if (!TOP_KEYS.has(k)) errs.push(`unknown key "${k}"`);
   if (raw.version !== 1) errs.push('"version" must be 1');
   if (!isStr(raw.approver?.github)) errs.push('"approver.github" is required (the human who approves HEAVY work)');
   if (!isStr(raw.agentIdentity?.github)) {
     errs.push('"agentIdentity.github" is required (the agent\'s own GitHub identity)');
   }
-  if (isStr(raw.approver?.github) && raw.approver.github === raw.agentIdentity?.github) {
+  if (sameLogin(raw.approver?.github, raw.agentIdentity?.github)) {
     errs.push('"agentIdentity" must differ from "approver": the agent cannot hold the approval stamp');
   }
-  const surfaces = raw.surfaces ?? {};
-  for (const [k, v] of Object.entries(surfaces)) {
+  for (const [k, v] of Object.entries(raw.surfaces ?? {})) {
     if (!strArr(v)) errs.push(`surfaces.${k} must be an array of path globs`);
   }
+}
 
-  const g = raw.gates ?? {};
-  const oneOf = (val, allowed, name) => {
-    if (val !== undefined && !allowed.includes(val)) errs.push(`${name} must be one of ${allowed.join(', ')}`);
-  };
+function gateErrors(g, oneOf, errs) {
   oneOf(g.merge?.agent, ['auto-merge-only', 'deny', 'allow'], 'gates.merge.agent');
   oneOf(g.migration?.live, ['batch-authorized', 'deny', 'allow'], 'gates.migration.live');
   oneOf(g.migration?.liveSql, ['read-only', 'deny', 'allow'], 'gates.migration.liveSql');
@@ -81,6 +122,10 @@ export function normalizePolicy(raw) {
   if (g.deploy?.commands !== undefined && !strArr(g.deploy.commands)) {
     errs.push('gates.deploy.commands must be an array of strings');
   }
+}
+
+/** backPressure names real checks; github names a repository. */
+function checkErrors(raw, errs) {
   if (raw.backPressure !== undefined && !strArr(raw.backPressure)) {
     errs.push('backPressure must be an array of check names');
   }
@@ -90,64 +135,59 @@ export function normalizePolicy(raw) {
   if (raw.github !== undefined && !(isStr(raw.github?.owner) && isStr(raw.github?.repo))) {
     errs.push('"github" must be {"owner": "...", "repo": "..."}');
   }
-  workflowValueErrors(raw, oneOf, errs);
-  qualityErrors(raw.quality, oneOf, errs);
-  if (errs.length) throw new PolicyError(errs.join('\n'));
+}
 
-  const defaultBranch = raw.defaultBranch ?? 'main';
-  const live = raw.environments?.live ?? {};
-  const testEnv = raw.environments?.test ?? {};
+function normalizeEnvironments(environments) {
+  const live = environments?.live ?? {};
+  const testEnv = environments?.test ?? {};
   return {
-    version: 1,
-    approver: { github: raw.approver.github },
-    agentIdentity: { github: raw.agentIdentity.github },
-    github: raw.github ? { owner: raw.github.owner, repo: raw.github.repo } : null,
-    defaultBranch,
-    protectedBranches: raw.protectedBranches ?? [defaultBranch],
-    surfaces,
-    governancePaths: [...new Set([...DEFAULT_GOVERNANCE, ...(raw.governancePaths ?? [])])],
-    environments: {
-      live: {
-        markers: live.markers ?? ['DATABASE_URL', 'DIRECT_URL', 'SUPABASE_SERVICE_ROLE_KEY'],
-        supabaseProjectIds: live.supabaseProjectIds ?? [],
-        dbUrlPatterns: live.dbUrlPatterns ?? [],
-      },
-      test: {
-        supabaseProjectIds: testEnv.supabaseProjectIds ?? [],
-        dbNamePattern: testEnv.dbNamePattern ?? '(_test|_ci)$',
-        hosts: testEnv.hosts ?? ['localhost', '127.0.0.1', '::1', '0.0.0.0', 'postgres', 'db'],
-        guardFile: testEnv.guardFile ?? null,
-      },
+    live: {
+      markers: live.markers ?? ['DATABASE_URL', 'DIRECT_URL', 'SUPABASE_SERVICE_ROLE_KEY'],
+      supabaseProjectIds: live.supabaseProjectIds ?? [],
+      dbUrlPatterns: live.dbUrlPatterns ?? [],
     },
-    migrations: {
-      dirs: raw.migrations?.dirs ?? ['supabase/migrations', 'prisma/migrations', 'migrations', 'db/migrations'],
+    test: {
+      supabaseProjectIds: testEnv.supabaseProjectIds ?? [],
+      dbNamePattern: testEnv.dbNamePattern ?? '(_test|_ci)$',
+      hosts: testEnv.hosts ?? ['localhost', '127.0.0.1', '::1', '0.0.0.0', 'postgres', 'db'],
+      guardFile: testEnv.guardFile ?? null,
     },
-    gates: {
-      push: { mode: g.push?.mode ?? 'block' },
-      merge: { agent: g.merge?.agent ?? 'auto-merge-only' },
-      migration: {
-        live: g.migration?.live ?? 'batch-authorized',
-        batchExpiryHours: g.migration?.batchExpiryHours ?? 48,
-        requireTestFirst: g.migration?.requireTestFirst ?? true,
-        liveSql: g.migration?.liveSql ?? 'read-only',
-      },
-      deploy: { mode: g.deploy?.mode ?? 'approver', commands: g.deploy?.commands ?? DEFAULT_DEPLOY },
-      secrets: { mode: g.secrets?.mode ?? 'block' },
-      governance: { mode: g.governance?.mode ?? 'block' },
-      // Feature ledgers (.scratch/<feature>/00-status.md): gate boxes are human-only,
-      // and no product code while a HEAVY feature waits at a gate.
-      ledger: { mode: g.ledger?.mode ?? 'block', dir: g.ledger?.dir ?? '.scratch' },
-    },
-    backPressure: raw.backPressure ?? [],
-    checks: raw.checks ?? {},
-    budget: normalizeBudget(raw.budget ?? {}),
-    ci: {
-      node: String(raw.ci?.node ?? '20'),
-      install: raw.ci?.install ?? null,
-      postgres: Boolean(raw.ci?.postgres),
-      phantom: raw.ci?.phantom ?? 'warn',
-    },
-    quality: normalizeQuality(raw.quality ?? {}),
+  };
+}
+
+function normalizeGates(g) {
+  return {
+    push: { mode: g.push?.mode ?? 'block' },
+    merge: { agent: g.merge?.agent ?? 'auto-merge-only' },
+    migration: normalizeMigrationGate(g.migration),
+    deploy: normalizeDeployGate(g.deploy),
+    secrets: { mode: g.secrets?.mode ?? 'block' },
+    governance: { mode: g.governance?.mode ?? 'block' },
+    // Feature ledgers (.scratch/<feature>/00-status.md): gate boxes are human-only,
+    // and no product code while a HEAVY feature waits at a gate.
+    ledger: { mode: g.ledger?.mode ?? 'block', dir: g.ledger?.dir ?? '.scratch' },
+  };
+}
+
+function normalizeDeployGate(d) {
+  return { mode: d?.mode ?? 'approver', commands: d?.commands ?? DEFAULT_DEPLOY };
+}
+
+function normalizeMigrationGate(m) {
+  return {
+    live: m?.live ?? 'batch-authorized',
+    batchExpiryHours: m?.batchExpiryHours ?? 48,
+    requireTestFirst: m?.requireTestFirst ?? true,
+    liveSql: m?.liveSql ?? 'read-only',
+  };
+}
+
+function normalizeCi(ci) {
+  return {
+    node: String(ci?.node ?? '20'),
+    install: ci?.install ?? null,
+    postgres: Boolean(ci?.postgres),
+    phantom: ci?.phantom ?? 'warn',
   };
 }
 
@@ -174,24 +214,36 @@ function workflowValueErrors(raw, oneOf, errs) {
 function qualityErrors(q, oneOf, errs) {
   if (q === undefined) return;
   if (!q || typeof q !== 'object' || Array.isArray(q)) { errs.push('"quality" must be an object'); return; }
-  const known = {
-    audit: ['mode', 'level', 'command'], secrets: ['mode', 'engine', 'allowPaths', 'gitleaks'],
-    sast: ['mode', 'rules'], architecture: ['mode', 'config', 'paths'], threatModel: ['mode'],
-    limits: [...Object.keys(LIMIT_DEFAULTS), ...Object.keys(LIMIT_FIELDS)],
-  };
+  qualityKeyErrors(q, oneOf, errs);
+  oneOf(q.audit?.level, LEVELS, 'quality.audit.level');
+  if (q.audit?.command != null && !isStr(q.audit.command)) errs.push('quality.audit.command must be a command string');
+  secretsErrors(q.secrets, oneOf, errs);
+  qualityPathErrors(q, errs);
+  limitsErrors(q.limits, errs);
+}
+
+const QUALITY_KEYS = {
+  audit: ['mode', 'level', 'command'], secrets: ['mode', 'engine', 'allowPaths', 'gitleaks'],
+  sast: ['mode', 'rules'], architecture: ['mode', 'config', 'paths'], threatModel: ['mode'],
+};
+
+/** Each quality.* section: a known name, an object, known fields, a known mode. */
+function qualityKeyErrors(q, oneOf, errs) {
+  const known = { ...QUALITY_KEYS, limits: [...Object.keys(LIMIT_DEFAULTS), ...Object.keys(LIMIT_FIELDS)] };
   for (const [k, v] of Object.entries(q)) {
     if (!known[k]) { errs.push(`unknown key "quality.${k}"`); continue; }
     if (!v || typeof v !== 'object' || Array.isArray(v)) { errs.push(`quality.${k} must be an object`); continue; }
     for (const f of Object.keys(v)) if (!known[k].includes(f)) errs.push(`unknown key "quality.${k}.${f}"`);
     oneOf(v?.mode, MODES, `quality.${k}.mode`);
   }
-  oneOf(q.audit?.level, LEVELS, 'quality.audit.level');
-  if (q.audit?.command != null && !isStr(q.audit.command)) errs.push('quality.audit.command must be a command string');
-  oneOf(q.secrets?.engine, ['builtin', 'gitleaks'], 'quality.secrets.engine');
-  if (q.secrets?.allowPaths !== undefined && !strArr(q.secrets.allowPaths)) {
+}
+
+function secretsErrors(s, oneOf, errs) {
+  oneOf(s?.engine, ['builtin', 'gitleaks'], 'quality.secrets.engine');
+  if (s?.allowPaths !== undefined && !strArr(s.allowPaths)) {
     errs.push('quality.secrets.allowPaths must be an array of path globs');
   }
-  const gl = q.secrets?.gitleaks;
+  const gl = s?.gitleaks;
   // A different gitleaks version is only trusted with its own checksum.
   if (gl !== undefined && !(
     /^[0-9]+\.[0-9]+\.[0-9]+$/.test(gl?.version ?? '') && /^[0-9a-f]{64}$/.test(gl?.sha256 ?? '')
@@ -200,23 +252,27 @@ function qualityErrors(q, oneOf, errs) {
       'quality.secrets.gitleaks must be {"version": "X.Y.Z", "sha256": "<64 hex of gitleaks_X.Y.Z_linux_x64.tar.gz>"}',
     );
   }
+}
+
+const relativePath = (p) => isStr(p) && SAFE_TOKEN.test(p) && !p.split('/').includes('..');
+
+/** SAST rule paths, architecture paths and config: relative paths of safe characters. */
+function qualityPathErrors(q, errs) {
   for (const [name, list] of [
     ['quality.sast.rules', q.sast?.rules], ['quality.architecture.paths', q.architecture?.paths],
   ]) {
-    if (list != null && !(strArr(list) && list.every((r) => SAFE_TOKEN.test(r) && !r.split('/').includes('..')))) {
+    if (list != null && !(strArr(list) && list.every(relativePath))) {
       errs.push(`${name} must be an array of relative paths (letters, digits, . _ / -)`);
     }
   }
   const cfg = q.architecture?.config;
-  if (cfg != null && !(isStr(cfg) && SAFE_TOKEN.test(cfg) && !cfg.split('/').includes('..'))) {
+  if (cfg != null && !relativePath(cfg)) {
     errs.push('quality.architecture.config must be a relative path');
   }
-  limitsErrors(q.limits, errs);
 }
 
 // D20e. A formatter runs from a hook as argv (no shell): keep it to plain words, paths and flags.
 const FORMATTER = /^[A-Za-z0-9._/@:=+ -]+$/;
-const isPlain = (v) => Boolean(v) && typeof v === 'object' && !Array.isArray(v);
 const LIMIT_FIELDS = {
   mode: (v) => MODES.includes(v),
   exclude: strArr,
@@ -253,24 +309,32 @@ function normalizeQuality(q) {
       level: q.audit?.level ?? 'high',
       command: q.audit?.command ?? null,
     },
-    secrets: {
-      mode: q.secrets?.mode ?? 'fail',
-      engine: q.secrets?.engine ?? 'builtin',
-      allowPaths: q.secrets?.allowPaths ?? [],
-      gitleaks: {
-        ...(q.secrets?.gitleaks
-          ? { version: q.secrets.gitleaks.version, sha256: q.secrets.gitleaks.sha256 }
-          : QUALITY_PINS.gitleaks),
-      },
-    },
+    secrets: normalizeSecretsFloor(q.secrets),
     sast: { mode: q.sast?.mode ?? 'off', rules: q.sast?.rules ?? null },
-    architecture: {
-      mode: q.architecture?.mode ?? 'fail',
-      config: q.architecture?.config ?? null,
-      paths: q.architecture?.paths ?? null,
-    },
+    architecture: normalizeArchitecture(q.architecture),
     threatModel: { mode: q.threatModel?.mode ?? 'warn' },
     limits: normalizeLimits(q.limits),
+  };
+}
+
+function normalizeSecretsFloor(s) {
+  return {
+    mode: s?.mode ?? 'fail',
+    engine: s?.engine ?? 'builtin',
+    allowPaths: s?.allowPaths ?? [],
+    gitleaks: {
+      ...(s?.gitleaks
+        ? { version: s.gitleaks.version, sha256: s.gitleaks.sha256 }
+        : QUALITY_PINS.gitleaks),
+    },
+  };
+}
+
+function normalizeArchitecture(a) {
+  return {
+    mode: a?.mode ?? 'fail',
+    config: a?.config ?? null,
+    paths: a?.paths ?? null,
   };
 }
 
