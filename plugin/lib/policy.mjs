@@ -231,7 +231,7 @@ const QUALITY_KEYS = {
 function qualityKeyErrors(q, oneOf, errs) {
   const known = { ...QUALITY_KEYS, limits: [...Object.keys(LIMIT_DEFAULTS), ...Object.keys(LIMIT_FIELDS)] };
   for (const [k, v] of Object.entries(q)) {
-    if (!known[k]) { errs.push(`unknown key "quality.${k}"`); continue; }
+    if (!Object.hasOwn(known, k)) { errs.push(`unknown key "quality.${k}"`); continue; }
     if (!v || typeof v !== 'object' || Array.isArray(v)) { errs.push(`quality.${k} must be an object`); continue; }
     for (const f of Object.keys(v)) if (!known[k].includes(f)) errs.push(`unknown key "quality.${k}.${f}"`);
     oneOf(v?.mode, MODES, `quality.${k}.mode`);
@@ -288,7 +288,8 @@ const capOk = (v) => {
 function limitsErrors(l, errs) {
   if (!isPlain(l)) return; // qualityErrors already reported a non-object
   for (const [k, v] of Object.entries(l)) {
-    const ok = LIMIT_FIELDS[k] ?? (k in LIMIT_DEFAULTS ? capOk : () => true);
+    const cap = Object.hasOwn(LIMIT_DEFAULTS, k) ? capOk : () => true;
+    const ok = Object.hasOwn(LIMIT_FIELDS, k) ? LIMIT_FIELDS[k] : cap;
     if (!ok(v)) errs.push(`quality.limits.${k} is invalid: see the "limits" section of the policy schema`);
   }
 }

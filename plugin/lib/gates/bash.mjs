@@ -60,7 +60,9 @@ function expandScripts(cmds, cwd, ctx, depth) {
 /** The package script a runner command names, and its argv as a bare binary when it may be one instead. */
 function scriptInvocation(cmd) {
   const prog = base(cmd.argv[0]);
-  if (SCRIPT_RUNNERS[prog]?.includes(cmd.argv[1])) return { scriptName: cmd.argv[2], binForm: null };
+  if (Object.hasOwn(SCRIPT_RUNNERS, prog) && SCRIPT_RUNNERS[prog].includes(cmd.argv[1])) {
+    return { scriptName: cmd.argv[2], binForm: null };
+  }
   if (prog === 'npm' && NPM_BUILTIN_SCRIPTS.has(cmd.argv[1])) return { scriptName: cmd.argv[1], binForm: null };
   if ((prog === 'pnpm' || prog === 'yarn' || prog === 'bun') && cmd.argv[1] && !cmd.argv[1].startsWith('-')
     && !PM_BUILTINS.has(cmd.argv[1])) {
