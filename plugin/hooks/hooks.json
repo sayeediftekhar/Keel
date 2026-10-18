@@ -1,5 +1,5 @@
 {
-  "description": "Keel v3 gates: block pushes to protected branches, immediate merges and PR self-approvals, unapproved live migrations, credential reads, governance-file edits and production deploys. Each gate fails closed.",
+  "description": "Keel v3 gates: block pushes to protected branches, immediate merges and PR self-approvals, unapproved live migrations, credential reads, governance-file edits and production deploys. Each gate fails closed. After a file write, the project's formatter runs (never blocks).",
   "hooks": {
     "PreToolUse": [
       {
@@ -16,6 +16,10 @@
       }
     ],
     "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [{ "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/plugin/hooks/format.mjs\"", "timeout": 30 }]
+      },
       {
         "matcher": "Bash",
         "hooks": [{ "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/plugin/hooks/receipt.mjs\"", "timeout": 15 }]

@@ -4,8 +4,11 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import {
   rigorVerdict, budgetProblems, phantomRefs, globToRegExp as ciGlob, SECRET_SHAPES, secretFindings, ledgerFeature,
-  threatModelSection, threatModelVerdict,
+  threatModelSection, threatModelVerdict, estimateTokens,
 } from '../ci/keel-ci.mjs';
+import {
+  normalizeLimits, limitedFile, lineMetrics, basePool, ratchetFindings, functionMetrics, boundaryViolations,
+} from '../ci/limits.mjs';
 import { globToRegExp } from '../lib/glob.mjs';
 import { SECRET_LITERAL } from '../lib/gates.mjs';
 import { normalizePolicy } from '../lib/policy.mjs';
@@ -245,3 +248,124 @@ test('e2e rigor: the threat-model rule warns by default and refuses in fail mode
   r = runCi(strict.dir, 'rigor', env(strict.dir, 'Rigor: LIGHT — docs'));
   assert.ok(!/feature ledger/.test(r.stdout), 'LIGHT PRs are not asked for a threat model');
 });
+
+// ---------------------------------------------------------- D20b budget ----
+
+test('budget: tokens are a labeled conservative estimate, never chars/4', () => {
+  const prose = 'Keel is a rigor router: it decides how much ceremony a task needs, then runs the lane.\n';
+  const table = '| Authority | Path | Governs |\n|---|---|---|\n| Living state | CONTEXT.md | phase, handoff |\n';
+  for (const t of [prose, table]) assert.ok(estimateTokens(t) > Math.ceil(t.length / 4), t);
+  const big = normalizePolicy({ ...BASE_POLICY, budget: { alwaysOnTokens: 10 } });
+  const { problems } = budgetProblems({ 'CLAUDE.md': prose.repeat(3) }, big);
+  assert.match(problems.join('\n'), /~\d+ tokens est\. \(budget 10\)/);
+});
+
+test('budget: alwaysOnTokens defaults to 2000 and warns; a project-set number fails as before', () => {
+  const dflt = normalizePolicy(BASE_POLICY);
+  assert.deepEqual(dflt.budget, { alwaysOnTokens: 2000, maxLineChars: 400, mode: 'warn' });
+  const huge = { 'CLAUDE.md': 'a short line of words\n'.repeat(400) };
+  const r = budgetProblems(huge, dflt);
+  assert.equal(r.problems.length, 0);
+  assert.equal(r.warnings.length, 1);
+  assert.equal(normalizePolicy({ ...BASE_POLICY, budget: { alwaysOnTokens: 900 } }).budget.mode, 'fail');
+});
+
+// ------------------------------------------------- D20e clean-code limits ----
+
+const L = (raw = {}) => normalizeLimits(raw);
+const measure = (text, lim = L(), extra = {}) => ({ lines: lineMetrics(text, lim.lineLength.max), fns: null,
+  boundaries: [], ...extra });
+const longLine = `const x = '${'y'.repeat(130)}';`;
+const pool0 = basePool([]);
+
+test('limits: policy shape — a number is a cap, {max, mode} overrides, mode sets every default', () => {
+  const l = L({ mode: 'fail', lineLength: 100, complexity: { max: 10, mode: 'warn' } });
+  assert.deepEqual(l.lineLength, { max: 100, mode: 'fail' });
+  assert.deepEqual(l.complexity, { max: 10, mode: 'warn' });
+  assert.deepEqual(L().fileLines, { max: 400, mode: 'warn' }, 'warn by default (D20e-d)');
+  assert.deepEqual(normalizePolicy(BASE_POLICY).quality.limits, L());
+});
+
+test('limits: only source files the PR changes; docs, data, build output and exclusions never', () => {
+  for (const f of ['src/a.ts', 'lib/b.mjs', 'app/c.py', 'scripts/d.sh']) assert.ok(limitedFile(f, L()), f);
+  for (const f of ['README.md', 'package.json', 'dist/a.js', 'vendor/x/y.go', 'a.min.js', '.keel/ci/keel-ci.mjs',
+    'gen/api.ts']) assert.ok(!limitedFile(f, L({ exclude: ['gen/**'] })), f);
+});
+
+test('limits ratchet: a changed file may not get worse; a new file meets the caps', () => {
+  const lim = L({ fileLines: 3 });
+  const short = 'a\nb\n'; const four = 'a\nb\nc\nd\n'; const five = 'a\nb\nc\nd\ne\n';
+  assert.deepEqual(ratchetFindings('n.sh', measure(four, lim), null, pool0, lim).map((f) => f.limit), ['fileLines']);
+  assert.equal(ratchetFindings('m.sh', measure(four, lim), measure(five, lim), pool0, lim).length, 0, 'shrank');
+  assert.equal(ratchetFindings('m.sh', measure(five, lim), measure(four, lim), pool0, lim).length, 1, 'grew');
+  assert.equal(ratchetFindings('m.sh', measure(short, lim), null, pool0, lim).length, 0);
+  const one = ratchetFindings('m.sh', measure(`${longLine}\n`), measure('ok\n'), pool0, L());
+  assert.deepEqual(one.map((f) => [f.limit, f.line]), [['lineLength', 1]]);
+});
+
+test('limits ratchet: code the PR only moves is not new debt (splitting a big file never fails)', () => {
+  const base = measure(`${longLine}\nrest\n`);
+  const pool = basePool([base]);
+  assert.equal(ratchetFindings('new/part.sh', measure(`${longLine}\n`), null, pool, L()).length, 0);
+  const fn = { key: "function 'decide'", label: "Function 'decide'", line: 3, metric: 'complexity', value: 30 };
+  const fnPool = basePool([measure('x', L(), { fns: [fn] })]);
+  const moved = measure('x', L(), { fns: [{ ...fn, line: 9 }] });
+  assert.equal(ratchetFindings('lib/split.mjs', moved, null, fnPool, L()).length, 0, 'same function, same size');
+  const grown = measure('x', L(), { fns: [{ ...fn, value: 31 }] });
+  const msg = ratchetFindings('lib/split.mjs', grown, null, fnPool, L())[0].message;
+  assert.match(msg, /complexity 31 \(cap 15, was 30\)/);
+  const fresh = measure('x', L(), { fns: [{ ...fn, key: "function 'other'", label: "Function 'other'" }] });
+  assert.equal(ratchetFindings('lib/split.mjs', fresh, null, fnPool, L())[0].limit, 'complexity');
+});
+
+test('limits: ESLint messages → per-function measures (named, or keyed by their first line)', () => {
+  const msgs = [
+    { ruleId: 'complexity', line: 1, message: "Function 'decide' has a complexity of 22. Maximum allowed is 15." },
+    { ruleId: 'max-lines-per-function', line: 2,
+      message: 'Arrow function has too many lines (90). Maximum allowed is 80.' },
+    { ruleId: 'no-unused-vars', line: 1, message: 'ignored' },
+  ];
+  const got = functionMetrics(msgs, ['function decide() {', '  const f = () => {']);
+  assert.deepEqual(got.map((f) => [f.metric, f.value, f.key]),
+    [['complexity', 22, "function 'decide'"], ['functionLines', 90, 'line: const f = () => {']]);
+});
+
+test('limits: boundaries from the module map — a stable module may not import a volatile one', () => {
+  const modules = [{ name: 'core', path: 'src/core', stability: 'stable' },
+    { name: 'ui', path: 'src/ui/**', stability: 'volatile' }];
+  const text = "import { a } from '../ui/button.js';\nimport b from './money.js';\nconst c = require('../ui');\n";
+  assert.deepEqual(boundaryViolations('src/core/fees.ts', text, modules).map((v) => v.line), [1, 3]);
+  assert.equal(boundaryViolations('src/ui/page.ts', "import x from '../core/fees.js';", modules).length, 0);
+  const head = measure(text, L(), { boundaries: boundaryViolations('src/core/fees.ts', text, modules) });
+  assert.equal(ratchetFindings('src/core/fees.ts', head, null, pool0, L()).length, 2);
+  assert.equal(ratchetFindings('src/core/fees.ts', head, null, pool0, L({ boundaries: { mode: 'off' } })).length, 0);
+});
+
+const runLimits = (dir, env, ...args) => spawnSync(process.execPath, [CI, 'limits', ...args],
+  { cwd: dir, encoding: 'utf8', env: { PATH: process.env.PATH, ...env } });
+
+test('e2e limits: warn annotates and passes, fail fails, --mode=fail forces it; moves pass', () => {
+  const quality = { limits: { lineLength: 60, functionLines: { mode: 'off' }, complexity: { mode: 'off' } } };
+  const { dir } = makeRepo({ ...BASE_POLICY, quality });
+  write(dir, 'scripts/old.sh', `echo ok\necho '${'x'.repeat(70)}'\n`);
+  commitAll(dir, 'legacy long line');
+  git(dir, 'checkout', '-q', 'main'); git(dir, 'merge', '-q', 'feature/x'); git(dir, 'checkout', '-q', 'feature/x');
+  const base = git(dir, 'rev-parse', 'main');
+  const head = () => ({ BASE_SHA: base, HEAD_SHA: git(dir, 'rev-parse', 'HEAD') });
+  git(dir, 'mv', 'scripts/old.sh', 'scripts/moved.sh');
+  commitAll(dir, 'move');
+  let r = runLimits(dir, head(), '--mode=fail');
+  assert.equal(r.status, 0, `moved line is not new: ${r.stdout}`);
+  write(dir, 'scripts/new.sh', `echo '${'z'.repeat(70)}'\n`);
+  commitAll(dir, 'new long line');
+  r = runLimits(dir, head());
+  assert.equal(r.status, 0, 'warn by default');
+  assert.match(r.stdout, /::warning file=scripts\/new\.sh,line=1,title=keel lineLength::/);
+  r = runLimits(dir, head(), '--mode=fail');
+  assert.equal(r.status, 1);
+  assert.match(r.stdout, /::error file=scripts\/new\.sh/);
+  r = runLimits(dir, {});
+  assert.equal(r.status, 0, 'not a PR: nothing to compare');
+  assert.match(r.stdout, /check pull requests/);
+});
+

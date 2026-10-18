@@ -52,7 +52,7 @@ built-in `/code-review` hunts bugs in a diff but has no Standards/Spec axes. Pha
 | 7 · Ship | the **Ship checklist** (§Gates) with `keel-verify` evidence per line; `pr` writes the PR body; `wizard` scripts the steps only the human can do (secrets, dashboards, cutovers); on Vercel, `vercel:deployments-cicd` to promote | — | HEAVY; **stops at human gate**, never auto-deploys |
 | 8 · Debug | `diagnosing-bugs` | — | as needed |
 | 9 · Arch health | `improve-codebase-architecture` + `codebase-design` (deep modules) | — | periodic (Maintain loop) |
-| 10 · Learn | `retro` on the session → each lesson to its one home (MEMORY-CONTRACT → *Where a lesson goes*) | — | after ship / big sessions |
+| 10 · Learn | `retro` on the session → each lesson to its one home (MEMORY-CONTRACT → *Where a lesson goes*; project traps → `LEARNINGS.md`); re-run the three feedback signals (Ship line 9) over the session's PRs and file each hit as a separate ticket; then the `doc-sync` skill drains `CONTEXT.md` and writes the handoff | — | after ship / big sessions |
 | 11 · Maintain | the recurring jobs in *Maintain* below | — | production projects |
 
 ## Phase exits — advance only when the line is true
@@ -92,6 +92,24 @@ ledger (`00-status.md`) uses them verbatim, and tooling parses them.
 | **G2 Spec** | 2 · Spec | `spec.md` — behaviour **+ §Architecture + §Threat model** (conventions §4) | hard gate | skipped |
 | **G3 Plan** | 3 · Decompose | `issues/NN.md` — the tickets **are** the approved plan in keel-v2 §2.2 terms. No product code before G3. | hard gate | skipped |
 | **Ship** | 6 · Verify → 7 · Ship | the **Ship checklist** (below) with `keel-verify` / `keel-qa` evidence; then keel-v2 §1.4 / §2.4-2.5 decide the ending: FAST → the PR with its `Rigor: FAST` line auto-merges on green; HEAVY → the PR with its `Rigor: HEAVY` line waits for the approver's GitHub review, then auto-merge completes it. Deploys to production, sends and live migrations stay the human's (approved batch, explicit go) | hard gate (approver reviews the PR) | auto on green (audited later) |
+
+**HEAVY features walk the seven rungs at G1 and G2** (FAST never does; it is
+ceremony a no-surface change doesn't need). The rungs are Keel's
+`docs/SYSTEMS_THINKING_FRAMEWORK.md` (in the plugin directory); load it at G1,
+not before. The project's applied answers live in `docs/ARCHITECTURE.md`.
+- **G1 Align — rungs 1 Boundaries, 3 Change surfaces, 7 Sequencing:** name the
+  module(s) the feature lands in and each one's one-sentence job (no "and
+  also"); say which parts are stable and which volatile; confirm the
+  load-bearing pieces it needs already exist (Phase 0) or make them the first
+  slice. A new module or a changed job is a row in the `ARCHITECTURE.md` module
+  map, approved with G1.
+- **G2 Spec — rungs 2 Contracts, 4 Enforce by structure, 5 Scale:** §Architecture
+  names each new or changed interface (the vending-machine test: could the
+  inside be swapped without callers noticing?), the impossible states the
+  design rules out by construction, and the expected change radius; a radius
+  of 3+ modules is a coupling alarm to resolve in the spec, not in the build.
+  Any new commit-blocking invariant goes to `LAWS.md` with its two layers.
+- Rung 6 (Feedback) runs at Ship and retro; rung 7's slice order is G3's ticket order.
 
 How keel-v2's HEAVY rules map onto these gates: §2.1 route-first is the
 `Rigor:` line at the top of the ledger; §2.2 plan-before-code is satisfied by
@@ -153,6 +171,15 @@ say "n/a" rather than skip silently).
 8. **Recorded** — `00-status.md` Ship line ready for the human; ADRs for any
    architecture decision made during build written to their home
    (MEMORY-CONTRACT → *Where a lesson goes*); `retro` queued.
+9. **Feedback signals** (Systems Thinking rung 6; one line each in the PR
+   body; FAST skips it and `retro` covers FAST PRs in batch): **change
+   radius** — how many modules this diff touched besides its own (0–1
+   healthy, 3+ = coupling); **explanation test**
+   — does every touched module still do one job you can say in one sentence?;
+   **surprise test** — did anything unconnected break or need editing? Each hit
+   is filed as its **own** refactoring ticket (`.scratch/<feat>/issues/` or the
+   tracker), never fixed in this PR; a surprise also gets a `LEARNINGS.md`
+   entry (Trap → Rule → Why) via `retro` or the `doc-sync` skill.
 
 ## Maintain — keeping a shipped product healthy
 Maintenance is dev work on a schedule. Each job runs as a scheduled Claude Code

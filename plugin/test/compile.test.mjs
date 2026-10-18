@@ -6,6 +6,8 @@ import os from 'node:os';
 import { makeRepo, BASE_POLICY, write } from './helpers.mjs';
 import { compile, denyRules, rulesetJson, workflowYaml, qualityFloor } from '../lib/compile.mjs';
 import { normalizePolicy, PolicyError, QUALITY_PINS } from '../lib/policy.mjs';
+import { moduleMap } from '../lib/quality.mjs';
+import { formatCommand } from '../lib/format.mjs';
 
 test('policy validation rejects an agent holding the approval stamp', () => {
   assert.throws(() => normalizePolicy({ ...BASE_POLICY, agentIdentity: { github: 'owner-human' } }), PolicyError);
@@ -112,7 +114,8 @@ test('quality defaults: a project compiled with defaults gets audit + secret sca
   const { files, notes } = compile(dir);
   const y = files['.github/workflows/keel.yml'];
   assert.deepEqual(stepNames(y), ['actions/checkout@v4', 'actions/setup-node@v4', 'install', 'unit',
-    'quality / dependency audit (npm, high+)', 'quality / secret scan of the diff', 'quality / architecture rules']);
+    'quality / dependency audit (npm, high+)', 'quality / secret scan of the diff', 'quality / architecture rules',
+    'quality / clean-code limits (changed files only)']);
   assert.match(
     keelChecks(y), /- uses: actions\/checkout@v4\n\s+with:\n\s+fetch-depth: 0/, 'the diff scan needs history',
   );
@@ -188,13 +191,13 @@ test('quality policy: explicit nulls mean "use the default", as the schema allow
 
 test('quality modes: off drops the step, warn keeps it but lets the job pass', () => {
   const { dir, policy } = fixture({ 'package.json': '{}', 'package-lock.json': '{}' },
-    { audit: { mode: 'off' }, secrets: { mode: 'warn' }, architecture: { mode: 'off' } });
+    { audit: { mode: 'off' }, secrets: { mode: 'warn' }, architecture: { mode: 'off' }, limits: { mode: 'off' } });
   const y = workflowYaml(dir, policy);
   assert.deepEqual(stepNames(y).filter((n) => n.startsWith('quality')), ['quality / secret scan of the diff']);
   assert.match(y, /- name: quality \/ secret scan of the diff\n\s+continue-on-error: true\n/);
   const none = fixture(
     { 'package.json': '{}' },
-    { audit: { mode: 'off' }, secrets: { mode: 'off' }, architecture: { mode: 'off' } },
+    { audit: { mode: 'off' }, secrets: { mode: 'off' }, architecture: { mode: 'off' }, limits: { mode: 'off' } },
   );
   const yn = workflowYaml(none.dir, none.policy);
   assert.ok(!/quality \//.test(yn));
@@ -274,4 +277,82 @@ test('keel-rigor gets the branch name through env, never interpolated into the s
   const y = workflowYaml(dir, policy);
   assert.match(y, /HEAD_REF: \$\{\{ github\.head_ref \}\}\n\s+run: node \.keel\/ci\/keel-ci\.mjs rigor/);
   assert.ok(!/run:.*github\.head_ref/.test(y));
+});
+
+// ------------------------------------------------- D20e clean-code limits ----
+
+test('limits: one step after the floor, never continue-on-error (keel-ci decides warn vs fail); off drops it', () => {
+  const { dir, policy } = fixture({ 'package.json': '{}' }, { limits: { mode: 'fail', lineLength: 100 } });
+  const y = workflowYaml(dir, policy);
+  const step = keelChecks(y).split('- name: quality / clean-code limits (changed files only)\n')[1];
+  assert.ok(step, 'the limits step is compiled');
+  assert.match(step, new RegExp(String.raw`^\s+env:\n\s+BASE_SHA: .*\n\s+HEAD_SHA: .*\n\s+BEFORE_SHA: .*\n`
+    + String.raw`\s+run: \|\n\s+node \.keel\/ci\/keel-ci\.mjs limits\n`));
+  assert.ok(!/continue-on-error/.test(step.split('- name:')[0]));
+  assert.match(keelChecks(y), /fetch-depth: 0/, 'the ratchet compares against the base commit');
+  const lock = normalizePolicy({ ...BASE_POLICY, quality: { limits: { mode: 'fail', lineLength: 100 } } });
+  assert.deepEqual(lock.quality.limits.lineLength, { max: 100, mode: 'fail' });
+  const off = fixture({}, { limits: { mode: 'off' } });
+  assert.ok(!/clean-code limits/.test(workflowYaml(off.dir, off.policy)));
+});
+
+test('limits policy validation: caps, modes and the formatter (argv only, no shell)', () => {
+  const bad = (limits) => () => normalizePolicy({ ...BASE_POLICY, quality: { limits } });
+  assert.throws(bad({ fileLines: 0 }), /quality\.limits\.fileLines/);
+  assert.throws(bad({ complexity: { max: 10, mode: 'block' } }), /quality\.limits\.complexity/);
+  assert.throws(bad({ formatter: 'prettier --write; curl evil' }), /quality\.limits\.formatter/);
+  assert.throws(bad({ sizes: 1 }), /unknown key "quality\.limits\.sizes"/);
+  assert.doesNotThrow(bad({ formatter: false, exclude: ['gen/**'], boundaries: { mode: 'fail' } }));
+});
+
+test('compile writes the limits checker and an ESLint config a JS project can extend', async () => {
+  const { dir } = makeRepo({ ...BASE_POLICY, quality: { limits: { functionLines: 60, complexity: { mode: 'off' } } } });
+  const { files } = compile(dir);
+  assert.ok(files['.keel/ci/limits.mjs'].includes('export async function main()'));
+  const cfgFile = path.join(dir, '.keel/ci/eslint.limits.mjs');
+  write(dir, '.keel/ci/eslint.limits.mjs', files['.keel/ci/eslint.limits.mjs']);
+  const [cfg] = (await import(cfgFile)).default;
+  assert.deepEqual(Object.keys(cfg.rules), ['max-lines', 'max-lines-per-function', 'max-len', 'complexity']);
+  const perFunction = ['warn', { max: 60, skipBlankLines: false, skipComments: false }];
+  assert.deepEqual(cfg.rules['max-lines-per-function'], perFunction);
+  assert.equal(cfg.rules.complexity[0], 'off');
+  const bare = fixture({});
+  write(bare.dir, 'keel.policy.json', JSON.stringify(BASE_POLICY));
+  assert.ok(!('.keel/ci/eslint.limits.mjs' in compile(bare.dir).files), 'no package.json → no ESLint config');
+});
+
+test('module map: docs/ARCHITECTURE.md rows become .keel/ci/modules.json; template rows are skipped', () => {
+  const arch = (rows) => `# Architecture\n\n## Module map\n| Module | Path | Single job | Stable or volatile |\n`
+    + `|---|---|---|---|\n${rows.join('\n')}\n\n## Iron Laws\n`;
+  const template = '| <module> | <src/module/**> | <one-sentence job> | <stable or volatile> |';
+  assert.deepEqual(moduleMap(arch([template])), []);
+  const rows = ['| Billing | `src/billing/**` | Charges cards. | Stable |',
+    '| UI | src/ui | Renders pages. | volatile |', '| Misc | src/misc | Does things. | ? |'];
+  assert.deepEqual(moduleMap(arch(rows)), [
+    { name: 'Billing', path: 'src/billing/**', stability: 'stable' },
+    { name: 'UI', path: 'src/ui', stability: 'volatile' },
+  ]);
+  const { dir } = makeRepo(BASE_POLICY, { extraFiles: { 'docs/ARCHITECTURE.md': arch(rows) } });
+  const map = JSON.parse(compile(dir).files['.keel/ci/modules.json']);
+  assert.equal(map.source, 'docs/ARCHITECTURE.md');
+  assert.equal(map.modules.length, 2);
+});
+
+test('formatter: detected into the lock (or the policy\'s, or none); the hook formats only project files', () => {
+  const lockOf = (extra, limits) => {
+    const { dir } = makeRepo({ ...BASE_POLICY, ...(limits ? { quality: { limits } } : {}) }, { extraFiles: extra });
+    return JSON.parse(compile(dir).files['.keel/policy.lock.json']).formatter;
+  };
+  assert.equal(lockOf({ '.prettierrc': '{}' }), 'node_modules/.bin/prettier --write --ignore-unknown');
+  assert.equal(lockOf({ 'go.mod': 'module x\n' }), 'gofmt -w');
+  assert.equal(lockOf({ '.prettierrc': '{}' }, { formatter: false }), null);
+  assert.equal(lockOf({}, { formatter: 'npx biome format --write' }), 'npx biome format --write');
+  assert.equal(lockOf({}), null);
+  const ev = (tool, file) => ({ tool_name: tool, tool_input: { file_path: file }, cwd: '/p' });
+  assert.deepEqual(formatCommand(ev('Write', '/p/src/a.ts'), '/p', 'node_modules/.bin/prettier --write'),
+    { file: '/p/node_modules/.bin/prettier', args: ['--write', 'src/a.ts'], cwd: '/p' });
+  assert.equal(formatCommand(ev('Write', '/elsewhere/a.ts'), '/p', 'gofmt -w'), null, 'outside the project');
+  assert.equal(formatCommand(ev('Read', '/p/a.ts'), '/p', 'gofmt -w'), null, 'reads change nothing');
+  assert.equal(formatCommand(ev('Edit', '/p/.keel/ci/keel-ci.mjs'), '/p', 'gofmt -w'), null, 'generated files');
+  assert.equal(formatCommand(ev('Edit', '/p/a.go'), '/p', null), null);
 });

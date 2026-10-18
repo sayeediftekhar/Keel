@@ -2,6 +2,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { objectSha } from './hash.mjs';
+import { normalizeLimits, LIMIT_DEFAULTS } from '../ci/limits.mjs';
 
 export const POLICY_FILE = 'keel.policy.json';
 export const LOCK_FILE = '.keel/policy.lock.json';
@@ -89,21 +90,7 @@ export function normalizePolicy(raw) {
   if (raw.github !== undefined && !(isStr(raw.github?.owner) && isStr(raw.github?.repo))) {
     errs.push('"github" must be {"owner": "...", "repo": "..."}');
   }
-  // Values below end up in generated YAML; keep them to safe characters.
-  for (const b of raw.protectedBranches ?? []) {
-    if (!/^[A-Za-z0-9._/-]+$/.test(b)) {
-      errs.push(`protectedBranches: "${b}" has characters Keel won't put in a workflow file`);
-    }
-  }
-  if (raw.defaultBranch !== undefined && !/^[A-Za-z0-9._/-]+$/.test(raw.defaultBranch)) {
-    errs.push('defaultBranch has unsupported characters');
-  }
-  for (const n of raw.backPressure ?? []) {
-    if (!/^[A-Za-z0-9_-]+$/.test(n)) errs.push(`backPressure: "${n}" must be letters, digits, - or _`);
-  }
-  if (raw.ci?.node !== undefined && !/^[0-9]+(\.[0-9x]+)*$/.test(String(raw.ci.node))) {
-    errs.push('ci.node must be a version like "20"');
-  }
+  workflowValueErrors(raw, oneOf, errs);
   qualityErrors(raw.quality, oneOf, errs);
   if (errs.length) throw new PolicyError(errs.join('\n'));
 
@@ -153,7 +140,7 @@ export function normalizePolicy(raw) {
     },
     backPressure: raw.backPressure ?? [],
     checks: raw.checks ?? {},
-    budget: { alwaysOnTokens: raw.budget?.alwaysOnTokens ?? null, maxLineChars: raw.budget?.maxLineChars ?? 400 },
+    budget: normalizeBudget(raw.budget ?? {}),
     ci: {
       node: String(raw.ci?.node ?? '20'),
       install: raw.ci?.install ?? null,
@@ -164,12 +151,33 @@ export function normalizePolicy(raw) {
   };
 }
 
+/** Values compiled into the workflow and the CI checks: safe characters, known modes. */
+function workflowValueErrors(raw, oneOf, errs) {
+  // These end up in generated YAML; keep them to safe characters.
+  for (const b of raw.protectedBranches ?? []) {
+    if (!/^[A-Za-z0-9._/-]+$/.test(b)) {
+      errs.push(`protectedBranches: "${b}" has characters Keel won't put in a workflow file`);
+    }
+  }
+  if (raw.defaultBranch !== undefined && !/^[A-Za-z0-9._/-]+$/.test(raw.defaultBranch)) {
+    errs.push('defaultBranch has unsupported characters');
+  }
+  for (const n of raw.backPressure ?? []) {
+    if (!/^[A-Za-z0-9_-]+$/.test(n)) errs.push(`backPressure: "${n}" must be letters, digits, - or _`);
+  }
+  if (raw.ci?.node !== undefined && !/^[0-9]+(\.[0-9x]+)*$/.test(String(raw.ci.node))) {
+    errs.push('ci.node must be a version like "20"');
+  }
+  oneOf(raw.budget?.mode, ['warn', 'fail'], 'budget.mode');
+}
+
 function qualityErrors(q, oneOf, errs) {
   if (q === undefined) return;
   if (!q || typeof q !== 'object' || Array.isArray(q)) { errs.push('"quality" must be an object'); return; }
   const known = {
     audit: ['mode', 'level', 'command'], secrets: ['mode', 'engine', 'allowPaths', 'gitleaks'],
     sast: ['mode', 'rules'], architecture: ['mode', 'config', 'paths'], threatModel: ['mode'],
+    limits: [...Object.keys(LIMIT_DEFAULTS), ...Object.keys(LIMIT_FIELDS)],
   };
   for (const [k, v] of Object.entries(q)) {
     if (!known[k]) { errs.push(`unknown key "quality.${k}"`); continue; }
@@ -203,6 +211,39 @@ function qualityErrors(q, oneOf, errs) {
   if (cfg != null && !(isStr(cfg) && SAFE_TOKEN.test(cfg) && !cfg.split('/').includes('..'))) {
     errs.push('quality.architecture.config must be a relative path');
   }
+  limitsErrors(q.limits, errs);
+}
+
+// D20e. A formatter runs from a hook as argv (no shell): keep it to plain words, paths and flags.
+const FORMATTER = /^[A-Za-z0-9._/@:=+ -]+$/;
+const isPlain = (v) => Boolean(v) && typeof v === 'object' && !Array.isArray(v);
+const LIMIT_FIELDS = {
+  mode: (v) => MODES.includes(v),
+  exclude: strArr,
+  formatter: (v) => v === null || v === false || (isStr(v) && FORMATTER.test(v)),
+  boundaries: (v) => isPlain(v) && Object.keys(v).every((f) => f === 'mode') && [undefined, ...MODES].includes(v.mode),
+};
+const capOk = (v) => {
+  const o = typeof v === 'number' ? { max: v } : v;
+  return isPlain(o) && Object.keys(o).every((f) => f === 'max' || f === 'mode')
+    && (o.max === undefined || (Number.isInteger(o.max) && o.max > 0)) && [undefined, ...MODES].includes(o.mode);
+};
+
+function limitsErrors(l, errs) {
+  if (!isPlain(l)) return; // qualityErrors already reported a non-object
+  for (const [k, v] of Object.entries(l)) {
+    const ok = LIMIT_FIELDS[k] ?? (k in LIMIT_DEFAULTS ? capOk : () => true);
+    if (!ok(v)) errs.push(`quality.limits.${k} is invalid: see the "limits" section of the policy schema`);
+  }
+}
+
+function normalizeBudget(b) {
+  return {
+    // D20b: a real default; overage warns unless the project set its own number (then it fails, as before).
+    alwaysOnTokens: b.alwaysOnTokens ?? 2000,
+    maxLineChars: b.maxLineChars ?? 400,
+    mode: b.mode ?? (b.alwaysOnTokens == null ? 'warn' : 'fail'),
+  };
 }
 
 function normalizeQuality(q) {
@@ -229,6 +270,7 @@ function normalizeQuality(q) {
       paths: q.architecture?.paths ?? null,
     },
     threatModel: { mode: q.threatModel?.mode ?? 'warn' },
+    limits: normalizeLimits(q.limits),
   };
 }
 
@@ -272,5 +314,8 @@ export function loadLock(projectDir) {
       return { state: 'broken', reason: `${POLICY_FILE} changed since the lock was built — run \`keel compile\`` };
     }
   }
-  return { state: 'ok', policy: lock.policy, github: lock.github ?? lock.policy.github ?? null };
+  return {
+    state: 'ok', policy: lock.policy, github: lock.github ?? lock.policy.github ?? null,
+    formatter: lock.formatter ?? null,
+  };
 }

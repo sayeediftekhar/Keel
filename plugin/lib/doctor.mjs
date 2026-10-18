@@ -393,7 +393,7 @@ export function doctor(projectDir, { offline = false, gate: gateScript = GATE, p
   else items.push(item('gates', true, 'UNPROVEN', 'fix the lock first; gates run in strict fallback mode until then'));
   items.push(...githubChecks(projectDir, policy, offline));
   items.push(testDbGuard(projectDir, policy));
-  items.push(hasArbiter(projectDir) ? item('rules', false, 'OK', 'CLAUDE.md carries the keel-v2 router + LAWS block')
+  items.push(hasArbiter(projectDir) ? item('rules', false, 'OK', 'CLAUDE.md carries the keel-v2 Tier-1 router block')
     : item('rules', false, 'MISSING',
       'CLAUDE.md has no keel-v2 rules block (eleven surfaces, FAST/HEAVY) — run `keel init`; ' +
       'a project on the card-set Keel can ignore this line'));
