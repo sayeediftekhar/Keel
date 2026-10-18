@@ -1,0 +1,50 @@
+{
+  "$schema": "https://raw.githubusercontent.com/sayeediftekhar/Keel/main/plugin/schema/keel.policy.schema.json",
+  "version": 1,
+  "approver": {
+    "github": "YOUR-GITHUB-HANDLE"
+  },
+  "agentIdentity": {
+    "github": "your-keel-app[bot]"
+  },
+  "surfaces": {
+    "value": [
+      "lib/money/**"
+    ],
+    "scope": [],
+    "pii": [],
+    "access": [
+      "lib/auth/**",
+      "middleware.ts"
+    ],
+    "schema": [
+      "supabase/migrations/**",
+      "prisma/migrations/**"
+    ],
+    "secrets": [
+      ".env*"
+    ]
+  },
+  "environments": {
+    "live": {
+      "markers": [
+        "DATABASE_URL"
+      ],
+      "supabaseProjectIds": []
+    },
+    "test": {
+      "supabaseProjectIds": [],
+      "guardFile": null
+    }
+  },
+  "backPressure": [
+    "typecheck",
+    "unit",
+    "build"
+  ],
+  "checks": {
+    "typecheck": "npx tsc --noEmit",
+    "unit": "npm test",
+    "build": "npm run build"
+  }
+}

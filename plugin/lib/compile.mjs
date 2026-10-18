@@ -173,7 +173,9 @@ export function rulesetJson(policy) {
         required_approving_review_count: 0,
         dismiss_stale_reviews_on_push: true,
         require_code_owner_review: true,
-        require_last_push_approval: true,
+        // Off on purpose: at count 0 GitHub's last-push approval blocks every PR for every author (D18, verified live).
+        // Stale approvals are still dismissed on push, and keel-rigor re-runs on every synchronize.
+        require_last_push_approval: false,
         required_review_thread_resolution: false,
       } },
       { type: 'required_status_checks', parameters: {

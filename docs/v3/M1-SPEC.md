@@ -95,7 +95,7 @@ JSON (with a published JSON Schema) rather than YAML: hooks must parse it with
 | **Permission rules** (`permissions.deny`) in the project's `.claude/settings.json` (plugin `settings.json` can't carry them) | `environments`, `gates` | Second layer: deny rules win over any allow and over a hook "allow", in every mode including `bypassPermissions`. Deny credential reads, `mcp__*__apply_migration` when the live target is configured without batches, and direct pushes. |
 | **CODEOWNERS** | `surfaces` paths + `approver` | GitHub requires the approver's review on any PR touching a danger path. |
 | **CI workflow** `keel.yml` | `checks`, `backPressure` | Runs the ladder; a `keel/rigor` job reads the PR's rigor record and fails if it says HEAVY without an approver review (a HEAVY PR the approver authored is taken as approved, D17), or if the diff touches a danger path while the record says LIGHT. Also: token-budget check (D11) and phantom check (docs naming paths that don't exist). |
-| **Ruleset JSON** | `gates.push`, `gates.merge`, checks | The exact GitHub ruleset (required checks, no direct push, required CODEOWNER review, bypass list empty) for a repo admin to apply with one `gh api` call printed by the compiler. |
+| **Ruleset JSON** | `gates.push`, `gates.merge`, checks | The exact GitHub ruleset (required checks, no direct push, required CODEOWNER review, bypass list empty, no last-push approval — D18) for a repo admin to apply with one `gh api` call printed by the compiler. |
 | **`.keel/policy.lock.json`** | everything | Normalized policy + content hash; hooks read only this file, and refuse to run (fail closed) if it is missing or its hash doesn't match. |
 
 **Batch authorization (D5) wire format** — `.keel/approvals/<batch-id>.json`,

@@ -116,9 +116,9 @@ wait for your approval.
 gh api -X POST repos/<owner>/<repo>/rulesets --input .keel/github-ruleset.json
 ```
 
-The ruleset requires `keel-checks` and `keel-rigor`, code-owner review on danger paths, no force-push and no bypass. If you already require other CI jobs, add them in GitHub's ruleset UI afterwards (the compiler only knows Keel's two).
+The ruleset requires `keel-checks` and `keel-rigor`, code-owner review on danger paths, no force-push and no bypass. It deliberately does **not** require approval of the last push: at a required review count of 0 that setting blocks every PR for every author, you included (verified live, D18). If you already require other CI jobs, add them in GitHub's ruleset UI afterwards (the compiler only knows Keel's two).
 
-> Not yet verified on an enforced ruleset: whether GitHub's code-owner review also blocks a danger-path PR *you* authored (you are the sole code owner and can't approve your own PR). If it does, see the fallback recorded under D17 in [DECISIONS.md](DECISIONS.md).
+> Verified on an enforced ruleset (public repo, 2026-10-18): GitHub's code-owner review does **not** block a danger-path PR *you* authored, so your own governance PRs merge once `keel-rigor` is green (D17). If you applied a ruleset compiled before D18, `keel doctor` reports it BROKEN and prints the `gh api -X PUT` call that updates it.
 
 ### 1.6 Tell the agent what it may do
 
