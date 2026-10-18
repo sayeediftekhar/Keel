@@ -59,7 +59,8 @@ test('rigor: HEAVY authored by the approver passes without a review (GitHub forb
 });
 test('rigor: HEAVY authored by the agent or anyone else still waits for the approver', () => {
   for (const author of ['owner-agent', 'Owner-Agent', 'stranger', '', undefined]) {
-    const v = rigorVerdict(['lib/money/a.ts'], 'Rigor: HEAVY', policy, [{ user: { login: 'owner-agent' }, state: 'APPROVED' }], author);
+    const agentApproved = [{ user: { login: 'owner-agent' }, state: 'APPROVED' }];
+    const v = rigorVerdict(['lib/money/a.ts'], 'Rigor: HEAVY', policy, agentApproved, author);
     assert.equal(v.ok, false, `author=${author}`);
     assert.match(v.message, /waiting for @owner-human/);
   }
