@@ -1,11 +1,16 @@
 // keel-ci.mjs audit (D23): the package managers' audit JSON, the verdict over
-// quality.audit.allow, and the real script run against a stub package manager.
+// quality.audit.allow, the compiled step, the policy validation, and the real
+// script run against a stub package manager.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { auditAdvisories, auditVerdict, AUDIT_COMMANDS } from '../ci/audit.mjs';
+import { workflowYaml, qualityFloor } from '../lib/compile.mjs';
+import { normalizePolicy } from '../lib/policy.mjs';
+import { qualityFiles } from '../lib/quality.mjs';
 import { BASE_POLICY, makeRepo, write } from './helpers.mjs';
 
 // Shapes captured on 2026-10-18 from braces@3.0.2 + minimist@1.2.5 (trimmed to the fields read).
@@ -147,4 +152,71 @@ test('e2e audit: a failed audit run fails the check instead of passing as clean'
   const empty = runAudit([], '', 1);
   assert.equal(empty.status, 1);
   assert.match(empty.stdout, /exited 1 without reporting an advisory/);
+});
+
+function fixture(files = {}, quality) {
+  const dir = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'keel-audit-'));
+  for (const [rel, content] of Object.entries(files)) write(dir, rel, content);
+  return { dir, policy: normalizePolicy({ ...BASE_POLICY, ...(quality ? { quality } : {}) }) };
+}
+
+// ---------------------------------------------------- compile and policy ----
+test('quality audit follows the lockfile: keel-ci.mjs runs that package manager\'s audit (D23)', () => {
+  const cases = [
+    [{ 'package.json': '{}', 'pnpm-lock.yaml': '' }, 'pnpm'],
+    [{ 'package.json': '{}', 'yarn.lock': '', '.yarnrc.yml': '' }, 'yarn-berry'],
+    [{ 'package.json': '{}', 'yarn.lock': '' }, 'yarn'],
+    [{ 'package.json': '{}' }, 'npm'],
+  ];
+  for (const [files, pm] of cases) {
+    const { dir, policy } = fixture(files, { audit: { level: 'critical' } });
+    const y = workflowYaml(dir, policy);
+    assert.match(y, new RegExp(String.raw`- name: quality \/ dependency audit \(${pm}, critical\+\)\n\s+run: \|\n` +
+      String.raw`\s+node \.keel\/ci\/keel-ci\.mjs audit ${pm}\n`), pm);
+    assert.ok(!/(npm|pnpm|yarn) audit --/.test(y), `${pm}: the level is applied by keel-ci.mjs, not the command`);
+  }
+  const { dir, policy } = fixture({ 'package.json': '{}', 'package-lock.json': '{}' });
+  assert.equal(qualityFiles(dir, policy)['.keel/ci/audit.mjs'], fs.readFileSync(
+    new URL('../ci/audit.mjs', import.meta.url), 'utf8',
+  ), 'keel-ci.mjs audit imports its sibling audit.mjs');
+});
+
+const ALLOW = [
+  { id: 'GHSA-vfj7-8cjw-p6xm', reason: 'dev-only lint tooling; no fixed version', reviewBy: '2026-11-18' },
+];
+
+test('quality audit allow: the exceptions go into the lock and the step name; a custom command or ' +
+  'no package manager gets a note that they do not apply', () => {
+  const { dir, policy } = fixture({ 'package.json': '{}', 'package-lock.json': '{}' }, { audit: { allow: ALLOW } });
+  assert.deepEqual(policy.quality.audit.allow, ALLOW);
+  const y = workflowYaml(dir, policy);
+  assert.match(y, /- name: quality \/ dependency audit \(npm, high\+, 1 allowed\)\n\s+run: \|\n\s+node .+ audit npm\n/);
+  assert.equal(qualityFloor(dir, policy).notes.filter((n) => /quality\.audit/.test(n)).length, 0);
+  const custom = fixture({ 'package.json': '{}', 'package-lock.json': '{}' },
+    { audit: { command: 'node scripts/audit-high.mjs', allow: ALLOW } });
+  assert.match(
+    workflowYaml(custom.dir, custom.policy), /dependency audit \(custom, high\+\)\n\s+run: \|\n\s+node scripts/,
+  );
+  assert.ok(qualityFloor(custom.dir, custom.policy).notes.some((n) => /allow.*command replaces it/.test(n)));
+  const bare = fixture({ 'requirements.txt': 'flask\n' }, { audit: { allow: ALLOW } });
+  assert.ok(qualityFloor(bare.dir, bare.policy).notes.some((n) => /allow.*none runs here/.test(n)));
+});
+
+test('quality audit allow: a policy without exceptions normalizes exactly as before D23 (no lock churn)', () => {
+  const before = { mode: 'fail', level: 'high', command: null };
+  assert.deepEqual(normalizePolicy(BASE_POLICY).quality.audit, before);
+  assert.deepEqual(normalizePolicy({ ...BASE_POLICY, quality: { audit: { allow: [] } } }).quality.audit, before);
+});
+
+test('quality audit allow: policy validation refuses an entry without a GHSA id, a reason and a real date', () => {
+  const bad = (quality, re) => assert.throws(() => normalizePolicy({ ...BASE_POLICY, quality }), re);
+  bad({ audit: { allow: ALLOW[0] } }, /quality\.audit\.allow must be an array/);
+  bad({ audit: { allow: [{ ...ALLOW[0], id: 'CVE-2024-4068' }] } }, /allow\[0\]\.id must be a GitHub advisory id/);
+  bad({ audit: { allow: [{ ...ALLOW[0], reason: '  ' }] } }, /allow\[0\]\.reason must say why/);
+  bad({ audit: { allow: [{ ...ALLOW[0], reviewBy: '2026-02-30' }] } }, /allow\[0\]\.reviewBy must be a date/);
+  bad({ audit: { allow: [{ id: ALLOW[0].id, reason: 'x' }] } }, /allow\[0\]\.reviewBy must be a date/);
+  bad({ audit: { allow: [{ ...ALLOW[0], approvedBy: 'me' }] } },
+    /unknown key "quality\.audit\.allow\[0\]\.approvedBy"/);
+  bad({ audit: { allow: [ALLOW[0], { ...ALLOW[0], id: 'ghsa-VFJ7-8cjw-p6xm' }] } }, /allow\[1\]\.id: .* listed twice/);
+  bad({ audit: { allow: [null] } }, /allow\[0\] must be/);
 });

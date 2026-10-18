@@ -104,11 +104,40 @@ export function auditVerdict(advisories, allow, level, today) {
   return { failures, allowed, stale };
 }
 
-export function main(pm) {
-  const cmd = Object.hasOwn(AUDIT_COMMANDS, pm ?? '') ? AUDIT_COMMANDS[pm] : null;
-  if (!cmd) fail(`audit: unknown package manager "${pm}" (npm, pnpm, yarn, yarn-berry)`);
-  const audit = lockPolicy().quality?.audit ?? {};
-  const level = audit.level ?? 'high';
+// ----------------------------------------------------- the policy entries ----
+// quality.audit.allow, checked by normalizePolicy (plugin/lib/policy.mjs). GHSA ids only: every
+// npm-registry advisory has one and every package manager's audit JSON reports it.
+const ALLOW_ID = /^GHSA(-[a-z0-9]{4}){3}$/i;
+const ALLOW_FIELDS = ['id', 'reason', 'reviewBy'];
+// A calendar date: "2026-02-30" parses, but rolls over to March.
+const realDate = (d) => typeof d === 'string' && /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(d)
+  && !Number.isNaN(Date.parse(d)) && new Date(Date.parse(d)).toISOString().startsWith(d);
+const isPlain = (v) => Boolean(v) && typeof v === 'object' && !Array.isArray(v);
+
+/** Pure: every problem with a raw quality.audit.allow (undefined is fine: no exceptions). */
+export function allowErrors(allow) {
+  if (allow === undefined) return [];
+  if (!Array.isArray(allow)) return ['quality.audit.allow must be an array of {id, reason, reviewBy}'];
+  const errs = []; const seen = new Set();
+  allow.forEach((e, i) => allowEntryErrors(e, `quality.audit.allow[${i}]`, seen, errs));
+  return errs;
+}
+
+function allowEntryErrors(e, at, seen, errs) {
+  if (!isPlain(e)) { errs.push(`${at} must be {"id", "reason", "reviewBy"}`); return; }
+  for (const k of Object.keys(e)) if (!ALLOW_FIELDS.includes(k)) errs.push(`unknown key "${at}.${k}"`);
+  if (!ALLOW_ID.test(e.id ?? '')) errs.push(`${at}.id must be a GitHub advisory id like "GHSA-vfj7-8cjw-p6xm"`);
+  else if (seen.has(e.id.toLowerCase())) errs.push(`${at}.id: ${e.id} is listed twice`);
+  else seen.add(e.id.toLowerCase());
+  if (!(typeof e.reason === 'string' && e.reason.trim())) {
+    errs.push(`${at}.reason must say why the advisory doesn't apply or can't be fixed yet`);
+  }
+  if (!realDate(e.reviewBy)) errs.push(`${at}.reviewBy must be a date, YYYY-MM-DD`);
+}
+
+// ------------------------------------------------------------------ the run ----
+/** The package manager's audit, parsed. Fails the check when it didn't run or reported nothing readable. */
+function runAudit(cmd) {
   const r = spawnSync(cmd[0], cmd.slice(1), { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 });
   if (r.error) fail(`audit: could not run ${cmd.join(' ')}: ${r.error.message}`);
   let advisories;
@@ -118,8 +147,16 @@ export function main(pm) {
   if (!advisories.length && r.status !== 0) {
     fail(`${cmd.join(' ')} exited ${r.status} without reporting an advisory:\n${(r.stderr ?? '').trim()}`);
   }
+  return advisories;
+}
+
+export function main(pm) {
+  const cmd = Object.hasOwn(AUDIT_COMMANDS, pm ?? '') ? AUDIT_COMMANDS[pm] : null;
+  if (!cmd) fail(`audit: unknown package manager "${pm}" (npm, pnpm, yarn, yarn-berry)`);
+  const audit = lockPolicy().quality?.audit ?? {};
+  const level = audit.level ?? 'high';
   const today = new Date().toISOString().slice(0, 10);
-  const { failures, allowed, stale } = auditVerdict(advisories, audit.allow ?? [], level, today);
+  const { failures, allowed, stale } = auditVerdict(runAudit(cmd), audit.allow ?? [], level, today);
   for (const a of allowed) console.log(`::notice::${a}`);
   for (const s of stale) console.log(`::warning::${s}`);
   for (const f of failures) console.log(`::error::${f}`);

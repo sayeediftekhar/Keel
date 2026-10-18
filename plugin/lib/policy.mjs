@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { objectSha } from './hash.mjs';
 import { normalizeLimits, LIMIT_DEFAULTS } from '../ci/limits.mjs';
+import { allowErrors } from '../ci/audit.mjs';
 
 export const POLICY_FILE = 'keel.policy.json';
 export const LOCK_FILE = '.keel/policy.lock.json';
@@ -217,7 +218,7 @@ function qualityErrors(q, oneOf, errs) {
   qualityKeyErrors(q, oneOf, errs);
   oneOf(q.audit?.level, LEVELS, 'quality.audit.level');
   if (q.audit?.command != null && !isStr(q.audit.command)) errs.push('quality.audit.command must be a command string');
-  allowErrors(q.audit?.allow, errs);
+  errs.push(...allowErrors(q.audit?.allow));
   secretsErrors(q.secrets, oneOf, errs);
   qualityPathErrors(q, errs);
   limitsErrors(q.limits, errs);
@@ -237,33 +238,6 @@ function qualityKeyErrors(q, oneOf, errs) {
     for (const f of Object.keys(v)) if (!known[k].includes(f)) errs.push(`unknown key "quality.${k}.${f}"`);
     oneOf(v?.mode, MODES, `quality.${k}.mode`);
   }
-}
-
-// D23: a reviewed exception to the dependency audit. GHSA ids only: every npm-registry advisory
-// has one and every package manager's audit JSON reports it.
-const ALLOW_ID = /^GHSA(-[a-z0-9]{4}){3}$/i;
-const ALLOW_FIELDS = ['id', 'reason', 'reviewBy'];
-// A calendar date: "2026-02-30" parses, but rolls over to March.
-const realDate = (d) => typeof d === 'string' && /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(d)
-  && !Number.isNaN(Date.parse(d)) && new Date(Date.parse(d)).toISOString().startsWith(d);
-
-function allowErrors(allow, errs) {
-  if (allow === undefined) return;
-  if (!Array.isArray(allow)) { errs.push('quality.audit.allow must be an array of {id, reason, reviewBy}'); return; }
-  const seen = new Set();
-  allow.forEach((e, i) => allowEntryErrors(e, `quality.audit.allow[${i}]`, seen, errs));
-}
-
-function allowEntryErrors(e, at, seen, errs) {
-  if (!isPlain(e)) { errs.push(`${at} must be {"id", "reason", "reviewBy"}`); return; }
-  for (const k of Object.keys(e)) if (!ALLOW_FIELDS.includes(k)) errs.push(`unknown key "${at}.${k}"`);
-  if (!ALLOW_ID.test(e.id ?? '')) errs.push(`${at}.id must be a GitHub advisory id like "GHSA-vfj7-8cjw-p6xm"`);
-  else if (seen.has(e.id.toLowerCase())) errs.push(`${at}.id: ${e.id} is listed twice`);
-  else seen.add(e.id.toLowerCase());
-  if (!(typeof e.reason === 'string' && e.reason.trim())) {
-    errs.push(`${at}.reason must say why the advisory doesn't apply or can't be fixed yet`);
-  }
-  if (!realDate(e.reviewBy)) errs.push(`${at}.reviewBy must be a date, YYYY-MM-DD`);
 }
 
 function secretsErrors(s, oneOf, errs) {
@@ -333,19 +307,22 @@ function normalizeBudget(b) {
 
 function normalizeQuality(q) {
   return {
-    audit: {
-      mode: q.audit?.mode ?? 'fail',
-      level: q.audit?.level ?? 'high',
-      command: q.audit?.command ?? null,
-      // Only when set, so a policy without exceptions keeps the lock it had before D23.
-      ...(q.audit?.allow?.length
-        ? { allow: q.audit.allow.map(({ id, reason, reviewBy }) => ({ id, reason, reviewBy })) } : {}),
-    },
+    audit: normalizeAudit(q.audit),
     secrets: normalizeSecretsFloor(q.secrets),
     sast: { mode: q.sast?.mode ?? 'off', rules: q.sast?.rules ?? null },
     architecture: normalizeArchitecture(q.architecture),
     threatModel: { mode: q.threatModel?.mode ?? 'warn' },
     limits: normalizeLimits(q.limits),
+  };
+}
+
+function normalizeAudit(a) {
+  return {
+    mode: a?.mode ?? 'fail',
+    level: a?.level ?? 'high',
+    command: a?.command ?? null,
+    // Only when set, so a policy without exceptions keeps the lock it had before D23.
+    ...(a?.allow?.length ? { allow: a.allow.map(({ id, reason, reviewBy }) => ({ id, reason, reviewBy })) } : {}),
   };
 }
 
