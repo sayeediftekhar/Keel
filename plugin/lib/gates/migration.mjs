@@ -58,20 +58,23 @@ function urlTarget(cmd, a, ctx) {
 
 const hasAll = (a, ...w) => w.every((x) => a.includes(x));
 
+// Migration tools whose target comes from urlTarget: does argv `a` apply changes? A Map, so a program
+// named like an Object.prototype member (`toString`, `__proto__`) is not a tool.
+const MIGRATION_TOOLS = new Map([
+  ['drizzle-kit', (a) => ['push', 'migrate'].includes(a[0])],
+  ['knex', (a) => /^migrate:(latest|up|down|rollback)$/.test(a[0] ?? '')],
+  ['sequelize', (a) => /^db:migrate/.test(a[0] ?? '')],
+  ['sequelize-cli', (a) => /^db:migrate/.test(a[0] ?? '')],
+  ['node-pg-migrate', (a) => ['up', 'down', 'redo'].includes(a[0])],
+  ['dbmate', (a) => ['up', 'migrate', 'rollback', 'down'].includes(a[0])],
+  ['atlas', (a) => (a[0] === 'migrate' && a[1] === 'apply') || (a[0] === 'schema' && a[1] === 'apply')],
+  ['flyway', (a) => a.includes('migrate')],
+  ['liquibase', (a) => a.includes('update')],
+]);
+
 /** True when `prog` is a migration tool (target from urlTarget) and argv `a` applies changes. */
 function isToolMigration(prog, a) {
-  const tools = {
-    'drizzle-kit': () => ['push', 'migrate'].includes(a[0]),
-    knex: () => /^migrate:(latest|up|down|rollback)$/.test(a[0] ?? ''),
-    sequelize: () => /^db:migrate/.test(a[0] ?? ''),
-    'sequelize-cli': () => /^db:migrate/.test(a[0] ?? ''),
-    'node-pg-migrate': () => ['up', 'down', 'redo'].includes(a[0]),
-    dbmate: () => ['up', 'migrate', 'rollback', 'down'].includes(a[0]),
-    atlas: () => (a[0] === 'migrate' && a[1] === 'apply') || (a[0] === 'schema' && a[1] === 'apply'),
-    flyway: () => a.includes('migrate'),
-    liquibase: () => a.includes('update'),
-  };
-  return tools[prog]?.();
+  return MIGRATION_TOOLS.get(prog)?.(a);
 }
 
 /** {target:'test'|'live', what, sql?} when the command applies schema or data changes to a database. */

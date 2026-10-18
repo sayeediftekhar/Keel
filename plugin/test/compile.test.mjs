@@ -19,6 +19,18 @@ test('policy validation rejects unknown keys and bad modes', () => {
   assert.throws(() => normalizePolicy({ ...BASE_POLICY, backPressure: ['lint'] }), /checks\.lint/);
 });
 
+test('policy validation reports prototype-named quality keys as unknown, not a crash', () => {
+  // JSON.parse, as for a real keel.policy.json: "__proto__" becomes an own key, not the prototype.
+  for (const k of ['constructor', 'toString', '__proto__']) {
+    const quality = JSON.parse(`{"${k}": {"mode": "warn"}}`);
+    assert.throws(() => normalizePolicy({ ...BASE_POLICY, quality }), (e) => e instanceof PolicyError
+      && e.message.includes(`unknown key "quality.${k}"`));
+    const limits = JSON.parse(`{"${k}": 5}`);
+    assert.throws(() => normalizePolicy({ ...BASE_POLICY, quality: { limits } }), (e) => e instanceof PolicyError
+      && e.message === `unknown key "quality.limits.${k}"`);
+  }
+});
+
 test('compile writes every target and the lock', () => {
   const { dir } = makeRepo();
   for (const f of [

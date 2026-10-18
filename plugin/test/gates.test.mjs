@@ -174,6 +174,13 @@ const CASES = [
   ['ls', bash('ls -la'), 'allow'],
   ['tests', bash('npm test -- --runInBand'), 'allow'],
   ['git commit on branch', bash('git commit -m "feat: x"'), 'allow'],
+  // --- a program named like an Object.prototype member is just a program ---
+  ['a program named toString is not a migration tool', bash('toString x'), 'allow'],
+  ['a program named __proto__ is not a migration tool', bash('__proto__ x'), 'allow'],
+  ['a program named constructor is not a script runner', bash('constructor run x'), 'allow'],
+  ['a program named hasOwnProperty is not a script runner', bash('hasOwnProperty run x'), 'allow'],
+  ['dbmate up still reaches the migration gate', bash('dbmate up'), 'migration', { approvals: () => [] }],
+  ['pnpm run still expands package scripts', bash('pnpm run db:deploy'), 'migration', { approvals: () => [] }],
 ];
 
 for (const [desc, event, expected, over] of CASES) {
