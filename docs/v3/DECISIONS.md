@@ -69,7 +69,7 @@ governance PR, which §1.4 of the guide tells the approver to author and merge.
 
 | # | Decision | Implication |
 |---|---|---|
-| D17 | A HEAVY PR **authored by the approver** passes `keel-rigor` without a review; the author's own review is the approval | `rigorVerdict` reads the PR author (`PR_AUTHOR` ← `github.event.pull_request.user.login`, a new env var in the compiled workflow) and passes HEAVY when it equals `approver.github` (case-insensitive). Any other author — the agent's identity above all — still waits for the approver's APPROVED review. **Loss:** nobody but the author reviews the approver's HEAVY work; that is the same person who would have approved it. Projects compiled before this need `keel compile` again. |
+| D21 | A HEAVY PR **authored by the approver** passes `keel-rigor` without a review; the author's own review is the approval | `rigorVerdict` reads the PR author (`PR_AUTHOR` ← `github.event.pull_request.user.login`, a new env var in the compiled workflow) and passes HEAVY when it equals `approver.github` (case-insensitive). Any other author — the agent's identity above all — still waits for the approver's APPROVED review. **Loss:** nobody but the author reviews the approver's HEAVY work; that is the same person who would have approved it. Projects compiled before this need `keel compile` again. |
 
 **Invariant kept:** an agent never counts as the approver. Policy validation
 already refuses `agentIdentity.github == approver.github`; it now compares

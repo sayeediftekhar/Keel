@@ -51,11 +51,11 @@ export function rigorVerdict(changed, body, policy, reviews = [], author = '') {
   if (level === 'HEAVY') {
     const approver = policy.approver.github.toLowerCase();
     const who = String(author ?? '').trim().toLowerCase();
-    // D17: GitHub forbids approving your own PR, so HEAVY work the approver authored
+    // D21: GitHub forbids approving your own PR, so HEAVY work the approver authored
     // is taken as approved by its author. The agent's identity never equals the
     // approver's (policy validation), so an agent-authored PR always waits below.
     if (who && who === approver && who !== String(policy.agentIdentity?.github ?? '').toLowerCase()) {
-      return { ok: true, message: `HEAVY: authored by the approver @${policy.approver.github}. GitHub forbids self-approval, so the author's own review stands as the approval (D17); nobody else has reviewed this PR.` };
+      return { ok: true, message: `HEAVY: authored by the approver @${policy.approver.github}. GitHub forbids self-approval, so the author's own review stands as the approval (D21); nobody else has reviewed this PR.` };
     }
     // Latest review per reviewer; the approver's must be APPROVED.
     const latest = new Map();

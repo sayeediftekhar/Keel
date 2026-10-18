@@ -34,7 +34,7 @@ test('rigor: HEAVY fails until the approver approves', () => {
 test('rigor: an approval from someone else does not count', () => {
   assert.equal(rigorVerdict(['lib/money/a.ts'], 'Rigor: HEAVY', policy, [{ user: { login: 'owner-agent' }, state: 'APPROVED' }]).ok, false);
 });
-test('rigor: HEAVY authored by the approver passes without a review (GitHub forbids self-approval, D17)', () => {
+test('rigor: HEAVY authored by the approver passes without a review (GitHub forbids self-approval, D21)', () => {
   const v = rigorVerdict(['supabase/migrations/0001.sql'], 'Rigor: HEAVY — governance', policy, [], 'Owner-Human');
   assert.equal(v.ok, true);
   assert.match(v.message, /authored by the approver @owner-human/);
