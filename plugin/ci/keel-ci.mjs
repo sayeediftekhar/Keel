@@ -5,6 +5,7 @@
 //   node .keel/ci/keel-ci.mjs rigor    PR rigor record must match the diff
 //   node .keel/ci/keel-ci.mjs budget   always-on context stays within budget
 //   node .keel/ci/keel-ci.mjs phantom  docs name only paths that exist
+//   node .keel/ci/keel-ci.mjs secrets  no credential literal in the diff's added lines
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -13,6 +14,9 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = process.cwd();
 const RECEIPTS = '.keel/receipts.jsonl';
+const ZERO_SHA = '0000000000000000000000000000000000000000';
+// Same shapes as the write-time secrets gate (plugin/lib/gates.mjs SECRET_LITERAL; a test keeps them equal).
+export const SECRET_SHAPES = /(sk-(?:proj-|ant-|live-)?[A-Za-z0-9_-]{20,}|sk_live_[A-Za-z0-9]{10,}|AKIA[0-9A-Z]{16}|-----BEGIN (?:[A-Z]+ )?PRIVATE KEY-----|xox[baprs]-[A-Za-z0-9-]{10,}|ghp_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{22,}|glpat-[A-Za-z0-9_-]{20,})/;
 
 function lockPolicy() {
   try { return JSON.parse(fs.readFileSync(path.join(ROOT, '.keel/policy.lock.json'), 'utf8')).policy; }
@@ -71,8 +75,108 @@ function rigor() {
     } catch (e) { console.log(`::warning::couldn't read reviews: ${e.message}`); }
   }
   const v = rigorVerdict(changed, process.env.PR_BODY ?? '', policy, reviews);
+  const tm = threatModel(policy);
+  if (tm?.mode === 'fail') fail(v.ok ? tm.message : `${tm.message}\n${v.message}`);
+  if (tm) console.log(`::warning::${tm.message}`);
   if (!v.ok) fail(v.message);
   console.log(v.message);
+}
+
+const RIGOR_LEVEL = /^[\s>*-]*`?\s*Rigor:\s*(FAST|LIGHT|HEAVY)\b/im;
+const SLUG = '[A-Za-z0-9][A-Za-z0-9._-]*';
+const reEscape = (s) => s.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
+
+/** Pure: which feature ledger a PR belongs to. A "Feature: <slug>" line wins, then a ledger
+ *  path in the body, then the longest ledger slug that is a whole token of the branch name. */
+export function ledgerFeature(body, branch, features, dir) {
+  // The whole line must be the slug: "Feature: adds CSV export" is prose, not a ledger name.
+  const named = new RegExp(`^[\\s>*-]*\`?\\s*Feature:\\s*\`?(${SLUG})\`?[ \\t]*$`, 'im').exec(body ?? '')?.[1];
+  if (named) return named;
+  const linked = new RegExp(`(?:^|[\\s(\`/])${reEscape(dir)}/(${SLUG})/`).exec(body ?? '')?.[1];
+  if (linked) return linked;
+  const hits = features.filter((f) => new RegExp(`(?:^|[/_.-])${reEscape(f)}(?:$|[/_.-])`).test(branch ?? ''));
+  return hits.sort((a, b) => b.length - a.length)[0] ?? null;
+}
+
+/** Pure: the text under a spec's "Threat model" heading, or null when there is no such heading. */
+export function threatModelSection(spec) {
+  const lines = String(spec ?? '').split('\n');
+  // Heading depth per line; lines in fenced code blocks ("# attacker replays the token") aren't headings.
+  let fenced = false;
+  const depth = lines.map((l) => {
+    if (/^\s*(```|~~~)/.test(l)) { fenced = !fenced; return 0; }
+    return fenced ? 0 : (/^(#{1,6})\s/.exec(l)?.[1].length ?? 0);
+  });
+  const at = lines.findIndex((l, i) => depth[i] && /^#{1,6}\s*(§\s*)?Threat model\b/i.test(l));
+  if (at < 0) return null;
+  const end = depth.findIndex((d, i) => i > at && d && d <= depth[at]);
+  return lines.slice(at + 1, end < 0 ? undefined : end).join('\n');
+}
+
+/** Pure: does a HEAVY PR's feature ledger carry a spec with a threat model (D18)?
+ *  `read(rel)` returns a file's text or null; `features` lists the ledger dir's feature folders. */
+export function threatModelVerdict({ body, branch, policy, features, read }) {
+  const dir = policy.gates.ledger?.dir ?? '.scratch';
+  const slug = ledgerFeature(body, branch, features, dir);
+  if (!slug) return { ok: false, message: `HEAVY PR names no feature ledger: add "Feature: <slug>" (its folder under ${dir}/) to the PR description, with ${dir}/<slug>/spec.md carrying §Threat model.` };
+  const at = `${dir}/${slug}`;
+  if (read(`${at}/00-status.md`) === null) return { ok: false, message: `HEAVY PR names feature "${slug}", but ${at}/00-status.md doesn't exist.` };
+  const spec = read(`${at}/spec.md`);
+  if (spec === null) return { ok: false, message: `${at}/spec.md is missing: a HEAVY feature's spec carries §Architecture and §Threat model (keel-dev G2).` };
+  const section = threatModelSection(spec);
+  if (section === null) return { ok: false, message: `${at}/spec.md has no "## Threat model" section (one row per trust boundary: threat, invariant, mitigation, slice).` };
+  const content = section.replace(/<!--[\s\S]*?-->/g, '').split('\n').map((l) => l.trim()).filter((l) => l && !/^<[^>]*>$/.test(l));
+  if (!content.length) return { ok: false, message: `${at}/spec.md's Threat model section is empty.` };
+  return { ok: true, message: `Threat model: ${at}/spec.md.` };
+}
+
+function threatModel(policy) {
+  const mode = policy.quality?.threatModel?.mode ?? 'warn';
+  if (mode === 'off' || RIGOR_LEVEL.exec(process.env.PR_BODY ?? '')?.[1]?.toUpperCase() !== 'HEAVY') return null;
+  const dir = policy.gates.ledger?.dir ?? '.scratch';
+  let features = [];
+  try { features = fs.readdirSync(path.join(ROOT, dir), { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name); } catch { /* no ledgers */ }
+  const read = (rel) => { try { return fs.readFileSync(path.join(ROOT, rel), 'utf8'); } catch { return null; } };
+  const v = threatModelVerdict({ body: process.env.PR_BODY, branch: process.env.HEAD_REF, policy, features, read });
+  return v.ok ? null : { mode, message: v.message };
+}
+
+const unquote = (p) => { if (!p.startsWith('"')) return p; try { return JSON.parse(p); } catch { return p; } };
+
+/** Pure: credential literals on the added lines of a unified diff (`git diff -U0`). */
+export function secretFindings(diff, allowPaths = []) {
+  const allow = allowPaths.map(globToRegExp);
+  const out = [];
+  let file = null; let line = 0; let header = false;
+  for (const l of String(diff ?? '').split('\n')) {
+    if (l.startsWith('diff --git ')) { header = true; file = null; continue; }
+    // File names only come from the header: an added line "++ x" shows as "+++ x" inside a hunk.
+    if (header && l.startsWith('+++ ')) { file = l === '+++ /dev/null' ? null : unquote(l.slice(4).replace(/\t$/, '')).replace(/^b\//, ''); continue; }
+    const hunk = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(l);
+    if (hunk) { header = false; line = Number(hunk[1]); continue; }
+    if (header) continue;
+    if (l.startsWith('+') && file) {
+      const m = SECRET_SHAPES.exec(l.slice(1));
+      if (m && !allow.some((re) => re.test(file))) out.push({ file, line, shape: m[0].slice(0, 8) });
+      line += 1;
+    } else if (l.startsWith(' ')) line += 1;
+  }
+  return out;
+}
+
+function secrets() {
+  const policy = lockPolicy();
+  const { BASE_SHA: base, HEAD_SHA: head, BEFORE_SHA: before, GITHUB_SHA: sha } = process.env;
+  const git = (...a) => execFileSync('git', a, { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 });
+  let diff;
+  if (base && head) diff = git('diff', '-U0', '--no-color', '--no-ext-diff', `${base}...${head}`);
+  else if (before && before !== ZERO_SHA && sha) diff = git('diff', '-U0', '--no-color', '--no-ext-diff', before, sha);
+  else diff = git('diff', '-U0', '--no-color', '--no-ext-diff', git('hash-object', '-t', 'tree', '/dev/null').trim(), 'HEAD'); // first push: every tracked line
+  const found = secretFindings(diff, policy.quality?.secrets?.allowPaths ?? []);
+  if (found.length) {
+    fail(`${found.length} line(s) add what looks like a live credential:\n${found.map((f) => `  ${f.file}:${f.line} (${f.shape}…)`).join('\n')}\nRemove it from the branch history, rotate it, and read it from an environment variable. A fixture path that must hold key-shaped strings goes in quality.secrets.allowPaths.`);
+  }
+  console.log('No credential literals on the added lines.');
 }
 
 /** Pure: files map {name: content} → list of problems. */
@@ -155,5 +259,6 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
   if (cmd === 'rigor') rigor();
   else if (cmd === 'budget') budget();
   else if (cmd === 'phantom') phantom();
-  else { console.log('usage: keel-ci.mjs rigor|budget|phantom'); process.exit(2); }
+  else if (cmd === 'secrets') secrets();
+  else { console.log('usage: keel-ci.mjs rigor|budget|phantom|secrets'); process.exit(2); }
 }

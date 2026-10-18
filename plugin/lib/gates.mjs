@@ -25,7 +25,7 @@ const ENV_FILE = /^(\.env(rc)?(\.(?!example$|sample$|template$|dist$|test$|ci$)[
 // command: once in source, docs or the transcript they are leaked. Shapes with
 // a vendor prefix and enough entropy that a false positive is unlikely; public
 // keys that look like JWTs (Supabase anon keys) are deliberately NOT here.
-const SECRET_LITERAL = /(sk-(?:proj-|ant-|live-)?[A-Za-z0-9_-]{20,}|sk_live_[A-Za-z0-9]{10,}|AKIA[0-9A-Z]{16}|-----BEGIN (?:[A-Z]+ )?PRIVATE KEY-----|xox[baprs]-[A-Za-z0-9-]{10,}|ghp_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{22,}|glpat-[A-Za-z0-9_-]{20,})/;
+export const SECRET_LITERAL = /(sk-(?:proj-|ant-|live-)?[A-Za-z0-9_-]{20,}|sk_live_[A-Za-z0-9]{10,}|AKIA[0-9A-Z]{16}|-----BEGIN (?:[A-Z]+ )?PRIVATE KEY-----|xox[baprs]-[A-Za-z0-9-]{10,}|ghp_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{22,}|glpat-[A-Za-z0-9_-]{20,})/;
 const ENV_PROBES = ['.env', '.env.local', '.env.production', '.envrc', '.dev.vars'];
 const READERS = new Set(['cat', 'less', 'more', 'head', 'tail', 'grep', 'egrep', 'fgrep', 'rg', 'ag', 'awk', 'sed', 'bat',
   'strings', 'xxd', 'od', 'hexdump', 'base64', 'nl', 'cut', 'sort', 'uniq', 'diff', 'tac', 'jq', 'yq', 'curl', 'nc',
