@@ -13,7 +13,9 @@ import { loadLock } from '../lib/policy.mjs';
 import { parseCommands } from '../lib/shell.mjs';
 import { classifyMigrationCommand } from '../lib/gates.mjs';
 import { contentSha } from '../lib/hash.mjs';
-import { appendReceipt, fetchGithubRemote, localMigrationFiles, makeEnv, readReceipts, readStdin } from '../lib/runtime.mjs';
+import {
+  appendReceipt, fetchGithubRemote, localMigrationFiles, makeEnv, readReceipts, readStdin,
+} from '../lib/runtime.mjs';
 
 function failed(resp) {
   if (!resp || typeof resp !== 'object') return false;
@@ -34,7 +36,14 @@ try {
   if (/^mcp__.+__apply_migration$/.test(name)) {
     const pid = input.project_id ?? input.projectId ?? input.project_ref;
     const target = policy.environments.test.supabaseProjectIds.includes(pid) ? 'test' : 'live';
-    appendReceipt(projectDir, { kind: 'migration', via: name, target, project: pid ?? null, name: input.name ?? null, sha256: contentSha(input.query ?? input.sql ?? '') });
+    appendReceipt(projectDir, {
+      kind: 'migration',
+      via: name,
+      target,
+      project: pid ?? null,
+      name: input.name ?? null,
+      sha256: contentSha(input.query ?? input.sql ?? ''),
+    });
   } else if (name === 'Bash') {
     const ctx = { policy, projectDir, env: makeEnv(projectDir, policy) };
     for (const cmd of parseCommands(String(input.command ?? ''))) {
@@ -43,7 +52,13 @@ try {
       if (m.target === 'test') {
         // A test apply runs every migration file present; record each one.
         for (const rel of localMigrationFiles(projectDir, policy)) {
-          appendReceipt(projectDir, { kind: 'migration', via: m.what, target: 'test', file: rel, sha256: contentSha(fs.readFileSync(path.join(projectDir, rel), 'utf8')) });
+          appendReceipt(projectDir, {
+            kind: 'migration',
+            via: m.what,
+            target: 'test',
+            file: rel,
+            sha256: contentSha(fs.readFileSync(path.join(projectDir, rel), 'utf8')),
+          });
         }
       } else if (lock.github) {
         // A live apply runs everything pending in the approved batches.
@@ -51,7 +66,11 @@ try {
         const done = new Set(readReceipts(projectDir).filter((r) => r.target === 'live').map((r) => r.sha256));
         for (const b of approvals) {
           for (const e of b.migrations ?? []) {
-            if (!done.has(e.sha256)) appendReceipt(projectDir, { kind: 'migration', via: m.what, target: 'live', batch: b.batch, file: e.file, sha256: e.sha256 });
+            if (!done.has(e.sha256)) {
+              appendReceipt(projectDir, {
+                kind: 'migration', via: m.what, target: 'live', batch: b.batch, file: e.file, sha256: e.sha256,
+              });
+            }
           }
         }
       }

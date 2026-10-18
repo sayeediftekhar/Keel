@@ -25,10 +25,12 @@ export const TEMPLATES = path.join(KEEL_ROOT, 'plugin', 'templates');
 export const STANDARDS_TEMPLATE = path.join(KEEL_ROOT, 'conventions', 'CODING_STANDARDS.template.md');
 
 // One marker vocabulary for both installers; any older "keel-v2 arbiter" block is replaced too.
-export const ARB_BEGIN = '# >>> keel-v2 arbiter (managed by Keel — keel init / install.sh arbiter) — do not edit between markers >>>';
+export const ARB_BEGIN =
+  '# >>> keel-v2 arbiter (managed by Keel — keel init / install.sh arbiter) — do not edit between markers >>>';
 export const ARB_END = '# <<< keel-v2 arbiter <<<';
 const ARB_BEGIN_RE = /^# >>> keel-v2 arbiter .*>>>\s*$/;
-export const AUTH_BEGIN = '# >>> keel standing authorization (managed by `keel init`) — do not edit between markers >>>';
+export const AUTH_BEGIN =
+  '# >>> keel standing authorization (managed by `keel init`) — do not edit between markers >>>';
 export const AUTH_END = '# <<< keel standing authorization <<<';
 const AUTH_BEGIN_RE = /^# >>> keel standing authorization .*>>>\s*$/;
 
@@ -41,7 +43,10 @@ export const STARTER_POLICY = {
     value: ['lib/money/**'], scope: [], pii: [], access: ['lib/auth/**', 'middleware.ts'],
     schema: ['supabase/migrations/**', 'prisma/migrations/**'], secrets: ['.env*'],
   },
-  environments: { live: { markers: ['DATABASE_URL'], supabaseProjectIds: [] }, test: { supabaseProjectIds: [], guardFile: null } },
+  environments: {
+    live: { markers: ['DATABASE_URL'], supabaseProjectIds: [] },
+    test: { supabaseProjectIds: [], guardFile: null },
+  },
   backPressure: ['typecheck', 'unit', 'build'],
   checks: { typecheck: 'npx tsc --noEmit', unit: 'npm test', build: 'npm run build' },
 };
@@ -69,7 +74,10 @@ export function arbiterBlock() {
   const laws = fs.readFileSync(LAWS, 'utf8').replace(/\s+$/, '');
   return [
     ARB_BEGIN,
-    '<!-- Keel rules ship with the `keel` plugin: lanes are /keel:keel-dev, /keel:keel-design, /keel:keel-marketing, /keel:keel-content, /keel:keel-research, /keel:keel-secure, /keel:keel-ops (+ keel-finance, keel-legal); conventions/ and MEMORY-CONTRACT.md live in the plugin directory. Re-run `keel init` after updating the plugin to refresh this block. -->',
+    '<!-- Keel rules ship with the `keel` plugin: lanes are /keel:keel-dev, /keel:keel-design, ' +
+      '/keel:keel-marketing, /keel:keel-content, /keel:keel-research, /keel:keel-secure, /keel:keel-ops ' +
+      '(+ keel-finance, keel-legal); conventions/ and MEMORY-CONTRACT.md live in the plugin directory. ' +
+      'Re-run `keel init` after updating the plugin to refresh this block. -->',
     '',
     router,
     '',
@@ -80,7 +88,9 @@ export function arbiterBlock() {
 
 /** The standing authorization + precedence block (docs/v3/GUIDE.md §1.6-1.6b), filled from the policy. */
 export function authorizationBlock(policy) {
-  const approver = policy?.approver?.github && !/^YOUR-/.test(policy.approver.github) ? `@${policy.approver.github}` : 'the approver named in keel.policy.json';
+  const approver = policy?.approver?.github && !/^YOUR-/.test(policy.approver.github)
+    ? `@${policy.approver.github}`
+    : 'the approver named in keel.policy.json';
   const protectedBranches = (policy?.protectedBranches ?? ['main']).join(', ');
   return [
     AUTH_BEGIN,
@@ -157,7 +167,10 @@ export function hasArbiter(projectDir) {
 
 function projectName(projectDir, given) {
   if (given) return given;
-  try { const n = JSON.parse(fs.readFileSync(path.join(projectDir, 'package.json'), 'utf8')).name; if (n) return String(n).replace(/^@[^/]+\//, ''); } catch { /* no package.json */ }
+  try {
+    const n = JSON.parse(fs.readFileSync(path.join(projectDir, 'package.json'), 'utf8')).name;
+    if (n) return String(n).replace(/^@[^/]+\//, '');
+  } catch { /* no package.json */ }
   return path.basename(path.resolve(projectDir));
 }
 
@@ -175,7 +188,9 @@ function scaffolds(name) {
 
 /** Run init. Returns { policy, arbiter, authorization, scaffolded, skipped, next }. */
 export function init(projectDir, { scaffold = true, name } = {}) {
-  const result = { policy: 'kept', arbiter: null, authorization: null, scaffolded: [], skipped: [], next: [] };
+  const result = {
+    policy: 'kept', arbiter: null, authorization: null, scaffolded: [], skipped: [], next: [],
+  };
   const policyPath = path.join(projectDir, POLICY_FILE);
   if (!fs.existsSync(policyPath)) {
     fs.writeFileSync(policyPath, `${JSON.stringify(STARTER_POLICY, null, 2)}\n`);
@@ -196,10 +211,16 @@ export function init(projectDir, { scaffold = true, name } = {}) {
       result.scaffolded.push(rel);
     }
   }
-  const placeholder = !policy || /^YOUR-/.test(policy.approver.github) || /^your-keel-app/.test(policy.agentIdentity.github);
-  if (placeholder) result.next.push(`edit ${POLICY_FILE}: approver, agentIdentity, danger paths (surfaces), checks — then run \`keel init\` again so the standing authorization names the approver`);
-  result.next.push('keel compile   # lock, deny rules, CODEOWNERS, CI, ruleset — commit in one PR marked "Rigor: HEAVY — governance"');
-  result.next.push('gh api -X POST repos/<owner>/<repo>/rulesets --input .keel/github-ruleset.json   # a repo admin, once');
+  const placeholder = !policy || /^YOUR-/.test(policy.approver.github)
+    || /^your-keel-app/.test(policy.agentIdentity.github);
+  if (placeholder) {
+    result.next.push(`edit ${POLICY_FILE}: approver, agentIdentity, danger paths (surfaces), checks — ` +
+      'then run `keel init` again so the standing authorization names the approver');
+  }
+  result.next.push('keel compile   # lock, deny rules, CODEOWNERS, CI, ruleset — ' +
+    'commit in one PR marked "Rigor: HEAVY — governance"');
+  result.next.push(
+    'gh api -X POST repos/<owner>/<repo>/rulesets --input .keel/github-ruleset.json   # a repo admin, once');
   result.next.push('keel doctor    # every required line ENFORCED or OK');
   return result;
 }
@@ -208,7 +229,8 @@ export function formatInit(r) {
   const lines = [];
   lines.push(`${r.policy === 'written' ? '+' : '='} ${POLICY_FILE} ${r.policy}`);
   lines.push(`${r.arbiter === 'added' ? '+' : '~'} CLAUDE.md: keel-v2 router + LAWS block ${r.arbiter}`);
-  lines.push(`${r.authorization === 'added' ? '+' : '~'} CLAUDE.md: standing authorization + precedence block ${r.authorization}`);
+  lines.push(`${r.authorization === 'added' ? '+' : '~'} CLAUDE.md: ` +
+    `standing authorization + precedence block ${r.authorization}`);
   for (const f of r.scaffolded) lines.push(`+ ${f} scaffolded — fill it in`);
   for (const f of r.skipped) lines.push(`= ${f} exists, left alone`);
   lines.push('', 'Next:');

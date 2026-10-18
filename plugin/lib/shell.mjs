@@ -30,7 +30,9 @@ export function tokenize(src) {
   const push = () => {
     if (word === null) return;
     // ${IFS} / $IFS word-splits in a real shell.
-    for (const part of word.split(/\$\{IFS\}|\$IFS(?![A-Za-z0-9_])/)) if (part !== '') tokens.push({ t: 'word', v: part });
+    for (const part of word.split(/\$\{IFS\}|\$IFS(?![A-Za-z0-9_])/)) {
+      if (part !== '') tokens.push({ t: 'word', v: part });
+    }
     word = null;
   };
   const add = (s) => { word = (word ?? '') + s; };
@@ -51,7 +53,12 @@ export function tokenize(src) {
     if (c === '\\' && i + 1 < src.length) { if (src[i + 1] !== '\n') add(src[i + 1]); i++; continue; }
     if (c === '$' && src[i + 1] === "'") {
       let j = i + 2; let raw = '';
-      for (; j < src.length && src[j] !== "'"; j++) { if (src[j] === '\\') { raw += src[j] + (src[j + 1] ?? ''); j++; } else raw += src[j]; }
+      for (; j < src.length && src[j] !== "'"; j++) {
+        if (src[j] === '\\') {
+          raw += src[j] + (src[j + 1] ?? '');
+          j++;
+        } else raw += src[j];
+      }
       add(ansiC(raw)); i = j; continue;
     }
     if (c === "'") {
@@ -63,17 +70,47 @@ export function tokenize(src) {
     if (c === '"') {
       let j = i + 1; let buf = '';
       for (; j < src.length && src[j] !== '"'; j++) {
-        if (src[j] === '\\' && j + 1 < src.length && '"\\$`'.includes(src[j + 1])) { buf += src[j + 1]; j++; continue; }
-        if (src[j] === '$' && src[j + 1] === '(') { const [inner, end] = readParen(j + 1); subs.push(inner); buf += `$(${inner})`; j = end; continue; }
-        if (src[j] === '`') { const end = src.indexOf('`', j + 1); const inner = src.slice(j + 1, end === -1 ? src.length : end); subs.push(inner); buf += `\`${inner}\``; j = end === -1 ? src.length : end; continue; }
+        if (src[j] === '\\' && j + 1 < src.length && '"\\$`'.includes(src[j + 1])) {
+          buf += src[j + 1];
+          j++;
+          continue;
+        }
+        if (src[j] === '$' && src[j + 1] === '(') {
+          const [inner, end] = readParen(j + 1);
+          subs.push(inner);
+          buf += `$(${inner})`;
+          j = end;
+          continue;
+        }
+        if (src[j] === '`') {
+          const end = src.indexOf('`', j + 1);
+          const inner = src.slice(j + 1, end === -1 ? src.length : end);
+          subs.push(inner);
+          buf += `\`${inner}\``;
+          j = end === -1 ? src.length : end;
+          continue;
+        }
         buf += src[j];
       }
       word = (word ?? '') + buf;
       i = j;
       continue;
     }
-    if (c === '$' && src[i + 1] === '(') { const [inner, end] = readParen(i + 1); subs.push(inner); add(`$(${inner})`); i = end; continue; }
-    if (c === '`') { const end = src.indexOf('`', i + 1); const inner = src.slice(i + 1, end === -1 ? src.length : end); subs.push(inner); add(`\`${inner}\``); i = end === -1 ? src.length : end; continue; }
+    if (c === '$' && src[i + 1] === '(') {
+      const [inner, end] = readParen(i + 1);
+      subs.push(inner);
+      add(`$(${inner})`);
+      i = end;
+      continue;
+    }
+    if (c === '`') {
+      const end = src.indexOf('`', i + 1);
+      const inner = src.slice(i + 1, end === -1 ? src.length : end);
+      subs.push(inner);
+      add(`\`${inner}\``);
+      i = end === -1 ? src.length : end;
+      continue;
+    }
     if (c === '#' && word === null) { const nl = src.indexOf('\n', i); i = nl === -1 ? src.length : nl - 1; continue; }
     if (c === '<' && src[i + 1] === '<' && src[i + 2] !== '<') {
       // here-document: <<[-]DELIM … DELIM. The body starts after the end of
@@ -82,8 +119,12 @@ export function tokenize(src) {
       let j = i + 2; if (src[j] === '-') j++;
       while (src[j] === ' ') j++;
       let delim = '';
-      if (src[j] === "'" || src[j] === '"') { const q = src[j]; const e = src.indexOf(q, j + 1); delim = src.slice(j + 1, e === -1 ? src.length : e); j = e === -1 ? src.length : e + 1; }
-      else { while (j < src.length && /[^\s;&|<>()]/.test(src[j])) delim += src[j++]; }
+      if (src[j] === "'" || src[j] === '"') {
+        const q = src[j];
+        const e = src.indexOf(q, j + 1);
+        delim = src.slice(j + 1, e === -1 ? src.length : e);
+        j = e === -1 ? src.length : e + 1;
+      } else { while (j < src.length && /[^\s;&|<>()]/.test(src[j])) delim += src[j++]; }
       const lastSkip = skips.length ? skips[skips.length - 1].end : -1;
       const nl = src.indexOf('\n', Math.max(j, lastSkip));
       let body = '';
@@ -119,7 +160,12 @@ export function tokenize(src) {
       continue;
     }
     const op = OPS.find((o) => src.startsWith(o, i));
-    if (op && !((op === '{' || op === '}') && word !== null)) { push(); tokens.push({ t: 'op', v: op }); i += op.length - 1; continue; }
+    if (op && !((op === '{' || op === '}') && word !== null)) {
+      push();
+      tokens.push({ t: 'op', v: op });
+      i += op.length - 1;
+      continue;
+    }
     add(c);
   }
   push();
@@ -127,16 +173,21 @@ export function tokenize(src) {
 }
 
 const ASSIGN = /^[A-Za-z_][A-Za-z0-9_]*=/;
-const PASSTHRU = new Set(['sudo', 'nohup', 'time', 'command', 'exec', 'builtin', 'doas', 'chronic', 'caffeinate', 'ionice', 'unbuffer']);
+const PASSTHRU = new Set([
+  'sudo', 'nohup', 'time', 'command', 'exec', 'builtin', 'doas', 'chronic', 'caffeinate', 'ionice', 'unbuffer',
+]);
 const SHELLS = new Set(['sh', 'bash', 'zsh', 'dash', 'ksh', 'fish']);
 const RUNNERS = new Set(['npx', 'bunx', 'pnpx']);
 
 export const base = (p) => path.basename(String(p ?? ''));
 
-const expandVars = (s, vars) => String(s).replace(/\$\{([A-Za-z_][A-Za-z0-9_]*)\}|\$([A-Za-z_][A-Za-z0-9_]*)/g, (m, a, b) => {
-  const k = a ?? b;
-  return Object.prototype.hasOwnProperty.call(vars, k) ? vars[k] : m;
-});
+const expandVars = (s, vars) => String(s).replace(
+  /\$\{([A-Za-z_][A-Za-z0-9_]*)\}|\$([A-Za-z_][A-Za-z0-9_]*)/g,
+  (m, a, b) => {
+    const k = a ?? b;
+    return Object.prototype.hasOwnProperty.call(vars, k) ? vars[k] : m;
+  },
+);
 
 /** Parse into simple commands: [{argv, assigns, redirects, inputs, stdinText, pipedFrom, dynamic}]. */
 export function parseCommands(src, depth = 0, vars = {}) {
@@ -155,8 +206,14 @@ export function parseCommands(src, depth = 0, vars = {}) {
         for (const [k, v] of Object.entries(c.assigns)) vars[k] = expandVars(v, vars);
       }
       c.argv = c.argv.map((a) => expandVars(a, vars));
-      if (c.argv[0] === 'export' || c.argv[0] === 'declare' && c.argv.slice(1).every((a) => ASSIGN.test(a) || a === '-x')) {
-        for (const a of c.argv.slice(1)) if (ASSIGN.test(a)) { const eq = a.indexOf('='); vars[a.slice(0, eq)] = a.slice(eq + 1); }
+      if (c.argv[0] === 'export'
+        || c.argv[0] === 'declare' && c.argv.slice(1).every((a) => ASSIGN.test(a) || a === '-x')) {
+        for (const a of c.argv.slice(1)) {
+          if (ASSIGN.test(a)) {
+            const eq = a.indexOf('=');
+            vars[a.slice(0, eq)] = a.slice(eq + 1);
+          }
+        }
       }
       const unwrapped = unwrap(c, depth, vars);
       out.push(...unwrapped);
@@ -195,21 +252,49 @@ function unwrap(cmd, depth, vars) {
   let argv = [...cmd.argv];
   const assigns = { ...cmd.assigns };
   const keep = (a) => ({ ...cmd, argv: a, assigns, dynamic: /[$`]/.test(a[0] ?? '') });
-  const inner = (script) => parseCommands(script, depth + 1, { ...vars }).map((c) => ({ ...c, assigns: { ...assigns, ...c.assigns } }));
+  const inner = (script) => parseCommands(script, depth + 1, { ...vars })
+    .map((c) => ({ ...c, assigns: { ...assigns, ...c.assigns } }));
   for (let guard = 0; guard < 12 && argv.length; guard++) {
     const prog = base(argv[0]);
-    if (PASSTHRU.has(prog)) { argv.shift(); while (argv.length && argv[0].startsWith('-')) { const f = argv.shift(); if (['-u', '-g', '-n', '-c', '-t'].includes(f)) argv.shift(); } continue; }
-    if (prog === 'nice') { argv.shift(); while (argv.length && argv[0].startsWith('-')) { const f = argv.shift(); if (f === '-n') argv.shift(); } continue; }
+    if (PASSTHRU.has(prog)) {
+      argv.shift();
+      while (argv.length && argv[0].startsWith('-')) {
+        const f = argv.shift();
+        if (['-u', '-g', '-n', '-c', '-t'].includes(f)) argv.shift();
+      }
+      continue;
+    }
+    if (prog === 'nice') {
+      argv.shift();
+      while (argv.length && argv[0].startsWith('-')) {
+        const f = argv.shift();
+        if (f === '-n') argv.shift();
+      }
+      continue;
+    }
     if (prog === 'timeout' || prog === 'gtimeout') {
       argv.shift();
-      while (argv.length && argv[0].startsWith('-')) { const f = argv.shift(); if (['-s', '-k', '--signal', '--kill-after'].includes(f)) argv.shift(); }
+      while (argv.length && argv[0].startsWith('-')) {
+        const f = argv.shift();
+        if (['-s', '-k', '--signal', '--kill-after'].includes(f)) argv.shift();
+      }
       argv.shift(); // duration
       continue;
     }
-    if (prog === 'stdbuf') { argv.shift(); while (argv.length && argv[0].startsWith('-')) { const f = argv.shift(); if (/^-[ioe]$/.test(f)) argv.shift(); } continue; }
+    if (prog === 'stdbuf') {
+      argv.shift();
+      while (argv.length && argv[0].startsWith('-')) {
+        const f = argv.shift();
+        if (/^-[ioe]$/.test(f)) argv.shift();
+      }
+      continue;
+    }
     if (prog === 'watch') {
       argv.shift();
-      while (argv.length && argv[0].startsWith('-')) { const f = argv.shift(); if (['-n', '--interval', '-d'].includes(f) && f !== '-d') argv.shift(); }
+      while (argv.length && argv[0].startsWith('-')) {
+        const f = argv.shift();
+        if (['-n', '--interval', '-d'].includes(f) && f !== '-d') argv.shift();
+      }
       return inner(argv.join(' '));
     }
     if (prog === 'find') {
@@ -217,7 +302,10 @@ function unwrap(cmd, depth, vars) {
       if (k < 0) break;
       const rest = argv.slice(k + 1);
       const end = rest.findIndex((a) => a === ';' || a === '+' || a === '\\;');
-      return [keep(argv.slice(0, k)), ...unwrap({ ...cmd, argv: rest.slice(0, end < 0 ? rest.length : end) }, depth, vars)];
+      return [
+        keep(argv.slice(0, k)),
+        ...unwrap({ ...cmd, argv: rest.slice(0, end < 0 ? rest.length : end) }, depth, vars),
+      ];
     }
     if (prog === 'env') {
       const rest = argv.slice(1);
@@ -229,12 +317,29 @@ function unwrap(cmd, depth, vars) {
       if (!rest.length) return [keep(['env'])];
       argv = rest; continue;
     }
-    if (prog === 'xargs') { argv.shift(); while (argv.length && argv[0].startsWith('-')) { const f = argv.shift(); if (/^-[IdLnPsEa]$/.test(f)) argv.shift(); } continue; }
-    if (RUNNERS.has(prog)) { argv.shift(); while (argv.length && argv[0].startsWith('-')) { const f = argv.shift(); if (f === '-p' || f === '--package') argv.shift(); } continue; }
+    if (prog === 'xargs') {
+      argv.shift();
+      while (argv.length && argv[0].startsWith('-')) {
+        const f = argv.shift();
+        if (/^-[IdLnPsEa]$/.test(f)) argv.shift();
+      }
+      continue;
+    }
+    if (RUNNERS.has(prog)) {
+      argv.shift();
+      while (argv.length && argv[0].startsWith('-')) {
+        const f = argv.shift();
+        if (f === '-p' || f === '--package') argv.shift();
+      }
+      continue;
+    }
     if ((prog === 'pnpm' || prog === 'yarn') && ['exec', 'dlx'].includes(argv[1])) { argv = argv.slice(2); continue; }
     if (prog === 'npm' && (argv[1] === 'exec' || argv[1] === 'x')) {
       let rest = argv.slice(2);
-      while (rest.length && rest[0].startsWith('-') && rest[0] !== '--') { const f = rest.shift(); if (f === '-p' || f === '--package') rest.shift(); }
+      while (rest.length && rest[0].startsWith('-') && rest[0] !== '--') {
+        const f = rest.shift();
+        if (f === '-p' || f === '--package') rest.shift();
+      }
       if (rest[0] === '--') rest.shift();
       const dd = rest.indexOf('--'); if (dd > 0) rest.splice(dd, 1);
       argv = rest; continue;
@@ -250,7 +355,9 @@ function unwrap(cmd, depth, vars) {
       }
       if (cmd.stdinText) return inner(cmd.stdinText);
       const src = cmd.pipedFrom;
-      if (src && ['echo', 'printf'].includes(base(src.argv[0]))) return inner(src.argv.slice(1).filter((a) => !/^-[neE]+$/.test(a)).join(' '));
+      if (src && ['echo', 'printf'].includes(base(src.argv[0]))) {
+        return inner(src.argv.slice(1).filter((a) => !/^-[neE]+$/.test(a)).join(' '));
+      }
       if (argv[k] === undefined) return [keep(argv)]; // reads a script from stdin we can't see
       return [keep(argv)];
     }

@@ -2,8 +2,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { rigorVerdict, budgetProblems, phantomRefs, globToRegExp as ciGlob, SECRET_SHAPES, secretFindings, ledgerFeature,
-  threatModelSection, threatModelVerdict } from '../ci/keel-ci.mjs';
+import {
+  rigorVerdict, budgetProblems, phantomRefs, globToRegExp as ciGlob, SECRET_SHAPES, secretFindings, ledgerFeature,
+  threatModelSection, threatModelVerdict,
+} from '../ci/keel-ci.mjs';
 import { globToRegExp } from '../lib/glob.mjs';
 import { SECRET_LITERAL } from '../lib/gates.mjs';
 import { normalizePolicy } from '../lib/policy.mjs';
@@ -30,13 +32,21 @@ test('rigor: HEAVY fails until the approver approves', () => {
   const v = rigorVerdict(['supabase/migrations/0001.sql'], body, policy, []);
   assert.equal(v.ok, false);
   assert.match(v.message, /waiting for @owner-human/);
-  const approved = [{ user: { login: 'owner-agent' }, state: 'APPROVED' }, { user: { login: 'Owner-Human' }, state: 'APPROVED' }];
+  const approved = [
+    { user: { login: 'owner-agent' }, state: 'APPROVED' },
+    { user: { login: 'Owner-Human' }, state: 'APPROVED' },
+  ];
   assert.equal(rigorVerdict(['supabase/migrations/0001.sql'], body, policy, approved).ok, true);
   const revoked = [...approved, { user: { login: 'owner-human' }, state: 'CHANGES_REQUESTED' }];
   assert.equal(rigorVerdict(['supabase/migrations/0001.sql'], body, policy, revoked).ok, false);
 });
 test('rigor: an approval from someone else does not count', () => {
-  assert.equal(rigorVerdict(['lib/money/a.ts'], 'Rigor: HEAVY', policy, [{ user: { login: 'owner-agent' }, state: 'APPROVED' }]).ok, false);
+  assert.equal(
+    rigorVerdict(
+      ['lib/money/a.ts'], 'Rigor: HEAVY', policy, [{ user: { login: 'owner-agent' }, state: 'APPROVED' }],
+    ).ok,
+    false,
+  );
 });
 
 test('budget: the 16,701-character line is caught even under a line-count cap', () => {
@@ -44,19 +54,26 @@ test('budget: the 16,701-character line is caught even under a line-count cap', 
   assert.ok(problems.some((p) => /CONTEXT\.md:2 is 16701 characters/.test(p)));
 });
 test('budget: token ceiling applies to always-on files', () => {
-  const { problems } = budgetProblems({ 'CLAUDE.md': 'word '.repeat(15).trim().replace(/(.{70})/g, '$1\n') + '\n'.repeat(1) + 'y'.repeat(70).concat('\n').repeat(6) }, policy);
+  const { problems } = budgetProblems({
+    'CLAUDE.md': 'word '.repeat(15).trim().replace(/(.{70})/g, '$1\n') + '\n'.repeat(1) +
+      'y'.repeat(70).concat('\n').repeat(6),
+  }, policy);
   assert.ok(problems.some((p) => /Always-on context/.test(p)));
 });
 
 test('phantom: flags only backticked repo paths that do not exist', () => {
-  const text = 'See `docs/ARCHITECTURE.md`, `lib/old-model.ts`, `npm run build`, `/api/health`, `CONTEXT.md` and `https://x.y/z`.';
+  const text = 'See `docs/ARCHITECTURE.md`, `lib/old-model.ts`, `npm run build`, `/api/health`, ' +
+    '`CONTEXT.md` and `https://x.y/z`.';
   const exists = (p) => ['docs/ARCHITECTURE.md', 'CONTEXT.md'].includes(p);
   assert.deepEqual(phantomRefs(text, exists), ['lib/old-model.ts']);
 });
 
 test('the CI glob matches the hook glob on the same cases', () => {
-  const cases = [['lib/money/**', 'lib/money/a/b.ts', true], ['lib/money/**', 'lib/moneybag.ts', false], ['.env*', '.env.local', true],
-    ['supabase/migrations/', 'supabase/migrations/1.sql', true], ['**/*.pem', 'a/b/c.pem', true], ['src/*.ts', 'src/a/b.ts', false]];
+  const cases = [
+    ['lib/money/**', 'lib/money/a/b.ts', true], ['lib/money/**', 'lib/moneybag.ts', false],
+    ['.env*', '.env.local', true], ['supabase/migrations/', 'supabase/migrations/1.sql', true],
+    ['**/*.pem', 'a/b/c.pem', true], ['src/*.ts', 'src/a/b.ts', false],
+  ];
   for (const [g, p, want] of cases) {
     assert.equal(globToRegExp(g).test(p), want, `hook ${g} ~ ${p}`);
     assert.equal(ciGlob(g).test(p), want, `ci ${g} ~ ${p}`);
@@ -106,49 +123,78 @@ test('secret scan: an added "++ x" line can\'t pose as a file header; odd file n
 });
 
 test('secret scan: allowPaths (policy, not inline markers) exempt fixtures', () => {
-  const diff = ['diff --git a/test/fx/keys.txt b/test/fx/keys.txt', '+++ b/test/fx/keys.txt', '@@ -0,0 +1 @@', `+${AWS} keel:allow gitleaks:allow`,
-    'diff --git a/src/b.ts b/src/b.ts', '+++ b/src/b.ts', '@@ -0,0 +1 @@', `+${AWS} // gitleaks:allow`].join('\n');
+  const diff = [
+    'diff --git a/test/fx/keys.txt b/test/fx/keys.txt', '+++ b/test/fx/keys.txt', '@@ -0,0 +1 @@',
+    `+${AWS} keel:allow gitleaks:allow`,
+    'diff --git a/src/b.ts b/src/b.ts', '+++ b/src/b.ts', '@@ -0,0 +1 @@', `+${AWS} // gitleaks:allow`,
+  ].join('\n');
   assert.deepEqual(secretFindings(diff, ['test/fx/**']).map((f) => f.file), ['src/b.ts']);
 });
 
 test('ledger lookup: "Feature:" line, then a ledger path in the body, then the longest slug in the branch', () => {
   const features = ['invoice', 'invoice-totals', 'auth'];
-  assert.equal(ledgerFeature('Rigor: HEAVY — money\nFeature: `auth`', 'claude/invoice-totals', features, '.scratch'), 'auth');
+  assert.equal(
+    ledgerFeature('Rigor: HEAVY — money\nFeature: `auth`', 'claude/invoice-totals', features, '.scratch'),
+    'auth',
+  );
   assert.equal(ledgerFeature('See .scratch/invoice-totals/spec.md', 'x', features, '.scratch'), 'invoice-totals');
   assert.equal(ledgerFeature('Rigor: HEAVY', 'claude/invoice-totals-x1y2', features, '.scratch'), 'invoice-totals');
   assert.equal(ledgerFeature('Rigor: HEAVY', 'feat/invoice', features, '.scratch'), 'invoice');
   assert.equal(ledgerFeature('Rigor: HEAVY', 'feat/authentication', features, '.scratch'), null, 'whole tokens only');
   assert.equal(ledgerFeature('Feature: ../../etc', 'x', features, '.scratch'), null, 'no path escapes');
-  assert.equal(ledgerFeature('Feature: adds CSV export', 'feat/auth', features, '.scratch'), 'auth', 'a prose "Feature:" line is not a slug');
+  assert.equal(
+    ledgerFeature('Feature: adds CSV export', 'feat/auth', features, '.scratch'),
+    'auth',
+    'a prose "Feature:" line is not a slug',
+  );
   assert.equal(ledgerFeature('docs/plan/auth/x.md', 'x', ['auth'], 'docs/plan'), 'auth', 'custom ledger dir');
 });
 
 test('threat model section: under its heading, up to the next heading of the same depth', () => {
-  const spec = '# F — Spec\n## Architecture\nA\n## Threat model\nintro\n### Boundary 1\n| a | b |\n## Rollout\nlater\n';
+  const spec =
+    '# F — Spec\n## Architecture\nA\n## Threat model\nintro\n### Boundary 1\n| a | b |\n## Rollout\nlater\n';
   assert.equal(threatModelSection(spec), 'intro\n### Boundary 1\n| a | b |');
   assert.equal(threatModelSection('## §Threat Model\nrow'), 'row');
   assert.equal(threatModelSection('## Architecture\nno threats here'), null);
   const fenced = '## Threat model\n```bash\n# attacker replays the token\n```\n| replay | nonce |\n## Next\n';
-  assert.equal(threatModelSection(fenced), '```bash\n# attacker replays the token\n```\n| replay | nonce |', 'a # line in a code fence is not a heading');
+  assert.equal(
+    threatModelSection(fenced),
+    '```bash\n# attacker replays the token\n```\n| replay | nonce |',
+    'a # line in a code fence is not a heading',
+  );
 });
 
 test('threat model verdict: each missing piece is named; a real section passes', () => {
   const policy = normalizePolicy(BASE_POLICY);
   const ledger = '**Rigor:** HEAVY — money\n';
-  const files = (spec) => ({ '.scratch/fees/00-status.md': ledger, ...(spec === undefined ? {} : { '.scratch/fees/spec.md': spec }) });
-  const verdict = (body, fs) => threatModelVerdict({ body, branch: 'claude/x', policy, features: ['fees'], read: (rel) => fs[rel] ?? null });
+  const files = (spec) => ({
+    '.scratch/fees/00-status.md': ledger,
+    ...(spec === undefined ? {} : { '.scratch/fees/spec.md': spec }),
+  });
+  const verdict = (body, fs) =>
+    threatModelVerdict({ body, branch: 'claude/x', policy, features: ['fees'], read: (rel) => fs[rel] ?? null });
   assert.match(verdict('Rigor: HEAVY', files('')).message, /names no feature ledger: add "Feature: <slug>"/);
-  assert.match(verdict('Rigor: HEAVY\nFeature: nope', files('')).message, /\.scratch\/nope\/00-status\.md doesn't exist/);
+  assert.match(
+    verdict('Rigor: HEAVY\nFeature: nope', files('')).message,
+    /\.scratch\/nope\/00-status\.md doesn't exist/,
+  );
   assert.match(verdict('Feature: fees', files()).message, /spec\.md is missing/);
   assert.match(verdict('Feature: fees', files('## Behaviour\nx\n')).message, /no "## Threat model" section/);
-  assert.match(verdict('Feature: fees', files('## Threat model\n<!-- one row per boundary -->\n<boundary>\n\n## Next\n')).message, /section is empty/);
-  const ok = verdict('Feature: fees', files('## Threat model\n| Boundary | Threat |\n|---|---|\n| client → api | tampered total (T) |\n'));
+  assert.match(
+    verdict('Feature: fees', files('## Threat model\n<!-- one row per boundary -->\n<boundary>\n\n## Next\n')).message,
+    /section is empty/,
+  );
+  const ok = verdict(
+    'Feature: fees',
+    files('## Threat model\n| Boundary | Threat |\n|---|---|\n| client → api | tampered total (T) |\n'),
+  );
   assert.deepEqual(ok, { ok: true, message: 'Threat model: .scratch/fees/spec.md.' });
 });
 
 // End to end: the real script in a compiled repo, as the workflow runs it.
 const CI = path.join(path.dirname(new URL(import.meta.url).pathname), '..', 'ci', 'keel-ci.mjs');
-const runCi = (dir, cmd, env) => spawnSync(process.execPath, [CI, cmd], { cwd: dir, encoding: 'utf8', env: { PATH: process.env.PATH, ...env } });
+const runCi = (dir, cmd, env) =>
+  spawnSync(process.execPath, [CI, cmd], { cwd: dir, encoding: 'utf8', env: { PATH: process.env.PATH, ...env } });
 
 test('e2e secrets: a key added on the branch fails the scan; the same key in an allowed path passes', () => {
   const { dir } = makeRepo({ ...BASE_POLICY, quality: { secrets: { allowPaths: ['test/fixtures/**'] } } });
@@ -168,7 +214,12 @@ test('e2e secrets: a key added on the branch fails the scan; the same key in an 
 });
 
 test('e2e rigor: the threat-model rule warns by default and refuses in fail mode, on HEAVY only', () => {
-  const env = (dir, body) => ({ BASE_SHA: git(dir, 'rev-parse', 'main'), HEAD_SHA: git(dir, 'rev-parse', 'HEAD'), PR_BODY: body, HEAD_REF: 'feature/x' });
+  const env = (dir, body) => ({
+    BASE_SHA: git(dir, 'rev-parse', 'main'),
+    HEAD_SHA: git(dir, 'rev-parse', 'HEAD'),
+    PR_BODY: body,
+    HEAD_REF: 'feature/x',
+  });
   const warn = makeRepo();
   write(warn.dir, 'lib/money/fees.ts', 'export {};\n');
   commitAll(warn.dir, 'fees');
@@ -182,7 +233,11 @@ test('e2e rigor: the threat-model rule warns by default and refuses in fail mode
   assert.equal(r.status, 1);
   assert.match(r.stdout, /^::error::HEAVY PR names no feature ledger/);
   write(strict.dir, '.scratch/x/00-status.md', '**Rigor:** HEAVY — fees\n');
-  write(strict.dir, '.scratch/x/spec.md', '## Threat model\n| client → api | tampered fee (T) | exact money | server recomputes | 01 |\n');
+  write(
+    strict.dir,
+    '.scratch/x/spec.md',
+    '## Threat model\n| client → api | tampered fee (T) | exact money | server recomputes | 01 |\n',
+  );
   commitAll(strict.dir, 'spec');
   r = runCi(strict.dir, 'rigor', env(strict.dir, 'Rigor: HEAVY — surface 1'));
   assert.ok(!/feature ledger|Threat model/.test(r.stdout), 'found through the branch name feature/x');

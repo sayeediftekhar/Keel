@@ -18,7 +18,9 @@ test('healthy fixture: every local item OK/ENFORCED; GitHub UNPROVEN offline', (
   for (const i of items.filter((x) => x.required && !['github-ruleset', 'agent-identity'].includes(x.id))) {
     assert.ok(['OK', 'ENFORCED'].includes(i.status), `${i.id}: ${i.status} — ${i.detail}`);
   }
-  for (const g of ['gate:push', 'gate:merge', 'gate:migration', 'gate:secrets', 'gate:governance', 'gate:deploy', 'gate:ledger']) {
+  for (const g of [
+    'gate:push', 'gate:merge', 'gate:migration', 'gate:secrets', 'gate:governance', 'gate:deploy', 'gate:ledger',
+  ]) {
     assert.equal(status(items, g), 'ENFORCED', g);
   }
   assert.equal(status(items, 'github-ruleset'), 'UNPROVEN');
@@ -31,19 +33,32 @@ test('a sabotaged gate script is caught: every gate reports BROKEN', () => {
   const fake = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'keel-fake-')), 'gate.mjs');
   fs.writeFileSync(fake, 'process.exit(0);\n'); // a "gate" that allows everything
   const items = doc(dir, { gate: fake });
-  for (const g of ['gate:push', 'gate:merge', 'gate:migration', 'gate:secrets', 'gate:governance', 'gate:deploy', 'gate:ledger']) {
+  for (const g of [
+    'gate:push', 'gate:merge', 'gate:migration', 'gate:secrets', 'gate:governance', 'gate:deploy', 'gate:ledger',
+  ]) {
     assert.equal(status(items, g), 'BROKEN', g);
   }
 });
 
 const removals = [
-  ['deny-rules', (dir) => { const f = path.join(dir, '.claude/settings.json'); const s = JSON.parse(fs.readFileSync(f, 'utf8')); s.permissions.deny = []; fs.writeFileSync(f, JSON.stringify(s)); }, 'BROKEN'],
+  ['deny-rules', (dir) => {
+    const f = path.join(dir, '.claude/settings.json');
+    const s = JSON.parse(fs.readFileSync(f, 'utf8'));
+    s.permissions.deny = [];
+    fs.writeFileSync(f, JSON.stringify(s));
+  }, 'BROKEN'],
   ['codeowners', (dir) => fs.rmSync(path.join(dir, '.github/CODEOWNERS')), 'MISSING'],
   ['workflow', (dir) => fs.appendFileSync(path.join(dir, '.github/workflows/keel.yml'), '\n# tampered\n'), 'BROKEN'],
   ['ci-script', (dir) => fs.rmSync(path.join(dir, '.keel/ci/keel-ci.mjs')), 'MISSING'],
-  ['hooks-enabled', (dir) => fs.writeFileSync(path.join(dir, '.claude/settings.local.json'), JSON.stringify({ disableAllHooks: true })), 'BROKEN'],
-  ['lock', (dir) => fs.writeFileSync(path.join(dir, '.keel/policy.lock.json'), '{"policy":{},"policySha256":"x"}'), 'BROKEN'],
-  ['test-db-guard', (dir) => { fs.writeFileSync(path.join(dir, 'test/setup.js'), '// nothing here\n'); fs.mkdirSync(path.join(dir, 'supabase/migrations'), { recursive: true }); }, 'BROKEN'],
+  ['hooks-enabled', (dir) =>
+    fs.writeFileSync(path.join(dir, '.claude/settings.local.json'), JSON.stringify({ disableAllHooks: true })),
+  'BROKEN'],
+  ['lock', (dir) =>
+    fs.writeFileSync(path.join(dir, '.keel/policy.lock.json'), '{"policy":{},"policySha256":"x"}'), 'BROKEN'],
+  ['test-db-guard', (dir) => {
+    fs.writeFileSync(path.join(dir, 'test/setup.js'), '// nothing here\n');
+    fs.mkdirSync(path.join(dir, 'supabase/migrations'), { recursive: true });
+  }, 'BROKEN'],
 ];
 
 for (const [id, remove, expected] of removals) {
@@ -53,7 +68,10 @@ for (const [id, remove, expected] of removals) {
     remove(dir);
     const after = doc(dir);
     assert.equal(status(after, id), expected, `${id} → ${expected}`);
-    const newlyRed = after.filter((i) => i.required && ['OK', 'ENFORCED'].includes(status(before, i.id)) && !['OK', 'ENFORCED'].includes(i.status)).map((i) => i.id);
+    const newlyRed = after
+      .filter((i) => i.required && ['OK', 'ENFORCED'].includes(status(before, i.id)) &&
+        !['OK', 'ENFORCED'].includes(i.status))
+      .map((i) => i.id);
     if (id !== 'lock') assert.deepEqual(newlyRed, [id], `only ${id} went red, got ${newlyRed}`);
   });
 }
@@ -61,6 +79,10 @@ for (const [id, remove, expected] of removals) {
 test('the plugin not being installed in Claude Code is BROKEN, not OK', () => {
   const { dir } = makeRepo();
   assert.equal(status(doc(dir, { pluginList: () => [] }), 'plugin-installed'), 'BROKEN');
-  assert.equal(status(doc(dir, { pluginList: () => [{ name: 'keel@keel', enabled: false }] }), 'plugin-installed'), 'BROKEN');
-  assert.equal(status(doc(dir, { pluginList: () => { throw new Error('no claude'); } }), 'plugin-installed'), 'UNPROVEN');
+  assert.equal(
+    status(doc(dir, { pluginList: () => [{ name: 'keel@keel', enabled: false }] }), 'plugin-installed'), 'BROKEN',
+  );
+  assert.equal(
+    status(doc(dir, { pluginList: () => { throw new Error('no claude'); } }), 'plugin-installed'), 'UNPROVEN',
+  );
 });
