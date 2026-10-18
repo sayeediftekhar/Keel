@@ -12,6 +12,7 @@ import {
 } from '../lib/init.mjs';
 import { compile } from '../lib/compile.mjs';
 import { doctor } from '../lib/doctor.mjs';
+import { estimateTokens } from '../ci/keel-ci.mjs';
 import { BASE_POLICY, write } from './helpers.mjs';
 
 const CLI = path.join(path.dirname(new URL(import.meta.url).pathname), '..', 'bin', 'keel.mjs');
@@ -30,17 +31,25 @@ test('init on an empty repo: policy, both CLAUDE.md blocks, every scaffold', () 
   assert.equal(r.policy, 'written');
   assert.equal(r.arbiter, 'added');
   assert.equal(r.authorization, 'added');
-  assert.deepEqual(
-    r.scaffolded, ['CONTEXT.md', 'GLOSSARY.md', 'CODING_STANDARDS.md', 'DESIGN.md', '.scratch/README.md'],
-  );
+  assert.deepEqual(r.scaffolded, [
+    'CONTEXT.md', 'GLOSSARY.md', 'CODING_STANDARDS.md', 'DESIGN.md', 'LAWS.md', 'LEARNINGS.md',
+    'docs/INDEX.md', 'docs/ARCHITECTURE.md', '.scratch/README.md',
+  ]);
   assert.ok(fs.existsSync(path.join(dir, 'keel.policy.json')));
   const md = read(dir, 'CLAUDE.md');
   assert.equal(count(md, ARB_BEGIN), 1); assert.equal(count(md, ARB_END), 1);
   assert.equal(count(md, AUTH_BEGIN), 1); assert.equal(count(md, AUTH_END), 1);
-  assert.match(md, /^## 0\. Two lanes, one router/m, 'router present');
-  assert.match(md, /ELEVEN DANGER SURFACES/, 'eleven surfaces');
-  assert.match(md, /Server enforces, not the UI/, 'LAWS present');
-  assert.match(md, /^## \/review tripwires/m, 'tripwires present');
+  assert.match(md, /^Truth order: live system .* > code > docs\./m, 'truth order');
+  assert.match(md, /scan the eleven danger surfaces/, 'lane rule');
+  assert.match(md, /11 environment \(points at live\)/, 'eleven surface names');
+  assert.match(md, /^ {4}Rigor: FAST — surfaces 1-11 scanned, all no\./m, 'FAST record line');
+  assert.match(md, /^ {4}Rigor: HEAVY — surface\(s\) <n> = yes\./m, 'HEAVY record line');
+  for (const inv of ['Server enforces, not the UI', 'Identity from the session, never the request',
+    'Exact money', 'Immutable records', 'Live is gated, test is free']) assert.ok(md.includes(inv), inv);
+  assert.match(md, /^\| Authority \| Path \| Governs \|$/m, 'authorities index');
+  assert.equal(count(md, '@docs/INDEX.md'), 1, 'one docs index import');
+  assert.ok(!/^## \/review tripwires/m.test(md) && !md.includes('ELEVEN DANGER SURFACES'),
+    'definitions and tripwires are on demand (keel-v2 skill), not always on');
   assert.match(md, /^## Standing authorization \(Keel v3\)/m);
   assert.match(md, /^## Precedence \(Keel\)/m);
   assert.match(md, /the approver named in keel\.policy\.json/, 'starter policy has a placeholder approver');
@@ -74,7 +83,7 @@ test('init is idempotent: re-run refreshes the blocks, keeps house rules and sca
   assert.match(md, /^A line added after the blocks\.$/m);
   assert.equal(count(md, ARB_BEGIN), 1, 'one rules block');
   assert.equal(count(md, AUTH_BEGIN), 1, 'one authorization block');
-  assert.equal((md.match(/Server enforces, not the UI/g) ?? []).length, 1, 'LAWS once');
+  assert.equal((md.match(/Server enforces, not the UI/g) ?? []).length, 1, 'rules once');
   assert.match(md, /@owner-human reviews and approves/, 'authorization names the approver after the policy is filled');
   assert.ok(!r.next.some((n) => /edit keel\.policy\.json/.test(n)), 'no placeholder left → no edit prompt');
   assert.match(read(dir, 'CONTEXT.md'), /^# CONTEXT: widgets$/m, 'scope stripped from the package name');
@@ -129,10 +138,56 @@ test('the CLI: keel init → compile → doctor on a throwaway repo', () => {
     execFileSync(process.execPath, [CLI, ...a, '--dir', dir], { encoding: 'utf8', env: { ...process.env } });
   const out = run('init', '--name', 'Demo');
   assert.match(out, /\+ keel\.policy\.json written/);
-  assert.match(out, /\+ CLAUDE\.md: keel-v2 router \+ LAWS block added/);
+  assert.match(out, /\+ CLAUDE\.md: keel-v2 Tier-1 router block added/);
   assert.match(out, /\+ DESIGN\.md scaffolded/);
   assert.match(read(dir, 'GLOSSARY.md'), /^# Demo — Glossary/m);
   assert.match(run('init'), /= keel\.policy\.json kept/);
   assert.match(run('compile'), /Wrote:/);
   assert.ok(fs.existsSync(path.join(dir, '.keel/policy.lock.json')));
+});
+
+test('Tier-1 budget: a fresh init writes ≤ 80 lines and ≤ 1.5k tokens (est.) of always-on context', () => {
+  const dir = emptyRepo();
+  init(dir);
+  const md = read(dir, 'CLAUDE.md');
+  const withImport = md + read(dir, 'docs/INDEX.md');
+  const lines = (s) => s.split('\n').length - 1;
+  assert.ok(lines(withImport) <= 80, `CLAUDE.md + docs/INDEX.md is ${lines(withImport)} lines`);
+  assert.ok(estimateTokens(withImport) <= 1500, `~${estimateTokens(withImport)} tokens (est.)`);
+  assert.ok(md.split('\n').every((l) => l.length <= 120), 'no line hides content from a line budget');
+});
+
+test('the rules that left Tier 1 are on demand, verbatim, in the keel-v2 skill', () => {
+  const skill = path.join(path.dirname(new URL(import.meta.url).pathname), '..', '..', 'skills', 'keel-v2');
+  const body = fs.readFileSync(path.join(skill, 'SKILL.md'), 'utf8');
+  assert.match(body, /^name: keel-v2$/m);
+  assert.ok(!/disable-model-invocation:\s*true/.test(body), 'model-invoked, so it loads when a task needs it');
+  const laws = fs.readFileSync(path.join(skill, 'LAWS.md'), 'utf8');
+  for (const s of ['## The eleven danger surfaces', '## Invariants', '## /review tripwires']) {
+    assert.ok(laws.includes(s), s);
+  }
+  assert.match(body, /`LAWS\.md`/); assert.match(body, /`CLAUDE\.md`/);
+});
+
+test('a project that already imports docs/INDEX.md keeps one import', () => {
+  const dir = emptyRepo();
+  write(dir, 'CLAUDE.md', '# Host\n\n@docs/INDEX.md\n');
+  init(dir);
+  assert.equal(count(read(dir, 'CLAUDE.md'), '@docs/INDEX.md'), 1);
+});
+
+test('builder-stack scaffolds: architecture module map, LEARNINGS L1/L2, Iron Laws, docs index', () => {
+  const dir = emptyRepo();
+  init(dir, { name: 'Demo' });
+  const arch = read(dir, 'docs/ARCHITECTURE.md');
+  for (const h of ['## Load-bearing pieces', '## Module map', '## Sequencing plan', 'Phase 0']) {
+    assert.ok(arch.includes(h), h);
+  }
+  assert.match(arch, /^\| Module \| Path \| Single job .* \| Stable or volatile \|$/m);
+  const learn = read(dir, 'LEARNINGS.md');
+  assert.match(learn, /^## L1 — Green tests aren't working software$/m);
+  assert.match(learn, /^## L2 — Confirm facts, don't assume them$/m);
+  assert.match(learn, /Truth order: live source > code > prose docs\./);
+  assert.match(read(dir, 'LAWS.md'), /^# Iron Laws: Demo$/m);
+  assert.match(read(dir, 'docs/INDEX.md'), /^\| Topic \| File \|$/m);
 });

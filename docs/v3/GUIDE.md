@@ -4,7 +4,7 @@ Keel has two parts. Read this first so the steps make sense.
 
 | Part | What it is | Where | State |
 |---|---|---|---|
-| **Keel rules** | Instructions the agent reads: the rigor router (FAST/LIGHT vs HEAVY), laws, the dev pipeline, lane routers | `skills/`, shipped by the plugin as `/keel:<lane>`; the always-on router + LAWS go into `CLAUDE.md` via `keel init` | Merged (D2, 2026-10-17): the card-set's governance (human confirms HEAVY, eleven surfaces, laws) + Model B's lanes and FAST economy, one rule set. |
+| **Keel rules** | Instructions the agent reads: the rigor router (FAST/LIGHT vs HEAVY), laws, the dev pipeline, lane routers | `skills/`, shipped by the plugin as `/keel:<lane>`; the always-on Tier-1 router goes into `CLAUDE.md` via `keel init`; the full router + LAWS load on demand as the `keel-v2` skill (D20a) | Merged (D2, 2026-10-17): the card-set's governance (human confirms HEAVY, eleven surfaces, laws) + Model B's lanes and FAST economy, one rule set. |
 | **Keel gates** (v3) | Enforcement the agent can't talk past: hooks, deny rules, CODEOWNERS, CI, a GitHub ruleset, `keel doctor` | `plugin/` (a Claude Code plugin) | **Alpha.** Tested (258 tests, adversarial review, live runs), not yet piloted on a real project. |
 
 Keep using whichever rules your project has. Add the gates on top.
@@ -58,12 +58,28 @@ alias keel='node /path/to/keel/plugin/bin/keel.mjs'
 keel init          # or /keel:keel-setup in a session
 ```
 
-One command writes: a starter `keel.policy.json`; the keel-v2 router + LAWS
-into `CLAUDE.md` as one managed block (the rules the agent reads every
-session); the *Standing authorization* + *Precedence* block (§1.6); and, only
+One command writes: a starter `keel.policy.json`; Keel's **Tier-1 router**
+into `CLAUDE.md` as one managed block — the lane rule, the eleven surface
+names, the two rigor record lines, the invariants by name, an authorities
+index, the truth order (live > code > docs) and one `@docs/INDEX.md` import
+(D20a); the *Standing authorization* + *Precedence* block (§1.6); and, only
 where missing, `CONTEXT.md`, `GLOSSARY.md`, `CODING_STANDARDS.md`,
-`DESIGN.md` and `.scratch/README.md`. Re-running it refreshes the two blocks
-and touches nothing else. Grill first, then fill `DESIGN.md` and `CONTEXT.md`
+`DESIGN.md`, `LAWS.md` (your project's Iron Laws), `LEARNINGS.md` (Trap →
+Rule → Why, seeded with two universal lessons), `docs/INDEX.md`,
+`docs/ARCHITECTURE.md` (load-bearing pieces, module map, sequencing) and
+`.scratch/README.md`. Re-running it refreshes the two blocks and touches
+nothing else.
+
+**What is always on, and what isn't.** The two blocks plus the docs index
+stay within lean-context's Tier-1 budget: on a fresh repo 65 lines and ~1.45k
+tokens (a conservative estimate; `init.test.mjs` and Keel's CI hold it under
+80 lines / 1.5k). The full rules — the eleven surface definitions, each
+invariant's two layers, the /review tripwires and the full router — are the
+model-invoked `keel-v2` skill, loaded before a HEAVY call, a plan or a review.
+The `doc-sync` skill drains `CONTEXT.md` and `LEARNINGS.md` at task end and
+before a long session's window degrades. Fill `docs/ARCHITECTURE.md` with the
+seven rungs (`docs/SYSTEMS_THINKING_FRAMEWORK.md` in the plugin) when the
+project's shape is known: its module map also drives CI's boundary rule. Grill first, then fill `DESIGN.md` and `CONTEXT.md`
 as in [RECIPES.md](../../RECIPES.md). The lanes need no install: they are
 `/keel:keel-dev`, `/keel:keel-design`, …; each lane's upstreams are still
 opt-in (`./install.sh <lane>` from the plugin directory prints the pinned
@@ -101,6 +117,17 @@ merges.
 | `quality.sast` | `off` (opt-in) | semgrep 1.178.0 with `semgrep/semgrep-rules` at a pinned commit (directories from your stack, or `rules`), plus your `.semgrep.yml`. PRs report only new findings. Costs about a minute per run |
 | `quality.architecture` | `fail` | dependency-cruiser 18.4.0 with your `.dependency-cruiser.*` config. No config: `keel compile` says so and nothing is checked; write the rules (`npx dependency-cruiser --init`) and recompile |
 | `quality.threatModel` | `warn` | in `keel-rigor`: a HEAVY PR's feature ledger must have a `spec.md` with a non-empty `## Threat model`. Put `Feature: <slug>` (the folder under `.scratch/`) in the PR body; otherwise Keel looks for a ledger path in the body, then the branch name. Set `fail` to make it refuse the PR |
+| `quality.limits` | `warn` | clean-code limits on the files a PR changes, as a ratchet (D20e): file ≤ 400 lines, function ≤ 80 lines, line ≤ 120 characters, complexity ≤ 15, and no stable → volatile import per `docs/ARCHITECTURE.md`'s module map. A changed file may not get worse than its base; a new file meets the caps; moved code keeps its old measure. Each cap is a number or `{max, mode}`; `mode: fail` makes it block. Function length and complexity use ESLint's built-in rules (the project's ESLint ≥ 9, else a pinned one installed only when JS/TS changed); everything else is line-based. `.keel/ci/eslint.limits.mjs` is the same caps as an ESLint config to extend in your editor |
+
+**Formatting never fails CI.** `keel compile` detects the project's formatter
+(Prettier, Biome, Ruff, gofmt) or takes `quality.limits.formatter`, and a
+PostToolUse hook runs it on every file the agent writes. `formatter: false`
+turns it off.
+
+**What FAST work pays.** One extra step that reads the PR's changed files: no
+install unless JS/TS changed and the project has no ESLint ≥ 9; the history
+fetch it needs is the one the secret scan already does. SAST and
+dependency-cruiser stay opt-in.
 
 A project compiled with the defaults gets the audit and the secret scan with no
 other setup. If the first run finds high advisories, upgrade the dependencies,
@@ -140,16 +167,12 @@ Claude Code's defaults are cautious: commit or push only when asked, and in clou
 
 ```markdown
 ## Standing authorization (Keel v3)
-- FAST work (no danger surface; "LIGHT" in the policy vocabulary): you may
-  commit on a feature branch, push it, open a PR whose description starts
-  with the rigor record line ("Rigor: FAST — surfaces 1-11 scanned, all
-  no."), and enable auto-merge with `gh pr merge --auto`. GitHub merges it
-  when the required checks pass.
+- FAST work (no danger surface; "LIGHT" in the policy): commit on a feature branch, push it, open a PR
+  whose description starts with the Rigor line, and enable `gh pr merge --auto`; GitHub merges on green.
 - HEAVY work: open the PR with "Rigor: HEAVY — <surfaces>" and stop.
   @<your-handle> reviews and approves; auto-merge then completes it.
-- Live migrations: prepare them, apply to the test database, then
-  `keel batch create <id> <files>` and open a PR. After the approver merges
-  that PR you may apply exactly those migrations to live, in order.
+- Live migrations: apply to the test database first, then `keel batch create <id> <files>` and open a
+  PR. After the approver merges it you may apply exactly those migrations to live, in order.
 - Never use --admin, never push to main, never deploy to production.
 ```
 
@@ -159,15 +182,10 @@ Keel is the main system; Claude Code's built-ins do the work. `keel init` writes
 
 ```markdown
 ## Precedence (Keel)
-- Keel governs process: rigor (FAST/HEAVY), laws, gates and approvals.
-  Where these rules differ from Claude Code's default behavior, follow Keel.
-- Keel's gates are final. If a hook blocks an action, don't retry it another
-  way; take the path the message names, or stop and ask.
-- For the work itself, use Claude Code's built-ins by default: plan mode for
-  HEAVY plans, /code-review and /security-review for review, Workflows or
-  /loop for parallel or unattended runs. Use a Keel lane's specialist only
-  when the lane names one and it's installed; otherwise fall back to the
-  built-in.
+- Keel governs process (rigor, laws, gates, approvals); where it differs from Claude Code's defaults,
+  follow Keel. Its gates are final: if a hook blocks, don't retry another way; take the path it names.
+- For the work itself use Claude Code's built-ins (plan mode, /code-review, /security-review,
+  Workflows, /loop); a lane's specialist only when the lane names one and it is installed.
 ```
 
 How the two layers combine: **locks** (Keel's hooks and deny rules, Claude
@@ -211,8 +229,13 @@ lanes are `/keel:<lane>`. Then follow **1.2 → 1.7**, plus these clean-ups:
 1. **Remove old delegations that contradict the gates.** If `CLAUDE.md` says the agent "may commit, push and merge PRs on its own" or "applies migrations to LIVE autonomously", replace that text with the standing authorization in 1.6. Otherwise the agent reads one rule and hits another.
 2. **Remove risky allow rules.** `keel compile` lists them (e.g. `Bash(printenv DATABASE_URL)`, `Bash(git … commit -m '*')`). Deny rules win anyway, but delete the allows.
 3. **Point tests at a test database** before turning the gates on. If your dev `DATABASE_URL` is the live database, Keel will (correctly) block local Prisma/Drizzle migrations until it isn't.
-4. **Recompile after every plugin upgrade.** The lock carries the normalized policy, so a release that adds a policy field (the quality floor did) leaves the old lock stale until `keel compile` runs; until then the hooks apply the strictest rules.
-5. **Check context files for gaming.** If a budget script caps `CONTEXT.md` by lines, Keel's `budget` CI check now also caps line length (400 characters by default), so very long lines will fail CI until split.
+4. **Re-run `keel init` once after upgrading past D20.** It swaps the old
+   263-line rules block for the Tier-1 router (the rules are now the `keel-v2`
+   skill) and adds the missing scaffolds (`LAWS.md`, `LEARNINGS.md`,
+   `docs/INDEX.md`, `docs/ARCHITECTURE.md`); it never overwrites a file you
+   wrote.
+5. **Recompile after every plugin upgrade.** The lock carries the normalized policy, so a release that adds a policy field (the quality floor did) leaves the old lock stale until `keel compile` runs; until then the hooks apply the strictest rules.
+6. **Check context files for gaming.** If a budget script caps `CONTEXT.md` by lines, Keel's `budget` CI check now also caps line length (400 characters by default), so very long lines will fail CI until split.
 
 ### 2.2 Projects with a vendored card-set Keel (`route`, `laws`, `spec`, …)
 
@@ -222,7 +245,7 @@ Keep the card-set; it's stricter than keel-v2 and matches the v3 decisions. Then
 2. Map each **Enforced** law in `LAWS.md` to `surfaces` paths, so CODEOWNERS and `keel-rigor` cover the files that law protects.
 3. Keep your existing CI workflow; add its job names to the ruleset as extra required checks (GitHub UI), or move its commands into `backPressure`.
 4. Your `CLAUDE.md` probably says "never commit without the human's go-ahead". You can keep that (Keel's gates are compatible with a stricter rule) or switch to the standing authorization in 1.6 to get LIGHT auto-merge.
-5. The vendored copy is now redundant: `keel init` writes the merged router + LAWS into `CLAUDE.md` and the plugin ships the lanes as `/keel:<lane>`. Delete the project copies of `route`, `laws`, `spec`, … once the block is in place (they collide with the account-level `anthropic-skills:route` and friends).
+5. The vendored copy is now redundant: `keel init` writes the merged router's Tier 1 into `CLAUDE.md` (the full rules are the `keel-v2` skill) and the plugin ships the lanes as `/keel:<lane>`. Delete the project copies of `route`, `laws`, `spec`, … once the block is in place (they collide with the account-level `anthropic-skills:route` and friends).
 
 ### 2.3 Order that keeps things safe
 

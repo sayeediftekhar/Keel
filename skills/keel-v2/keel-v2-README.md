@@ -3,10 +3,15 @@
 ## Files
 - `CLAUDE.md` — the router.
 - `LAWS.md`   — danger surfaces + invariants + review tripwires.
-- Install both with `keel init` (plugin) or `./install.sh arbiter` (submodule
-  layout) from a consuming project: either writes ONE managed block (router +
-  laws) into the host `CLAUDE.md`. Pasting only `CLAUDE.md` leaves the agent
-  with surface *names* and no definitions.
+- `SKILL.md` — the model-invoked `keel-v2` skill: points at the two files above,
+  so the full rules load on demand.
+- With the plugin, `keel init` writes only Keel's **Tier-1 router**
+  (`plugin/templates/keel-tier1.md`: lane rule, surface names, rigor lines,
+  invariant names, authorities index, truth order) into the host `CLAUDE.md`;
+  the definitions and tripwires come from this skill when a task needs them
+  (D20a). The submodule layout's `./install.sh arbiter` still writes ONE
+  managed block with router + laws. Pasting only `CLAUDE.md` by hand leaves
+  the agent with surface *names* and no definitions.
 - Keep your existing `CONTEXT.md`, `LEARNINGS.md`, `DESIGN.md` (`keel init`
   scaffolds the ones you don't have yet).
 

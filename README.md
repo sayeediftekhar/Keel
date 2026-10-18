@@ -37,7 +37,8 @@ for the model, **[catalog.md](catalog.md)** for the upstreams, and
 
 | Skill | Role | Routes to |
 |-------|------|-----------|
-| [`keel-v2`](skills/keel-v2/) | **Arbiter** — rigor router, the spine | — |
+| [`keel-v2`](skills/keel-v2/) | **Arbiter** — rigor router, the spine. Tier 1 always on in `CLAUDE.md`; the full rules (surface definitions, invariants' layers, tripwires) load on demand as this skill | — |
+| [`doc-sync`](skills/doc-sync/) | Drain `CONTEXT.md` / `LEARNINGS.md` (lesson · history · state), check numeric budgets, hand off before the window degrades (lean-context, D20c) | *(local)* |
 | [`keel-dev`](skills/keel-dev/) | Development lane | mattpocock-skills (spine), vercel, sentry, hyperframes, antfu/skills, agent-browser, keel-qa |
 | [`keel-design`](skills/keel-design/) | Design/UI lane | impeccable, frontend-design, fused-landing |
 | [`keel-marketing`](skills/keel-marketing/) | Marketing lane | marketingskills, claude-seo, kondo |
@@ -54,8 +55,13 @@ for the model, **[catalog.md](catalog.md)** for the upstreams, and
 | [`keel-setup`](skills/keel-setup/) | In-session `keel init` → policy → `keel compile` → ruleset → `keel doctor` walkthrough | *(local)* |
 
 With the plugin installed every skill is namespaced: `/keel:keel-dev`,
-`/keel:keel-design`, … (`keel-v2` is not a skill; `keel init` writes it into
-`CLAUDE.md` as the always-on block).
+`/keel:keel-design`, …. `keel init` writes Keel's Tier-1 router into
+`CLAUDE.md` (~55 lines, within lean-context's ~80-line / ~1.5k-token budget);
+`keel-v2` and `doc-sync` are model-invoked, so they load when a task needs
+them. Keel also carries builder-stack's architecture layer: the seven-rung
+[Systems Thinking framework](docs/SYSTEMS_THINKING_FRAMEWORK.md), and
+`keel init` scaffolds `docs/ARCHITECTURE.md`, `LAWS.md` and `LEARNINGS.md`
+(D3, applied by D20).
 
 ## Install (in a consuming project)
 
@@ -69,7 +75,7 @@ Then, per project (`keel` = `node <plugin>/plugin/bin/keel.mjs`; `/plugin`
 shows the directory):
 
 ```bash
-keel init       # keel.policy.json + keel-v2 rules and standing authorization in CLAUDE.md + CONTEXT/GLOSSARY/CODING_STANDARDS/DESIGN/.scratch
+keel init       # keel.policy.json + Tier-1 rules and standing authorization in CLAUDE.md + CONTEXT/GLOSSARY/CODING_STANDARDS/DESIGN/LAWS/LEARNINGS/docs/.scratch
 keel compile    # lock, deny rules, CODEOWNERS, CI workflow, GitHub ruleset — one PR, merge it yourself
 keel doctor     # prove every gate blocks
 ```
@@ -87,7 +93,7 @@ Code discovers.
 ```bash
 git submodule add https://github.com/sayeediftekhar/Keel .claude/keel
 git submodule update --init --recursive
-(cd .claude/keel && ./install.sh arbiter)      # keel-v2 router + LAWS → CLAUDE.md (same managed block as keel init)
+(cd .claude/keel && ./install.sh arbiter)      # keel-v2 router + LAWS → CLAUDE.md (the full block; the plugin's keel init writes Tier 1 only)
 (cd .claude/keel && ./install.sh dev design)   # vendor + link only the lanes you use
 (cd .claude/keel && ./install.sh check)        # verify; then /skills in a fresh session
 node .claude/keel/plugin/bin/keel.mjs init     # the gates work the same way from here

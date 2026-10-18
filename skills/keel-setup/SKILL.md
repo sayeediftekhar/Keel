@@ -1,7 +1,7 @@
 ---
 name: keel-setup
 disable-model-invocation: true
-description: Set a project up for Keel, or refresh it after a Keel update — runs `keel init` (policy, the keel-v2 rules block, the standing authorization, CONTEXT/GLOSSARY/CODING_STANDARDS/DESIGN/.scratch scaffolds), then walks the human through `keel compile`, the ruleset and `keel doctor`. Run by name in a new repo, or when `keel doctor` says to recompile.
+description: Set a project up for Keel, or refresh it after a Keel update — runs `keel init` (policy, the keel-v2 rules block, the standing authorization, CONTEXT/GLOSSARY/CODING_STANDARDS/DESIGN/LAWS/LEARNINGS/docs INDEX + ARCHITECTURE/.scratch scaffolds), then walks the human through `keel compile`, the ruleset and `keel doctor`. Run by name in a new repo, or when `keel doctor` says to recompile.
 ---
 
 # Keel setup — plugin install → keel init → keel compile

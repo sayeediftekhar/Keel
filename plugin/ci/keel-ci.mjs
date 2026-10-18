@@ -1,11 +1,13 @@
 #!/usr/bin/env node
 // Keel CI checks. Copied into a project as .keel/ci/keel-ci.mjs by
-// `keel compile`; self-contained (no imports beyond Node built-ins).
+// `keel compile`; self-contained (Node built-ins, plus its sibling
+// .keel/ci/limits.mjs for the limits check).
 //
 //   node .keel/ci/keel-ci.mjs rigor    PR rigor record must match the diff
 //   node .keel/ci/keel-ci.mjs budget   always-on context stays within budget
 //   node .keel/ci/keel-ci.mjs phantom  docs name only paths that exist
 //   node .keel/ci/keel-ci.mjs secrets  no credential literal in the diff's added lines
+//   node .keel/ci/keel-ci.mjs limits   changed files don't get worse (clean-code ratchet, limits.mjs)
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -22,12 +24,12 @@ export const SECRET_SHAPES = new RegExp(`(${[
   'github_pat_[A-Za-z0-9_]{22,}', 'glpat-[A-Za-z0-9_-]{20,}',
 ].join('|')})`);
 
-function lockPolicy() {
+export function lockPolicy() {
   try { return JSON.parse(fs.readFileSync(path.join(ROOT, '.keel/policy.lock.json'), 'utf8')).policy; }
   catch (e) { fail(`cannot read .keel/policy.lock.json (${e.message}). Run \`keel compile\` and commit the result.`); }
 }
 
-function fail(msg) { console.log(`::error::${msg}`); process.exit(1); }
+export function fail(msg) { console.log(`::error::${msg}`); process.exit(1); }
 
 export function globToRegExp(pattern) {
   const p = String(pattern).replace(/^\.\//, '').replace(/^\//, '');
@@ -250,12 +252,33 @@ function secrets() {
   console.log('No credential literals on the added lines.');
 }
 
-/** Pure: files map {name: content} → list of problems. */
+/** Pure: a conservative token estimate, always shown as "est.": not a tokenizer count. chars/4
+ *  undercounted dense markdown by ~65% (lean-context PLAYBOOK §6), so this charges every word by
+ *  length (one token per 4 letters), every digit run, symbol, newline and indent run; on Keel's own
+ *  docs it lands ~1.4× chars/4. Only a count_tokens API result may be called measured. */
+export function estimateTokens(text) {
+  let n = 0;
+  for (const [s] of String(text ?? '').matchAll(/[A-Za-z]+|[0-9]+|\n+| {2,}|[^\sA-Za-z0-9]+/g)) {
+    if (/^[A-Za-z]/.test(s)) n += Math.ceil(s.length / 4);
+    else if (/^[0-9]/.test(s)) n += Math.ceil(s.length / 3);
+    else if (s[0] === '\n') n += 1;
+    else if (s[0] === ' ') n += Math.ceil(s.length / 4);
+    else {
+      const wide = [...s].filter((c) => c.charCodeAt(0) > 127).length;
+      n += wide + Math.ceil((s.length - wide) / 2);
+    }
+  }
+  return n;
+}
+
+/** Pure: files map {name: content} → {problems (fail the check), warnings, tokens (est.)}. Token
+ *  overage is a problem in budget.mode "fail" (or with no mode: policies normalized before D20b). */
 export function budgetProblems(files, policy) {
   const problems = [];
-  let chars = 0;
+  const warnings = [];
+  let tokens = 0;
   for (const [name, text] of Object.entries(files)) {
-    if (name !== 'CONTEXT.md') chars += text.length;
+    if (name !== 'CONTEXT.md') tokens += estimateTokens(text);
     text.split('\n').forEach((line, i) => {
       if (line.length > policy.budget.maxLineChars) {
         problems.push(
@@ -265,14 +288,12 @@ export function budgetProblems(files, policy) {
       }
     });
   }
-  const tokens = Math.ceil(chars / 4);
   if (policy.budget.alwaysOnTokens && tokens > policy.budget.alwaysOnTokens) {
-    problems.push(
-      `Always-on context is ~${tokens} tokens (budget ${policy.budget.alwaysOnTokens}). ` +
-        'Move detail into files fetched on demand.',
-    );
+    const over = `Always-on context is ~${tokens} tokens est. (budget ${policy.budget.alwaysOnTokens}). ` +
+      'Move detail into files fetched on demand (the doc-sync skill drains them).';
+    (policy.budget.mode === 'warn' ? warnings : problems).push(over);
   }
-  return { problems, tokens };
+  return { problems, warnings, tokens };
 }
 
 function alwaysOnFiles() {
@@ -291,9 +312,11 @@ function alwaysOnFiles() {
 
 function budget() {
   const policy = lockPolicy();
-  const { problems, tokens } = budgetProblems(alwaysOnFiles(), policy);
+  const { problems, warnings, tokens } = budgetProblems(alwaysOnFiles(), policy);
+  for (const w of warnings) console.log(`::warning::${w}`);
   if (problems.length) fail(problems.join('\n'));
-  console.log(`Always-on context ~${tokens} tokens; no over-long lines.`);
+  console.log(`Always-on context ~${tokens} tokens (est., budget ${policy.budget.alwaysOnTokens ?? 'none'}); ` +
+    'no over-long lines.');
 }
 
 /** Keel's managed CLAUDE.md blocks (rules, standing authorization) name Keel's own files, not the project's. */
@@ -341,5 +364,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
   else if (cmd === 'budget') budget();
   else if (cmd === 'phantom') phantom();
   else if (cmd === 'secrets') secrets();
-  else { console.log('usage: keel-ci.mjs rigor|budget|phantom|secrets'); process.exit(2); }
+  else if (cmd === 'limits') {
+    import('./limits.mjs').then((m) => m.main()).catch((e) => fail(`limits: ${e.message}`));
+  } else { console.log('usage: keel-ci.mjs rigor|budget|phantom|secrets|limits'); process.exit(2); }
 }
