@@ -27,7 +27,18 @@ const DEFAULT_DEPLOY = [
 ];
 
 const TOP_KEYS = new Set(['$schema', 'version', 'approver', 'agentIdentity', 'github', 'defaultBranch', 'protectedBranches',
-  'surfaces', 'governancePaths', 'environments', 'migrations', 'gates', 'backPressure', 'checks', 'budget', 'ci']);
+  'surfaces', 'governancePaths', 'environments', 'migrations', 'gates', 'backPressure', 'checks', 'budget', 'ci', 'quality']);
+
+// The quality floor's pinned tools (D17). A version bump is a Keel release, reviewed like code.
+export const QUALITY_PINS = {
+  gitleaks: { version: '8.30.1', sha256: '551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb' },
+  semgrep: '1.178.0',
+  semgrepRules: 'a84ff9cc2453ca91d581380de4b8b3f272f6f4be', // semgrep/semgrep-rules, 2026-09-22
+  dependencyCruiser: '18.4.0',
+};
+const MODES = ['fail', 'warn', 'off'];
+const LEVELS = ['low', 'moderate', 'high', 'critical'];
+const SAFE_TOKEN = /^[A-Za-z0-9._/-]+$/;
 
 export class PolicyError extends Error {}
 
@@ -65,6 +76,7 @@ export function normalizePolicy(raw) {
   if (raw.defaultBranch !== undefined && !/^[A-Za-z0-9._/-]+$/.test(raw.defaultBranch)) errs.push('defaultBranch has unsupported characters');
   for (const n of raw.backPressure ?? []) if (!/^[A-Za-z0-9_-]+$/.test(n)) errs.push(`backPressure: "${n}" must be letters, digits, - or _`);
   if (raw.ci?.node !== undefined && !/^[0-9]+(\.[0-9x]+)*$/.test(String(raw.ci.node))) errs.push('ci.node must be a version like "20"');
+  qualityErrors(raw.quality, oneOf, errs);
   if (errs.length) throw new PolicyError(errs.join('\n'));
 
   const defaultBranch = raw.defaultBranch ?? 'main';
@@ -118,6 +130,49 @@ export function normalizePolicy(raw) {
       postgres: Boolean(raw.ci?.postgres),
       phantom: raw.ci?.phantom ?? 'warn',
     },
+    quality: normalizeQuality(raw.quality ?? {}),
+  };
+}
+
+function qualityErrors(q, oneOf, errs) {
+  if (q === undefined) return;
+  if (!q || typeof q !== 'object' || Array.isArray(q)) { errs.push('"quality" must be an object'); return; }
+  const known = { audit: ['mode', 'level', 'command'], secrets: ['mode', 'engine', 'allowPaths', 'gitleaks'], sast: ['mode', 'rules'],
+    architecture: ['mode', 'config', 'paths'], threatModel: ['mode'] };
+  for (const [k, v] of Object.entries(q)) {
+    if (!known[k]) { errs.push(`unknown key "quality.${k}"`); continue; }
+    if (!v || typeof v !== 'object' || Array.isArray(v)) { errs.push(`quality.${k} must be an object`); continue; }
+    for (const f of Object.keys(v)) if (!known[k].includes(f)) errs.push(`unknown key "quality.${k}.${f}"`);
+    oneOf(v?.mode, MODES, `quality.${k}.mode`);
+  }
+  oneOf(q.audit?.level, LEVELS, 'quality.audit.level');
+  if (q.audit?.command !== undefined && !isStr(q.audit.command)) errs.push('quality.audit.command must be a command string');
+  oneOf(q.secrets?.engine, ['builtin', 'gitleaks'], 'quality.secrets.engine');
+  if (q.secrets?.allowPaths !== undefined && !strArr(q.secrets.allowPaths)) errs.push('quality.secrets.allowPaths must be an array of path globs');
+  const gl = q.secrets?.gitleaks;
+  // A different gitleaks version is only trusted with its own checksum.
+  if (gl !== undefined && !(/^[0-9]+\.[0-9]+\.[0-9]+$/.test(gl?.version ?? '') && /^[0-9a-f]{64}$/.test(gl?.sha256 ?? ''))) {
+    errs.push('quality.secrets.gitleaks must be {"version": "X.Y.Z", "sha256": "<64 hex of gitleaks_X.Y.Z_linux_x64.tar.gz>"}');
+  }
+  for (const [name, list] of [['quality.sast.rules', q.sast?.rules], ['quality.architecture.paths', q.architecture?.paths]]) {
+    if (list !== undefined && !(strArr(list) && list.every((r) => SAFE_TOKEN.test(r) && !r.split('/').includes('..')))) errs.push(`${name} must be an array of relative paths (letters, digits, . _ / -)`);
+  }
+  const cfg = q.architecture?.config;
+  if (cfg !== undefined && !(isStr(cfg) && SAFE_TOKEN.test(cfg) && !cfg.split('/').includes('..'))) errs.push('quality.architecture.config must be a relative path');
+}
+
+function normalizeQuality(q) {
+  return {
+    audit: { mode: q.audit?.mode ?? 'fail', level: q.audit?.level ?? 'high', command: q.audit?.command ?? null },
+    secrets: {
+      mode: q.secrets?.mode ?? 'fail',
+      engine: q.secrets?.engine ?? 'builtin',
+      allowPaths: q.secrets?.allowPaths ?? [],
+      gitleaks: { ...(q.secrets?.gitleaks ? { version: q.secrets.gitleaks.version, sha256: q.secrets.gitleaks.sha256 } : QUALITY_PINS.gitleaks) },
+    },
+    sast: { mode: q.sast?.mode ?? 'off', rules: q.sast?.rules ?? null },
+    architecture: { mode: q.architecture?.mode ?? 'fail', config: q.architecture?.config ?? null, paths: q.architecture?.paths ?? null },
+    threatModel: { mode: q.threatModel?.mode ?? 'warn' },
   };
 }
 

@@ -98,6 +98,57 @@
         "postgres": { "type": "boolean" },
         "phantom": { "enum": ["warn", "fail"] }
       }
+    },
+    "quality": {
+      "description": "The quality floor (D17/D18): checks the keel-checks job runs after the backPressure ladder, plus keel-rigor's threat-model rule. Every mode is fail | warn | off; warn runs the step with continue-on-error. Tools that install are pinned to exact versions.",
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "audit": {
+          "description": "Dependency audit for the detected package manager (npm, pnpm, Yarn classic or Berry). Other stacks set `command`.",
+          "type": "object", "additionalProperties": false,
+          "properties": {
+            "mode": { "enum": ["fail", "warn", "off"], "default": "fail" },
+            "level": { "enum": ["low", "moderate", "high", "critical"], "default": "high" },
+            "command": { "description": "Replaces the detected audit command, e.g. \"pipx run --spec pip-audit==2.9.0 pip-audit -r requirements.txt\".", "type": ["string", "null"] }
+          }
+        },
+        "secrets": {
+          "description": "Credential scan of the diff's added lines (builtin: the secrets gate's shapes) or gitleaks, downloaded and checked against a sha256.",
+          "type": "object", "additionalProperties": false,
+          "properties": {
+            "mode": { "enum": ["fail", "warn", "off"], "default": "fail" },
+            "engine": { "enum": ["builtin", "gitleaks"], "default": "builtin" },
+            "allowPaths": { "description": "Globs the builtin scan skips (fixtures that must hold key-shaped strings). gitleaks reads the project's .gitleaks.toml instead.", "type": "array", "items": { "type": "string" } },
+            "gitleaks": {
+              "description": "Override the pinned gitleaks release; the sha256 of gitleaks_<version>_linux_x64.tar.gz is required.",
+              "type": "object", "additionalProperties": false, "required": ["version", "sha256"],
+              "properties": { "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" }, "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" } }
+            }
+          }
+        },
+        "sast": {
+          "description": "semgrep (pinned) with semgrep/semgrep-rules at a pinned commit, plus the project's .semgrep.yml / .semgrep/. Opt-in: it installs semgrep on every run. PRs report only new findings.",
+          "type": "object", "additionalProperties": false,
+          "properties": {
+            "mode": { "enum": ["fail", "warn", "off"], "default": "off" },
+            "rules": { "description": "semgrep-rules directories to run (default: from the detected stack, e.g. javascript, typescript, python, go).", "type": ["array", "null"], "items": { "type": "string", "pattern": "^[A-Za-z0-9._/-]+$" } }
+          }
+        },
+        "architecture": {
+          "description": "dependency-cruiser (pinned) against the project's own config. No config: keel compile notes it and CI prints a notice.",
+          "type": "object", "additionalProperties": false,
+          "properties": {
+            "mode": { "enum": ["fail", "warn", "off"], "default": "fail" },
+            "config": { "description": "Config path (default: the first .dependency-cruiser.{js,cjs,mjs,json} found).", "type": ["string", "null"] },
+            "paths": { "description": "Directories to check (default: whichever of src, lib, app, packages exist, else .).", "type": ["array", "null"], "items": { "type": "string" } }
+          }
+        },
+        "threatModel": {
+          "description": "keel-rigor: a HEAVY PR's feature ledger must have a spec.md with a non-empty Threat model section. The ledger is found from a \"Feature: <slug>\" line in the PR body, a ledger path in the body, or the branch name.",
+          "type": "object", "additionalProperties": false,
+          "properties": { "mode": { "enum": ["fail", "warn", "off"], "default": "warn" } }
+        }
+      }
     }
   }
 }
