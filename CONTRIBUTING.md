@@ -50,6 +50,15 @@ especially the **security checklist** — Keel's instructions run inside other
 people's agents, so a review reads `SKILL.md` / `CLAUDE.md` / `install.sh` changes
 as executable behavior, not just prose.
 
+## Releasing
+
+Claude Code updates an installed plugin only when its version changes. Any PR
+that should reach users bumps the version in `.claude-plugin/plugin.json`,
+`package.json` and `KEEL_VERSION` in `plugin/lib/policy.mjs` together
+(`plugin/test/version.test.mjs` fails if they disagree). After a release, run
+`claude plugin marketplace update keel` then `claude plugin update keel@keel`,
+and `keel init` + `keel compile` in each governed project.
+
 ## Reporting security issues
 
 Not via a public issue — see [SECURITY.md](SECURITY.md).
