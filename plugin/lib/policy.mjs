@@ -146,7 +146,7 @@ function qualityErrors(q, oneOf, errs) {
     oneOf(v?.mode, MODES, `quality.${k}.mode`);
   }
   oneOf(q.audit?.level, LEVELS, 'quality.audit.level');
-  if (q.audit?.command !== undefined && !isStr(q.audit.command)) errs.push('quality.audit.command must be a command string');
+  if (q.audit?.command != null && !isStr(q.audit.command)) errs.push('quality.audit.command must be a command string');
   oneOf(q.secrets?.engine, ['builtin', 'gitleaks'], 'quality.secrets.engine');
   if (q.secrets?.allowPaths !== undefined && !strArr(q.secrets.allowPaths)) errs.push('quality.secrets.allowPaths must be an array of path globs');
   const gl = q.secrets?.gitleaks;
@@ -155,10 +155,10 @@ function qualityErrors(q, oneOf, errs) {
     errs.push('quality.secrets.gitleaks must be {"version": "X.Y.Z", "sha256": "<64 hex of gitleaks_X.Y.Z_linux_x64.tar.gz>"}');
   }
   for (const [name, list] of [['quality.sast.rules', q.sast?.rules], ['quality.architecture.paths', q.architecture?.paths]]) {
-    if (list !== undefined && !(strArr(list) && list.every((r) => SAFE_TOKEN.test(r) && !r.split('/').includes('..')))) errs.push(`${name} must be an array of relative paths (letters, digits, . _ / -)`);
+    if (list != null && !(strArr(list) && list.every((r) => SAFE_TOKEN.test(r) && !r.split('/').includes('..')))) errs.push(`${name} must be an array of relative paths (letters, digits, . _ / -)`);
   }
   const cfg = q.architecture?.config;
-  if (cfg !== undefined && !(isStr(cfg) && SAFE_TOKEN.test(cfg) && !cfg.split('/').includes('..'))) errs.push('quality.architecture.config must be a relative path');
+  if (cfg != null && !(isStr(cfg) && SAFE_TOKEN.test(cfg) && !cfg.split('/').includes('..'))) errs.push('quality.architecture.config must be a relative path');
 }
 
 function normalizeQuality(q) {

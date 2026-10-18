@@ -119,6 +119,7 @@ test('ledger lookup: "Feature:" line, then a ledger path in the body, then the l
   assert.equal(ledgerFeature('Rigor: HEAVY', 'feat/invoice', features, '.scratch'), 'invoice');
   assert.equal(ledgerFeature('Rigor: HEAVY', 'feat/authentication', features, '.scratch'), null, 'whole tokens only');
   assert.equal(ledgerFeature('Feature: ../../etc', 'x', features, '.scratch'), null, 'no path escapes');
+  assert.equal(ledgerFeature('Feature: adds CSV export', 'feat/auth', features, '.scratch'), 'auth', 'a prose "Feature:" line is not a slug');
   assert.equal(ledgerFeature('docs/plan/auth/x.md', 'x', ['auth'], 'docs/plan'), 'auth', 'custom ledger dir');
 });
 
@@ -127,6 +128,8 @@ test('threat model section: under its heading, up to the next heading of the sam
   assert.equal(threatModelSection(spec), 'intro\n### Boundary 1\n| a | b |');
   assert.equal(threatModelSection('## §Threat Model\nrow'), 'row');
   assert.equal(threatModelSection('## Architecture\nno threats here'), null);
+  const fenced = '## Threat model\n```bash\n# attacker replays the token\n```\n| replay | nonce |\n## Next\n';
+  assert.equal(threatModelSection(fenced), '```bash\n# attacker replays the token\n```\n| replay | nonce |', 'a # line in a code fence is not a heading');
 });
 
 test('threat model verdict: each missing piece is named; a real section passes', () => {

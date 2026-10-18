@@ -80,9 +80,12 @@ function codeowners(projectDir, policy) {
   return `${head ? `${head}\n\n` : ''}${block}\n`;
 }
 
+const exists = (projectDir, f) => fs.existsSync(path.join(projectDir, f));
+
 function packageManager(projectDir) {
-  const has = (f) => fs.existsSync(path.join(projectDir, f));
+  const has = (f) => exists(projectDir, f);
   if (!has('package.json')) return null;
+  if (['bun.lock', 'bun.lockb', 'deno.lock'].some(has)) return 'other'; // no npm-compatible audit; set quality.audit.command
   if (has('pnpm-lock.yaml')) return 'pnpm';
   if (has('yarn.lock')) return has('.yarnrc.yml') ? 'yarn-berry' : 'yarn';
   return has('package-lock.json') ? 'npm' : 'npm-unlocked';
@@ -91,7 +94,7 @@ function packageManager(projectDir) {
 function installCommand(projectDir, policy) {
   if (policy.ci.install) return policy.ci.install;
   return { pnpm: 'corepack enable && pnpm install --frozen-lockfile', yarn: 'corepack enable && yarn install --frozen-lockfile',
-    'yarn-berry': 'corepack enable && yarn install --frozen-lockfile', npm: 'npm ci', 'npm-unlocked': 'npm install' }[packageManager(projectDir)] ?? null;
+    'yarn-berry': 'corepack enable && yarn install --frozen-lockfile', npm: 'npm ci', 'npm-unlocked': 'npm install', other: 'npm install' }[packageManager(projectDir)] ?? null;
 }
 
 const indent = (s, n) => s.split('\n').map((l) => (l ? ' '.repeat(n) + l : l)).join('\n');
@@ -120,8 +123,8 @@ function auditStep(projectDir, q) {
     yarn: `code=0; yarn audit --level ${q.level} || code=$?\n# yarn classic exits with a severity bitmask (2 low, 4 moderate, 8 high, 16 critical)\ntest $((code & ${YARN_CLASSIC_MASK[q.level]})) -eq 0`,
   }[pm];
   if (!cmd) {
-    return { step: qualityStep('quality / dependency audit', 'warn', runBlock('echo "::warning::No dependency audit: no package.json here. Set quality.audit.command for this stack (pip-audit, govulncheck, cargo audit, ...)."')),
-      notes: ['quality.audit: no JavaScript lockfile and no quality.audit.command, so CI audits no dependencies. Set the command for this stack.'] };
+    return { step: qualityStep('quality / dependency audit', 'warn', runBlock('echo "::warning::No dependency audit: no npm, pnpm or Yarn lockfile here. Set quality.audit.command for this stack (bun audit, pip-audit, govulncheck, cargo audit, ...)."')),
+      notes: ['quality.audit: no npm, pnpm or Yarn lockfile and no quality.audit.command, so CI audits no dependencies. Set the command for this stack.'] };
   }
   return { step: qualityStep(`quality / dependency audit (${q.command ? 'custom' : pm.replace('-unlocked', '')}, ${q.level}+)`, q.mode, runBlock(cmd)), notes: [] };
 }
@@ -139,14 +142,14 @@ function secretsStep(q) {
     'if [ -n "$BASE_SHA" ]; then range="$BASE_SHA..$HEAD_SHA"',
     `elif [ -n "$BEFORE_SHA" ] && [ "$BEFORE_SHA" != ${ZERO_SHA} ]; then range="$BEFORE_SHA..$GITHUB_SHA"; fi`,
     `if [ -n "$range" ]; then ${bin} git --no-banner --redact --log-opts="$range" .`,
-    `else ${bin} dir --no-banner --redact .; fi`,
+    `else ${bin} git --no-banner --redact .; fi # first push: every commit (tracked files only, not the installed node_modules)`,
   ].join('\n');
   return { step: qualityStep(`quality / secret scan (gitleaks ${v})`, q.mode, `${DIFF_ENV}\n${runBlock(cmd)}`), notes: [] };
 }
 
 function sastRules(projectDir, q) {
   if (q.rules) return q.rules;
-  const has = (f) => fs.existsSync(path.join(projectDir, f));
+  const has = (f) => exists(projectDir, f);
   const out = [];
   if (has('package.json')) out.push('javascript', 'typescript');
   if (['requirements.txt', 'pyproject.toml', 'setup.py', 'Pipfile'].some(has)) out.push('python');
@@ -160,7 +163,7 @@ function sastRules(projectDir, q) {
 function sastStep(projectDir, q) {
   if (q.mode === 'off') return { step: null, notes: [] };
   const rules = sastRules(projectDir, q);
-  const own = ['.semgrep.yml', '.semgrep.yaml', '.semgrep'].filter((f) => fs.existsSync(path.join(projectDir, f)));
+  const own = ['.semgrep.yml', '.semgrep.yaml', '.semgrep'].filter((f) => exists(projectDir, f));
   if (!rules.length && !own.length) {
     return { step: qualityStep('quality / SAST', 'warn', runBlock('echo "::warning::SAST is on but no stack was detected: set quality.sast.rules (semgrep-rules directories such as python, go)."')),
       notes: ['quality.sast: no stack detected and no quality.sast.rules, so semgrep has no rules to run.'] };
@@ -184,7 +187,7 @@ function sastStep(projectDir, q) {
 
 function architectureStep(projectDir, q) {
   if (q.mode === 'off') return { step: null, notes: [] };
-  const has = (f) => fs.existsSync(path.join(projectDir, f));
+  const has = (f) => exists(projectDir, f);
   const config = q.config ?? DEPCRUISE_CONFIGS.find(has);
   if (!config) {
     return { step: qualityStep('quality / architecture rules', 'warn', runBlock('echo "::notice::No dependency-cruiser config, so no architecture rules are checked. Add one (npx dependency-cruiser --init) and run keel compile."')),
@@ -206,10 +209,18 @@ export function qualityFloor(projectDir, policy) {
   };
 }
 
+function compileWorkflow(projectDir, policy) {
+  const quality = qualityFloor(projectDir, policy);
+  return { yaml: renderWorkflow(projectDir, policy, quality), notes: quality.notes };
+}
+
 export function workflowYaml(projectDir, policy) {
+  return compileWorkflow(projectDir, policy).yaml;
+}
+
+function renderWorkflow(projectDir, policy, quality) {
   const install = installCommand(projectDir, policy);
   const node = policy.ci.node;
-  const quality = qualityFloor(projectDir, policy);
   const steps = [
     quality.needsHistory ? '- uses: actions/checkout@v4\n  with:\n    fetch-depth: 0' : '- uses: actions/checkout@v4',
     `- uses: actions/setup-node@v4\n  with:\n    node-version: '${node}'`,
@@ -322,11 +333,12 @@ export function compile(projectDir, { write = false } = {}) {
   const settings = settingsJson(projectDir, policy, prevLock?.managedDeny ?? []);
   const gh = policy.github ?? githubRepo(projectDir);
   const lock = { ...buildLock(policy), github: gh, managedDeny: settings.managed };
+  const workflow = compileWorkflow(projectDir, policy);
   const files = {
     [LOCK_FILE]: `${JSON.stringify(lock, null, 2)}\n`,
     [SETTINGS]: settings.content,
     [CODEOWNERS]: codeowners(projectDir, policy),
-    [WORKFLOW]: workflowYaml(projectDir, policy),
+    [WORKFLOW]: workflow.yaml,
     [CI_SCRIPT_DST]: fs.readFileSync(CI_SCRIPT_SRC, 'utf8'),
     [RULESET]: `${JSON.stringify(rulesetJson(policy), null, 2)}\n`,
     '.gitignore': gitignore(projectDir),
@@ -334,7 +346,7 @@ export function compile(projectDir, { write = false } = {}) {
   const notes = [];
   if (!Object.keys(policy.surfaces).length) notes.push('No danger paths in "surfaces": every PR will count as LIGHT and auto-merge on green.');
   if (!policy.backPressure.length) notes.push('No "backPressure" checks: the keel-checks job proves nothing until you add typecheck/test/build commands.');
-  notes.push(...qualityFloor(projectDir, policy).notes);
+  notes.push(...workflow.notes);
   if (settings.risky.length) notes.push(`.claude/settings.json pre-allows risky commands: ${settings.risky.join(', ')}. Deny rules win, but remove these allows.`);
   if (!gh) notes.push('No GitHub repository found (origin isn\'t on github.com and keel.policy.json has no "github"). Live-migration approvals are verified on GitHub, so live migrations will stay blocked.');
   const repoArg = gh ? `repos/${gh.owner}/${gh.repo}` : 'repos/<owner>/<repo>';

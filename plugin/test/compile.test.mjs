@@ -139,6 +139,14 @@ test('quality audit: no JavaScript → a warning step and a note; a custom comma
   const yc = workflowYaml(custom.dir, custom.policy);
   assert.match(yc, /- name: quality \/ dependency audit \(custom, high\+\)\n\s+run: \|\n\s+pipx run --spec pip-audit==2\.9\.0/);
   assert.equal(qualityFloor(custom.dir, custom.policy).notes.filter((n) => /quality\.audit/.test(n)).length, 0);
+  const bun = fixture({ 'package.json': '{}', 'bun.lockb': '' });
+  assert.ok(!workflowYaml(bun.dir, bun.policy).includes('npm audit'), 'npm audit needs package-lock.json; Bun gets the warning instead');
+});
+
+test('quality policy: explicit nulls mean "use the default", as the schema allows', () => {
+  const p = normalizePolicy({ ...BASE_POLICY, quality: { audit: { command: null }, sast: { rules: null }, architecture: { config: null, paths: null } } });
+  assert.equal(p.quality.audit.command, null);
+  assert.equal(p.quality.architecture.paths, null);
 });
 
 test('quality modes: off drops the step, warn keeps it but lets the job pass', () => {
@@ -160,6 +168,7 @@ test('quality secrets: gitleaks is downloaded at the pinned version and checked 
   const dl = y.indexOf(`releases/download/v${version}/gitleaks_${version}_linux_x64.tar.gz`);
   const check = y.indexOf(`echo "${sha256}  $RUNNER_TEMP/gitleaks.tar.gz" | sha256sum -c -`);
   const run = y.indexOf('"$RUNNER_TEMP/gitleaks" git --no-banner --redact --log-opts="$range" .');
+  assert.ok(!y.includes('gitleaks" dir'), 'never scans the installed node_modules');
   assert.ok(dl > 0 && check > dl && run > check, 'download → verify → run');
   assert.ok(y.includes('range="$BASE_SHA..$HEAD_SHA"'), 'a PR scans only its own commits');
 });

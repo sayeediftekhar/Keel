@@ -89,7 +89,8 @@ const reEscape = (s) => s.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
 /** Pure: which feature ledger a PR belongs to. A "Feature: <slug>" line wins, then a ledger
  *  path in the body, then the longest ledger slug that is a whole token of the branch name. */
 export function ledgerFeature(body, branch, features, dir) {
-  const named = new RegExp(`^[\\s>*-]*\`?\\s*Feature:\\s*\`?(${SLUG})`, 'im').exec(body ?? '')?.[1];
+  // The whole line must be the slug: "Feature: adds CSV export" is prose, not a ledger name.
+  const named = new RegExp(`^[\\s>*-]*\`?\\s*Feature:\\s*\`?(${SLUG})\`?[ \\t]*$`, 'im').exec(body ?? '')?.[1];
   if (named) return named;
   const linked = new RegExp(`(?:^|[\\s(\`/])${reEscape(dir)}/(${SLUG})/`).exec(body ?? '')?.[1];
   if (linked) return linked;
@@ -100,10 +101,15 @@ export function ledgerFeature(body, branch, features, dir) {
 /** Pure: the text under a spec's "Threat model" heading, or null when there is no such heading. */
 export function threatModelSection(spec) {
   const lines = String(spec ?? '').split('\n');
-  const at = lines.findIndex((l) => /^#{1,6}\s*(§\s*)?Threat model\b/i.test(l));
+  // Heading depth per line; lines in fenced code blocks ("# attacker replays the token") aren't headings.
+  let fenced = false;
+  const depth = lines.map((l) => {
+    if (/^\s*(```|~~~)/.test(l)) { fenced = !fenced; return 0; }
+    return fenced ? 0 : (/^(#{1,6})\s/.exec(l)?.[1].length ?? 0);
+  });
+  const at = lines.findIndex((l, i) => depth[i] && /^#{1,6}\s*(§\s*)?Threat model\b/i.test(l));
   if (at < 0) return null;
-  const depth = /^#+/.exec(lines[at])[0].length;
-  const end = lines.findIndex((l, i) => i > at && /^#+\s/.test(l) && /^#+/.exec(l)[0].length <= depth);
+  const end = depth.findIndex((d, i) => i > at && d && d <= depth[at]);
   return lines.slice(at + 1, end < 0 ? undefined : end).join('\n');
 }
 
