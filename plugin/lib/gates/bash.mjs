@@ -43,14 +43,7 @@ function expandScripts(cmds, cwd, ctx, depth) {
   const out = [];
   for (const cmd of cmds) {
     out.push(cmd);
-    const prog = base(cmd.argv[0]);
-    let scriptName = null; let binForm = null;
-    if (SCRIPT_RUNNERS[prog]?.includes(cmd.argv[1])) scriptName = cmd.argv[2];
-    else if (prog === 'npm' && NPM_BUILTIN_SCRIPTS.has(cmd.argv[1])) scriptName = cmd.argv[1];
-    else if ((prog === 'pnpm' || prog === 'yarn' || prog === 'bun') && cmd.argv[1] && !cmd.argv[1].startsWith('-')
-      && !PM_BUILTINS.has(cmd.argv[1])) {
-      scriptName = cmd.argv[1]; binForm = cmd.argv.slice(1);
-    }
+    const { scriptName, binForm } = scriptInvocation(cmd);
     if (!scriptName) continue;
     const scripts = safe(() => ctx.env.pkgScripts(cwd), {}) ?? {};
     const body = scripts[scriptName];
@@ -62,6 +55,18 @@ function expandScripts(cmds, cwd, ctx, depth) {
     }
   }
   return out;
+}
+
+/** The package script a runner command names, and its argv as a bare binary when it may be one instead. */
+function scriptInvocation(cmd) {
+  const prog = base(cmd.argv[0]);
+  if (SCRIPT_RUNNERS[prog]?.includes(cmd.argv[1])) return { scriptName: cmd.argv[2], binForm: null };
+  if (prog === 'npm' && NPM_BUILTIN_SCRIPTS.has(cmd.argv[1])) return { scriptName: cmd.argv[1], binForm: null };
+  if ((prog === 'pnpm' || prog === 'yarn' || prog === 'bun') && cmd.argv[1] && !cmd.argv[1].startsWith('-')
+    && !PM_BUILTINS.has(cmd.argv[1])) {
+    return { scriptName: cmd.argv[1], binForm: cmd.argv.slice(1) };
+  }
+  return { scriptName: null, binForm: null };
 }
 
 
