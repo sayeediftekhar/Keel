@@ -34,7 +34,8 @@ repo. Topic/market research belongs to **keel-research**.
 Spine skills load as `mattpocock-skills:<name>`. A bare name works unless
 Claude Code ships a built-in with the same name — then invoke the prefixed form,
 or the built-in runs instead. Today that is `mattpocock-skills:code-review`: the
-built-in `/code-review` hunts bugs in a diff but has no Standards/Spec axes.
+built-in `/code-review` hunts bugs in a diff but has no Standards/Spec axes. Phase
+5 runs both: they check different things, and neither replaces the other.
 
 | Phase | Default (Pocock spine) | Opt-in power-tools | Rigor |
 |---|---|---|---|
@@ -45,7 +46,7 @@ built-in `/code-review` hunts bugs in a diff but has no Standards/Spec axes.
 | 2 · Spec | `to-spec` (synthesize conversation → `spec.md`) **+ §Architecture** (components, data flow, trust boundaries, failure modes; ADRs) **+ §Threat model** (per trust boundary, STRIDE-lite, each threat mapped to a LAWS invariant and the slice that carries the mitigation) — shapes in conventions §4; `prototype` for a throwaway spike when a state model, logic or UI shape is still in doubt | — | HEAVY |
 | 3 · Decompose | `to-tickets` → `.scratch/<feat>/issues/NN.md` (or tracker issues), tracer-bullet slices + blocking edges (+ expand/contract for wide refactors) | — | HEAVY |
 | 4 · Build | `implement` — ticket-by-ticket, `tdd` at seams; `implement-spec` to run the whole approved ticket set | parallel Claude Code sessions, one per frontier ticket, each in its own worktree | HEAVY→strict red-green-refactor; FAST→pragmatic. Autonomy **stops at** the merge and deploy gates (FAST commits and opens its PR under the standing authorization; HEAVY merges wait for the approver) |
-| 5 · Review | `mattpocock-skills:code-review` — two-axis (Standards = the project's `CODING_STANDARDS.md` over a Fowler baseline / Spec), parallel subagents | built-in `/code-review` as a second pass (correctness bugs — a different axis) | always |
+| 5 · Review | `mattpocock-skills:code-review` — two-axis (Standards = the project's `CODING_STANDARDS.md` over a Fowler baseline / Spec), parallel subagents **+ the built-in `/code-review` bug pass (correctness — a different axis), required** | — | always |
 | 5b · Security | → **keel-secure** (VibeSec) over the diff, **checked against §Threat model** — every listed threat shows its mitigation landed | built-in `/security-review` as a second pass | mandatory on trust-boundary diffs (keel-v2 tripwire) |
 | 6 · Verify/QA | **keel-qa** (UI: real browser, evidence per acceptance criterion); **keel-verify** (non-UI: run the real checks, show the output, then claim) | design questions → **keel-design** | always (in-turn on FAST) |
 | 7 · Ship | the **Ship checklist** (§Gates) with `keel-verify` evidence per line; `pr` writes the PR body; `wizard` scripts the steps only the human can do (secrets, dashboards, cutovers); on Vercel, `vercel:deployments-cicd` to promote | — | HEAVY; **stops at human gate**, never auto-deploys |
@@ -60,7 +61,7 @@ built-in `/code-review` hunts bugs in a diff but has no Standards/Spec axes.
 - **Spec:** the spec names every behaviour to build and every one deliberately left out; on HEAVY it carries §Architecture and §Threat model (conventions §4).
 - **Decompose:** each ticket is a vertical slice with acceptance criteria and blocking edges; the frontier is non-empty.
 - **Build:** the ticket's acceptance criteria pass under tests; the slice is ticked in `00-status.md`.
-- **Review:** both axes report no open findings above nit, or each is fixed or explicitly waived by the human.
+- **Review:** both axes report no open findings above nit, and the built-in `/code-review` bug pass ran on the final diff with each finding fixed or explicitly waived by the human.
 - **Verify/QA:** every acceptance criterion has pass/fail evidence (the keel-qa report; `keel-verify` output for non-UI).
 - **Ship:** every Ship-checklist line has evidence; the human has approved; nothing deploys on an agent's say-so.
 
@@ -127,9 +128,14 @@ and undone. HEAVY: every line. FAST: lines 1-3 (the rest usually don't apply;
 say "n/a" rather than skip silently).
 1. **Verified** — full test suite + build green on the exact commit; the real
    flow exercised (`keel-qa` for UI). Output pasted, not described.
-2. **Reviewed** — `mattpocock-skills:code-review` two-axis pass done; keel-v2
-   tripwires all pass; trust-boundary diffs passed keel-secure against the
-   §Threat model.
+2. **Reviewed** — `mattpocock-skills:code-review` two-axis pass done **and**
+   the built-in `/code-review` bug pass run on the final diff (required, not a
+   power-tool: model review misses bugs a dedicated bug hunt finds); findings
+   fixed or waived by the human; keel-v2 tripwires all pass; trust-boundary
+   diffs passed keel-secure against the §Threat model. CI's quality floor
+   (dependency audit, secret scan, and SAST/architecture rules where the policy
+   turns them on) is green; on HEAVY the PR body names `Feature: <slug>` so
+   `keel-rigor` finds the spec's §Threat model.
 3. **Reversible** — how to roll back, in one line (revert commit / feature
    flag off / previous deployment via the Vercel plugin). If the answer is
    "can't", say so and stop.

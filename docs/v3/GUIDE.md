@@ -86,6 +86,25 @@ names the approver:
 | `migrations.dirs` | where migrations live |
 | `backPressure` + `checks` | the checks CI must pass, in order, e.g. `typecheck`, `lint`, `unit`, `build` |
 | `ci.postgres` | `true` if tests need a Postgres service in CI |
+| `quality` | the quality floor below; the defaults need no edit |
+
+**The quality floor** (D17/D18). After your `backPressure` ladder, the
+`keel-checks` job runs Keel's own checks, so "high standard" is a CI result
+rather than a hope. Each has `mode: fail | warn | off` (`warn` runs the step
+but doesn't fail the job); turning one down is a policy edit the approver
+merges.
+
+| Check | Default | What runs |
+|---|---|---|
+| `quality.audit` | `fail`, `level: high` | the lockfile's audit: `npm audit --audit-level=high`, `pnpm audit`, `yarn npm audit` (Berry) or `yarn audit` (classic). Not JavaScript? Set `command`, e.g. `pipx run --spec pip-audit==2.9.0 pip-audit -r requirements.txt` |
+| `quality.secrets` | `fail`, `engine: builtin` | `keel-ci.mjs secrets`: the added lines of the diff, checked for the same credential shapes the write-time secrets gate blocks. Fixture paths go in `allowPaths`. `engine: gitleaks` downloads gitleaks 8.30.1 and checks its sha256 first |
+| `quality.sast` | `off` (opt-in) | semgrep 1.178.0 with `semgrep/semgrep-rules` at a pinned commit (directories from your stack, or `rules`), plus your `.semgrep.yml`. PRs report only new findings. Costs about a minute per run |
+| `quality.architecture` | `fail` | dependency-cruiser 18.4.0 with your `.dependency-cruiser.*` config. No config: `keel compile` says so and nothing is checked; write the rules (`npx dependency-cruiser --init`) and recompile |
+| `quality.threatModel` | `warn` | in `keel-rigor`: a HEAVY PR's feature ledger must have a `spec.md` with a non-empty `## Threat model`. Put `Feature: <slug>` (the folder under `.scratch/`) in the PR body; otherwise Keel looks for a ledger path in the body, then the branch name. Set `fail` to make it refuse the PR |
+
+A project compiled with the defaults gets the audit and the secret scan with no
+other setup. If the first run finds high advisories, upgrade the dependencies,
+or set `quality.audit.mode` to `warn` while you do and say so in the PR.
 
 ### 1.3 Test-database guard
 
@@ -197,7 +216,8 @@ lanes are `/keel:<lane>`. Then follow **1.2 → 1.7**, plus these clean-ups:
 1. **Remove old delegations that contradict the gates.** If `CLAUDE.md` says the agent "may commit, push and merge PRs on its own" or "applies migrations to LIVE autonomously", replace that text with the standing authorization in 1.6. Otherwise the agent reads one rule and hits another.
 2. **Remove risky allow rules.** `keel compile` lists them (e.g. `Bash(printenv DATABASE_URL)`, `Bash(git … commit -m '*')`). Deny rules win anyway, but delete the allows.
 3. **Point tests at a test database** before turning the gates on. If your dev `DATABASE_URL` is the live database, Keel will (correctly) block local Prisma/Drizzle migrations until it isn't.
-4. **Check context files for gaming.** If a budget script caps `CONTEXT.md` by lines, Keel's `budget` CI check now also caps line length (400 characters by default), so very long lines will fail CI until split.
+4. **Recompile after every plugin upgrade.** The lock carries the normalized policy, so a release that adds a policy field (the quality floor did) leaves the old lock stale until `keel compile` runs; until then the hooks apply the strictest rules.
+5. **Check context files for gaming.** If a budget script caps `CONTEXT.md` by lines, Keel's `budget` CI check now also caps line length (400 characters by default), so very long lines will fail CI until split.
 
 ### 2.2 Projects with a vendored card-set Keel (`route`, `laws`, `spec`, …)
 

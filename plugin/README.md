@@ -83,6 +83,24 @@ credentials cover them:
 `plugin/test/redteam.test.mjs` holds every probe from the adversarial review
 and pins these gaps down as tests, so a change in behavior is visible.
 
+## The quality floor (CI)
+
+The gates above stop unsafe *actions*. The quality floor checks the *code*:
+`keel compile` adds these steps to the `keel-checks` job, after the project's
+own `backPressure` ladder, so they are part of a required check (D17/D18).
+
+| Check (`quality.*`) | Default | Runs |
+|---|---|---|
+| `audit` | `fail` at `high` | the lockfile's audit (npm, pnpm, Yarn classic/Berry), or `quality.audit.command` for other stacks |
+| `secrets` | `fail`, builtin | `keel-ci.mjs secrets`: the diff's added lines against the secrets gate's credential shapes (a test keeps the two regexes identical); `allowPaths` globs for fixtures. Opt-in `engine: gitleaks` (8.30.1, sha256-checked) |
+| `sast` | `off` | semgrep 1.178.0 + `semgrep/semgrep-rules` at a pinned commit, in a clean worktree, only new findings on PRs |
+| `architecture` | `fail` | dependency-cruiser 18.4.0 with the project's own config; without one, a compile note and a CI notice |
+| `threatModel` | `warn` | `keel-rigor`: a HEAVY PR's ledger (`Feature: <slug>` in the body, a ledger path, or the branch name) needs `spec.md` with a non-empty `## Threat model` |
+
+Every tool that installs is pinned to an exact version; each check is switched
+with `mode: fail | warn | off`. Defaults alone give a project the audit and the
+secret scan.
+
 ## The layers, and what each can't stop
 
 | Layer | Stops | Bypassed by |
@@ -91,6 +109,7 @@ and pins these gaps down as tests, so a change in behavior is visible.
 | Database credentials | live writes from anything without them | whoever holds them |
 | Permission deny rules | named commands/tools, in every permission mode | command-text tricks |
 | Hooks (this plugin) | early, explained blocks before anything happens | programs acting on their own; disabling the plugin or all hooks |
+| Quality floor (CI) | known-vulnerable dependencies, credential literals in the diff, new SAST findings, broken architecture rules | what no rule names: logic bugs, weak designs (the reviews in keel-dev phase 5 cover those) |
 
 ## Quick start — plugin install → keel init → keel compile
 
@@ -113,7 +132,7 @@ In a session, `/keel:keel-setup` walks the agent through the same steps
 (it knows the plugin path as `${CLAUDE_PLUGIN_ROOT}`). `keel init` is
 idempotent: re-run it after a plugin update to refresh the two managed
 blocks; it never overwrites a file you filled in. Projects compiled before
-the ledger and secrets-write gates existed need one `keel compile`.
+the ledger and secrets-write gates or the quality floor existed need one `keel compile`.
 
 ## Gate approvals: the human flips the box
 
