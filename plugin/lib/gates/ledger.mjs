@@ -53,21 +53,29 @@ function gatingLedgers(ctx) {
     }));
 }
 
+/** The ledger text an edit tool call replaces (oldText) and what it writes in its place (newText). */
+function editTexts(tool, input, rel, ctx) {
+  if (tool === 'Write') {
+    const newText = input.content ?? '';
+    const oldText = safe(() => ctx.env.readFile?.(path.resolve(ctx.projectDir, rel)), null) ?? '';
+    return { newText, oldText };
+  }
+  if (tool === 'Edit') return { newText: input.new_string ?? '', oldText: input.old_string ?? '' };
+  if (tool === 'MultiEdit') {
+    return {
+      newText: (input.edits ?? []).map((e) => e.new_string ?? '').join('\n'),
+      oldText: (input.edits ?? []).map((e) => e.old_string ?? '').join('\n'),
+    };
+  }
+  return { newText: '', oldText: '' };
+}
+
 export function ledgerEdit(tool, input, cwd, ctx) {
   if (ctx.policy.gates.ledger?.mode !== 'block') return ALLOW;
   const rel = relToProject(input.file_path ?? input.notebook_path, cwd, ctx);
   if (isLedgerPath(rel, ctx)) {
     // Rule 1: only the human checks a gate box.
-    let newText = ''; let oldText = '';
-    if (tool === 'Write') {
-      newText = input.content ?? '';
-      oldText = safe(() => ctx.env.readFile?.(path.resolve(ctx.projectDir, rel)), null) ?? '';
-    } else if (tool === 'Edit') {
-      newText = input.new_string ?? ''; oldText = input.old_string ?? '';
-    } else if (tool === 'MultiEdit') {
-      newText = (input.edits ?? []).map((e) => e.new_string ?? '').join('\n');
-      oldText = (input.edits ?? []).map((e) => e.old_string ?? '').join('\n');
-    }
+    const { newText, oldText } = editTexts(tool, input, rel, ctx);
     const before = checkedGates(oldText);
     const newly = [...checkedGates(newText)].filter((g) => !before.has(g));
     if (newly.length) {
