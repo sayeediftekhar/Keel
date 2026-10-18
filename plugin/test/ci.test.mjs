@@ -51,6 +51,28 @@ test('rigor: an approval from someone else does not count', () => {
     false,
   );
 });
+test('rigor: HEAVY authored by the approver passes without a review (GitHub forbids self-approval, D21)', () => {
+  const v = rigorVerdict(['supabase/migrations/0001.sql'], 'Rigor: HEAVY — governance', policy, [], 'Owner-Human');
+  assert.equal(v.ok, true);
+  assert.match(v.message, /authored by the approver @owner-human/);
+  assert.match(v.message, /nobody else has reviewed/);
+});
+test('rigor: HEAVY authored by the agent or anyone else still waits for the approver', () => {
+  for (const author of ['owner-agent', 'Owner-Agent', 'stranger', '', undefined]) {
+    const agentApproved = [{ user: { login: 'owner-agent' }, state: 'APPROVED' }];
+    const v = rigorVerdict(['lib/money/a.ts'], 'Rigor: HEAVY', policy, agentApproved, author);
+    assert.equal(v.ok, false, `author=${author}`);
+    assert.match(v.message, /waiting for @owner-human/);
+  }
+});
+test('rigor: the author exemption never fires when the approver login is also the agent login', () => {
+  // Policy validation forbids this; the verdict guards it anyway.
+  const broken = { ...policy, agentIdentity: { github: 'owner-human' } };
+  assert.equal(rigorVerdict(['lib/money/a.ts'], 'Rigor: HEAVY', broken, [], 'owner-human').ok, false);
+});
+test('rigor: LIGHT authored by the approver still fails on danger paths', () => {
+  assert.equal(rigorVerdict(['lib/money/fees.ts'], 'Rigor: LIGHT', policy, [], 'owner-human').ok, false);
+});
 
 test('budget: the 16,701-character line is caught even under a line-count cap', () => {
   const { problems } = budgetProblems({ 'CONTEXT.md': `short\n${'x'.repeat(16701)}\n` }, policy);

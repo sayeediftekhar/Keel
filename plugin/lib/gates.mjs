@@ -32,16 +32,19 @@ export function decide(event, ctx) {
 
   if (name === 'Bash') return decideBash(String(input.command ?? ''), cwd, ctx);
 
-  if (['Edit', 'Write', 'MultiEdit', 'NotebookEdit'].includes(name)) {
-    const g = governance([input.file_path ?? input.notebook_path], cwd, ctx);
-    if (!g.allow) return g;
-    const s = secretsWrite(name, input, ctx);
-    if (!s.allow) return s;
-    return ledgerEdit(name, input, cwd, ctx);
-  }
+  if (['Edit', 'Write', 'MultiEdit', 'NotebookEdit'].includes(name)) return decideEdit(name, input, cwd, ctx);
   if (name === 'Read' || name === 'Grep' || name === 'Glob') return secretsRead(name, input, ctx);
 
   const mcp = /^mcp__.+__([A-Za-z0-9_]+)$/.exec(name);
   if (mcp) return decideMcp(mcp[1], input, ctx);
   return ALLOW;
+}
+
+/** File-editing tools: governance first, then secrets, then the feature ledger. The first block wins. */
+function decideEdit(name, input, cwd, ctx) {
+  const g = governance([input.file_path ?? input.notebook_path], cwd, ctx);
+  if (!g.allow) return g;
+  const s = secretsWrite(name, input, ctx);
+  if (!s.allow) return s;
+  return ledgerEdit(name, input, cwd, ctx);
 }
