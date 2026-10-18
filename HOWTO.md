@@ -126,7 +126,7 @@ One-time catch-ups for projects set up before 2026-10:
    (the standing authorization `keel init` wrote into `CLAUDE.md`); skim a few
    a day. HEAVY work ends as a PR that waits for **your** review — the
    `keel-rigor` check stays red until you approve (your own HEAVY PRs pass:
-   GitHub won't let you approve them, so your authorship counts, D17). The gates G1/G2/G3/Ship in
+   GitHub won't let you approve them, so your authorship counts, D21). The gates G1/G2/G3/Ship in
    `00-status.md` are yours to flip (`keel approve <feature> G3 "<why>"`),
    never the agent's. Deploys, sends and live migrations are never automatic.
 6. **Capture & hand off.** Note learnings; if you'll continue later, write a

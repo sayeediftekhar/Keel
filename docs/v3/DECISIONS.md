@@ -69,7 +69,7 @@ governance PR, which §1.4 of the guide tells the approver to author and merge.
 
 | # | Decision | Implication |
 |---|---|---|
-| D17 | A HEAVY PR **authored by the approver** passes `keel-rigor` without a review; the author's own review is the approval | `rigorVerdict` reads the PR author (`PR_AUTHOR` ← `github.event.pull_request.user.login`, a new env var in the compiled workflow) and passes HEAVY when it equals `approver.github` (case-insensitive). Any other author — the agent's identity above all — still waits for the approver's APPROVED review. **Loss:** nobody but the author reviews the approver's HEAVY work; that is the same person who would have approved it. Projects compiled before this need `keel compile` again. |
+| D21 | A HEAVY PR **authored by the approver** passes `keel-rigor` without a review; the author's own review is the approval | `rigorVerdict` reads the PR author (`PR_AUTHOR` ← `github.event.pull_request.user.login`, a new env var in the compiled workflow) and passes HEAVY when it equals `approver.github` (case-insensitive). Any other author — the agent's identity above all — still waits for the approver's APPROVED review. **Loss:** nobody but the author reviews the approver's HEAVY work; that is the same person who would have approved it. Projects compiled before this need `keel compile` again. |
 
 **Invariant kept:** an agent never counts as the approver. Policy validation
 already refuses `agentIdentity.github == approver.github`; it now compares
@@ -97,7 +97,7 @@ guide now says so instead of claiming `keel-rigor` still separates them.
 sole code owner):** `require_code_owner_review: true` at
 `required_approving_review_count: 0` does **not** block the owner's own
 danger-path PR. The GitHub layer was blocking, but for another reason —
-see D18. The admin bypass fallback is therefore not adopted (the API does
+see D22. The admin bypass fallback is therefore not adopted (the API does
 accept `{actor_id: 5, actor_type: RepositoryRole, bypass_mode: pull_request}`
 on a user-owned repo; whether the merge box then offers the owner a bypass
 merge was not checked, and it would not have helped LIGHT auto-merge anyway).
@@ -109,7 +109,7 @@ removed (two PRs by the owner: one on a CODEOWNERS path, one not):
 
 | `require_code_owner_review` | `require_last_push_approval` | owned-path PR | plain PR |
 |---|---|---|---|
-| true | true (as compiled before D18) | BLOCKED | BLOCKED |
+| true | true (as compiled before D22) | BLOCKED | BLOCKED |
 | true | false | CLEAN | CLEAN |
 | false | true | BLOCKED | BLOCKED |
 | false | false | CLEAN | CLEAN |
@@ -121,7 +121,7 @@ green (an agent-authored PR would need a human approval of its last push).
 
 | # | Decision | Implication |
 |---|---|---|
-| D18 | The compiled ruleset sets `require_last_push_approval: false` | What the setting guarded is covered elsewhere: `dismiss_stale_reviews_on_push: true` drops an approval when new commits land, and `keel-rigor` re-runs on every `synchronize` and reads the reviews again. `keel doctor` reports a ruleset that still sets it (or that has any bypass actor) as **BROKEN** with the `gh api -X PUT …/rulesets/<id>` call that fixes it, instead of lumping it with "missing". Projects whose ruleset was applied before this must re-apply `.keel/github-ruleset.json` with that PUT. |
+| D22 | The compiled ruleset sets `require_last_push_approval: false` | What the setting guarded is covered elsewhere: `dismiss_stale_reviews_on_push: true` drops an approval when new commits land, and `keel-rigor` re-runs on every `synchronize` and reads the reviews again. `keel doctor` reports a ruleset that still sets it (or that has any bypass actor) as **BROKEN** with the `gh api -X PUT …/rulesets/<id>` call that fixes it, instead of lumping it with "missing". Projects whose ruleset was applied before this must re-apply `.keel/github-ruleset.json` with that PUT. |
 
 **Still open:** whether GitHub enforces code-owner review at count 0 for a
 *non-owner* author (the agent). The probe had one account, so it could not

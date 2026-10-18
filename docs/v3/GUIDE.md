@@ -46,7 +46,7 @@ alias keel='node /path/to/keel/plugin/bin/keel.mjs'
 3. Install it on the repos Keel will govern.
 4. Point the agent's `gh` at the App instead of your account (an installation token, e.g. via a token-helper `gh` extension). Verify with `gh api user` or by checking who authored the next PR: it must be `sayeed-keel[bot]`, not you. Until this is done, `keel doctor` reports the identity as unproven, and GitHub can't tell your approval from the agent's.
 
-> Cloud sessions (Claude Code on the web) push through the Claude GitHub connection. Check which identity a cloud session's PRs show before relying on "HEAVY needs the approver". If it's you, nothing can separate you from the agent: GitHub's review rules can't, and `keel-rigor` takes a HEAVY PR you authored as yours and passes it (D17). Wire the App first; `keel doctor` reports the identity as unproven until then.
+> Cloud sessions (Claude Code on the web) push through the Claude GitHub connection. Check which identity a cloud session's PRs show before relying on "HEAVY needs the approver". If it's you, nothing can separate you from the agent: GitHub's review rules can't, and `keel-rigor` takes a HEAVY PR you authored as yours and passes it (D21). Wire the App first; `keel doctor` reports the identity as unproven until then.
 
 ---
 
@@ -107,7 +107,7 @@ Keel block in `.github/CODEOWNERS`, `.github/workflows/keel.yml`,
 prints. Commit everything in **one PR** marked `Rigor: HEAVY — governance`,
 and merge it yourself. `keel-rigor` passes a HEAVY PR *you* authored without
 a review: GitHub forbids approving your own PR, so your authorship stands as
-the approval (D17) and nobody else reviews it. PRs the agent authors still
+the approval (D21) and nobody else reviews it. PRs the agent authors still
 wait for your approval.
 
 ### 1.5 Apply the ruleset (repo admin, once)
@@ -116,9 +116,9 @@ wait for your approval.
 gh api -X POST repos/<owner>/<repo>/rulesets --input .keel/github-ruleset.json
 ```
 
-The ruleset requires `keel-checks` and `keel-rigor`, code-owner review on danger paths, no force-push and no bypass. It deliberately does **not** require approval of the last push: at a required review count of 0 that setting blocks every PR for every author, you included (verified live, D18). If you already require other CI jobs, add them in GitHub's ruleset UI afterwards (the compiler only knows Keel's two).
+The ruleset requires `keel-checks` and `keel-rigor`, code-owner review on danger paths, no force-push and no bypass. It deliberately does **not** require approval of the last push: at a required review count of 0 that setting blocks every PR for every author, you included (verified live, D22). If you already require other CI jobs, add them in GitHub's ruleset UI afterwards (the compiler only knows Keel's two).
 
-> Verified on an enforced ruleset (public repo, 2026-10-18): GitHub's code-owner review does **not** block a danger-path PR *you* authored, so your own governance PRs merge once `keel-rigor` is green (D17). If you applied a ruleset compiled before D18, `keel doctor` reports it BROKEN and prints the `gh api -X PUT` call that updates it.
+> Verified on an enforced ruleset (public repo, 2026-10-18): GitHub's code-owner review does **not** block a danger-path PR *you* authored, so your own governance PRs merge once `keel-rigor` is green (D21). If you applied a ruleset compiled before D22, `keel doctor` reports it BROKEN and prints the `gh api -X PUT` call that updates it.
 
 ### 1.6 Tell the agent what it may do
 

@@ -68,7 +68,7 @@ test('the plugin not being installed in Claude Code is BROKEN, not OK', () => {
 });
 
 // github-ruleset is UNPROVEN offline, so its judgement is a pure function tested here. The live facts
-// behind it (D18, public probe repo, 2026-10-18): require_last_push_approval at review count 0 blocks
+// behind it (D22, public probe repo, 2026-10-18): require_last_push_approval at review count 0 blocks
 // every PR for every author; require_code_owner_review at count 0 does not block the owner's own PR.
 const livePolicy = normalizePolicy(BASE_POLICY);
 const liveRuleset = (mutate = () => {}) => {

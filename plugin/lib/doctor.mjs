@@ -159,7 +159,7 @@ function gh(args) {
 }
 
 /** Pure: does one GitHub ruleset enforce what the policy needs? null = it is not Keel's ruleset at all;
- *  otherwise an {status, detail} for the github-ruleset line. Verified live on a public repo (D18, 2026-10-18):
+ *  otherwise an {status, detail} for the github-ruleset line. Verified live on a public repo (D22, 2026-10-18):
  *  require_last_push_approval at required_approving_review_count 0 blocks every PR for every author, so a
  *  ruleset that still sets it is BROKEN, as is one with any bypass actor. */
 export function rulesetVerdict(rs, policy) {
@@ -174,7 +174,7 @@ export function rulesetVerdict(rs, policy) {
   const fix = `update it: gh api -X PUT repos/<owner>/<repo>/rulesets/${rs.id ?? '<id>'} --input .keel/github-ruleset.json`;
   const bypass = rs.bypass_actors ?? [];
   if (bypass.length) return { status: 'BROKEN', detail: `ruleset "${rs.name}" has ${bypass.length} bypass actor(s); Keel's ruleset has none — ${fix}` };
-  if (pr.require_last_push_approval) return { status: 'BROKEN', detail: `ruleset "${rs.name}" sets require_last_push_approval, which at review count 0 blocks every PR for every author (D18) — ${fix}` };
+  if (pr.require_last_push_approval) return { status: 'BROKEN', detail: `ruleset "${rs.name}" sets require_last_push_approval, which at review count 0 blocks every PR for every author (D22) — ${fix}` };
   return { status: 'OK', detail: `ruleset "${rs.name}" is active: code-owner review, keel-checks + keel-rigor required, no force-push, no bypass actors, no last-push approval` };
 }
 

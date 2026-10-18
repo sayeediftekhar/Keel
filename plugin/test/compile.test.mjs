@@ -72,7 +72,7 @@ test('ruleset: code-owner review, both keel checks, no bypass, no force push, no
   assert.equal(rs.enforcement, 'active');
   const pr = rs.rules.find((r) => r.type === 'pull_request').parameters;
   assert.ok(pr.require_code_owner_review);
-  // Verified live on a public repo (D18): at count 0, require_last_push_approval blocks every PR for every
+  // Verified live on a public repo (D22): at count 0, require_last_push_approval blocks every PR for every
   // author (the approver's own included) while require_code_owner_review does not block the owner's own PR.
   assert.equal(pr.required_approving_review_count, 0);
   assert.equal(pr.require_last_push_approval, false);
