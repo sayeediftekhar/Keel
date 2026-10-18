@@ -2,16 +2,18 @@
 
 The `keel` plugin is the whole Keel repo (marketplace source `.`): the
 rules (`skills/`, invoked as `/keel:keel-dev`, `/keel:keel-design`, …; the
-always-on keel-v2 router + LAWS written into `CLAUDE.md` by `keel init`) and
+always-on Tier-1 router written into `CLAUDE.md` by `keel init`; the full
+rules load on demand as the `keel-v2` skill) and
 this directory, the enforcement engine. Keel v2 told the agent the rules; the
 engine **enforces** them, outside the agent's judgment, and **proves** they
 hold.
 
 ```
 keel init ─────────▶ keel.policy.json (starter)        the policy you edit
-                     CLAUDE.md: keel-v2 router + LAWS  the always-on rules (one managed block)
+                     CLAUDE.md: keel-v2 Tier-1 router  lane rule, surfaces, invariants, authorities, @docs/INDEX.md
                      CLAUDE.md: standing authorization what the agent may do (FAST → auto-merge PR, HEAVY → approver)
-                     CONTEXT.md GLOSSARY.md CODING_STANDARDS.md DESIGN.md .scratch/   scaffolded once, never overwritten
+                     CONTEXT.md GLOSSARY.md CODING_STANDARDS.md DESIGN.md LAWS.md LEARNINGS.md
+                     docs/INDEX.md docs/ARCHITECTURE.md .scratch/      scaffolded once, never overwritten
 ```
 
 ```
@@ -19,6 +21,7 @@ keel.policy.json ──keel compile──▶ .keel/policy.lock.json      what th
                                    .claude/settings.json        permission deny rules
                                    .github/CODEOWNERS           danger paths → the approver
                                    .github/workflows/keel.yml   required checks + rigor check
+                                   .keel/ci/                    the CI scripts, eslint.limits.mjs, modules.json
                                    .keel/github-ruleset.json    the GitHub ruleset an admin applies
 
 keel doctor ──▶ every gate ENFORCED (a planted violation was blocked), or it tells you which isn't
@@ -96,6 +99,12 @@ own `backPressure` ladder, so they are part of a required check (D17/D18).
 | `sast` | `off` | semgrep 1.178.0 + `semgrep/semgrep-rules` at a pinned commit, in a clean worktree, only new findings on PRs |
 | `architecture` | `fail` | dependency-cruiser 18.4.0 with the project's own config; without one, a compile note and a CI notice |
 | `threatModel` | `warn` | `keel-rigor`: a HEAVY PR's ledger (`Feature: <slug>` in the body, a ledger path, or the branch name) needs `spec.md` with a non-empty `## Threat model` |
+| `limits` | `warn` | `keel-ci.mjs limits` (D20e): a ratchet on the files the PR changes — file 400 lines, function 80, line 120, complexity 15, stable → volatile imports from `docs/ARCHITECTURE.md`'s module map. Changed files may not get worse, new files meet the caps, moved code keeps its old measure. ESLint's built-in rules for JS/TS function length and complexity; formatting is never a check (a PostToolUse hook runs the project's formatter on write) |
+
+The format hook runs a project binary (`node_modules/.bin/prettier`, …) after a
+write, outside the PreToolUse gate. Under the threat model below (an honest but
+fallible agent) that is the same trust as `npm test`; it is not a sandbox
+against an agent that plants its own binary.
 
 Every tool that installs is pinned to an exact version; each check is switched
 with `mode: fail | warn | off`. Defaults alone give a project the audit and the

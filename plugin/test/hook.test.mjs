@@ -23,7 +23,9 @@ function run(script, dir, event) {
 }
 const gate = (dir, event) => run(GATE, dir, event);
 const bash = (command) => ({ tool_name: 'Bash', tool_input: { command } });
-const apply = (project, query) => ({ tool_name: 'mcp__supabase__apply_migration', tool_input: { project_id: project, name: 'm', query } });
+const apply = (project, query) => ({
+  tool_name: 'mcp__supabase__apply_migration', tool_input: { project_id: project, name: 'm', query },
+});
 
 test('inactive project: no policy, no lock → every call allowed', () => {
   const dir = fs.mkdtempSync(path.join(fs.realpathSync('/tmp'), 'keel-none-'));
@@ -60,7 +62,9 @@ test('editing the policy without recompiling fails closed', () => {
 
 test('garbage on stdin blocks (fail closed)', () => {
   const { dir } = makeRepo();
-  const r = spawnSync(process.execPath, [GATE], { input: '{not json', env: { ...process.env, CLAUDE_PROJECT_DIR: dir }, encoding: 'utf8' });
+  const r = spawnSync(process.execPath, [GATE], {
+    input: '{not json', env: { ...process.env, CLAUDE_PROJECT_DIR: dir }, encoding: 'utf8',
+  });
   assert.equal(r.status, 2);
 });
 
@@ -71,7 +75,10 @@ async function gateRemote(dir, origin, event) {
   try {
     const d = await evaluate({ cwd: dir, ...event }, { fetchRemote: fakeGithub(origin) });
     return d.allow ? { code: 0, err: '' } : { code: 2, err: `[${d.gate}] ${d.reason}` };
-  } finally { if (prev === undefined) delete process.env.CLAUDE_PROJECT_DIR; else process.env.CLAUDE_PROJECT_DIR = prev; }
+  } finally {
+    if (prev === undefined) delete process.env.CLAUDE_PROJECT_DIR;
+    else process.env.CLAUDE_PROJECT_DIR = prev;
+  }
 }
 
 test('batch-authorized live migration: the full lifecycle', async () => {
@@ -85,7 +92,9 @@ test('batch-authorized live migration: the full lifecycle', async () => {
   assert.equal((await g(apply('testproj', sql))).code, 0);
 
   // 2. Agent writes the batch on its branch — not approved until merged on the remote.
-  execFileSync(process.execPath, [KEEL, 'batch', 'create', 'b1', 'supabase/migrations/0001_fee.sql', '--dir', dir], { cwd: dir });
+  execFileSync(
+    process.execPath, [KEEL, 'batch', 'create', 'b1', 'supabase/migrations/0001_fee.sql', '--dir', dir], { cwd: dir },
+  );
   commitAll(dir, 'migration + batch');
   let r = await g(apply('liveproj', sql));
   assert.equal(r.code, 2);
@@ -117,7 +126,9 @@ test('Bash live push: local migrations must match the remote; edits void approva
   const { dir, origin } = makeRepo();
   const g = (ev) => gateRemote(dir, origin, ev);
   write(dir, 'supabase/migrations/0001_fee.sql', 'ALTER TABLE fees ADD COLUMN a int;\n');
-  execFileSync(process.execPath, [KEEL, 'batch', 'create', 'b1', 'supabase/migrations/0001_fee.sql', '--dir', dir], { cwd: dir });
+  execFileSync(
+    process.execPath, [KEEL, 'batch', 'create', 'b1', 'supabase/migrations/0001_fee.sql', '--dir', dir], { cwd: dir },
+  );
   commitAll(dir, 'migration + batch');
   mergeToOriginMain(dir);
   run(RECEIPT, dir, bash('supabase db push --local'));
@@ -140,11 +151,19 @@ test('keel batch create: project-relative paths through a symlinked dir; files o
   fs.symlinkSync(dir, link);
   write(dir, 'supabase/migrations/0001_fee.sql', 'ALTER TABLE fees ADD COLUMN a int;\n');
   // --dir through the symlink, cwd on the real path (what macOS /var vs /private/var does)
-  execFileSync(process.execPath, [KEEL, 'batch', 'create', 'b1', 'supabase/migrations/0001_fee.sql', '--dir', link], { cwd: fs.realpathSync(dir) });
+  execFileSync(
+    process.execPath,
+    [KEEL, 'batch', 'create', 'b1', 'supabase/migrations/0001_fee.sql', '--dir', link],
+    { cwd: fs.realpathSync(dir) },
+  );
   const b = JSON.parse(fs.readFileSync(path.join(dir, '.keel/approvals/b1.json'), 'utf8'));
   assert.equal(b.migrations[0].file, 'supabase/migrations/0001_fee.sql');
   write(root, 'outside.sql', 'DROP TABLE users;\n');
-  const r = spawnSync(process.execPath, [KEEL, 'batch', 'create', 'b2', path.join(root, 'outside.sql'), '--dir', dir], { cwd: dir, encoding: 'utf8' });
+  const r = spawnSync(
+    process.execPath,
+    [KEEL, 'batch', 'create', 'b2', path.join(root, 'outside.sql'), '--dir', dir],
+    { cwd: dir, encoding: 'utf8' },
+  );
   assert.notEqual(r.status, 0);
   assert.match(r.stderr, /outside the project/);
 });
@@ -153,7 +172,10 @@ test('GitHub unreachable → live migration blocked (fail closed)', async () => 
   const { dir } = makeRepo();
   process.env.CLAUDE_PROJECT_DIR = dir;
   try {
-    const d = await evaluate({ cwd: dir, ...apply('liveproj', 'select 1') }, { fetchRemote: async () => { throw new Error('ENOTFOUND api.github.com'); } });
+    const d = await evaluate(
+      { cwd: dir, ...apply('liveproj', 'select 1') },
+      { fetchRemote: async () => { throw new Error('ENOTFOUND api.github.com'); } },
+    );
     assert.equal(d.allow, false);
     assert.match(d.reason, /verified on GitHub.*ENOTFOUND/);
   } finally { delete process.env.CLAUDE_PROJECT_DIR; }
@@ -173,7 +195,11 @@ test('a moved project directory fails closed', () => {
   const { dir, root } = makeRepo();
   const moved = path.join(root, 'moved');
   fs.renameSync(dir, moved);
-  const r = spawnSync(process.execPath, [GATE], { input: JSON.stringify({ cwd: moved, tool_name: 'Bash', tool_input: { command: 'git push origin main' } }), env: { ...process.env, CLAUDE_PROJECT_DIR: dir }, encoding: 'utf8' });
+  const r = spawnSync(process.execPath, [GATE], {
+    input: JSON.stringify({ cwd: moved, tool_name: 'Bash', tool_input: { command: 'git push origin main' } }),
+    env: { ...process.env, CLAUDE_PROJECT_DIR: dir },
+    encoding: 'utf8',
+  });
   assert.equal(r.status, 2);
 });
 

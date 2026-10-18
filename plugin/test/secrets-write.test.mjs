@@ -51,7 +51,9 @@ blocks('Write a Stripe live key', W(`${P}/lib/pay.ts`, `Stripe("${STRIPE}")`));
 blocks('Write a PEM block', W(`${P}/deploy/id_rsa`, `${PEM}\nMIIE...`));
 blocks('Write a Slack token into docs', W(`${P}/docs/setup.md`, `token ${SLACK}`));
 blocks('Edit adding a GitHub PAT', E(`${P}/.github/workflows/x.yml`, 'a', `token: ${GHP}`));
-blocks('MultiEdit with a GitLab token in one edit', M(`${P}/src/a.ts`, [{ old_string: 'a', new_string: 'b' }, { old_string: 'c', new_string: GLPAT }]));
+blocks('MultiEdit with a GitLab token in one edit', M(`${P}/src/a.ts`, [
+  { old_string: 'a', new_string: 'b' }, { old_string: 'c', new_string: GLPAT },
+]));
 blocks('NotebookEdit with a key', N(`${P}/analysis.ipynb`, `key = "${AWS}"`));
 blocks('a key into .env.example (tracked)', W(`${P}/.env.example`, `AWS_KEY=${AWS}`));
 blocks('a key into .env.test (tracked)', W(`${P}/.env.test`, `AWS_KEY=${AWS}`));
@@ -73,13 +75,17 @@ allows('grep for a key shape in source', B('grep -rn "AKIA" src'));
 allows('reading .env.example', B('cat .env.example'));
 
 test('secrets gate off disables the write check', () => {
-  const off = normalizePolicy({ version: 1, approver: { github: 'h' }, agentIdentity: { github: 'a[bot]' }, gates: { secrets: { mode: 'off' } } });
+  const off = normalizePolicy({
+    version: 1, approver: { github: 'h' }, agentIdentity: { github: 'a[bot]' }, gates: { secrets: { mode: 'off' } },
+  });
   assert.equal(decide({ cwd: P, ...W(`${P}/src/a.ts`, AWS) }, { ...ctx, policy: off }).allow, true);
 });
 
 test('e2e: the real hook blocks a key into source and allows it into .env.local', () => {
   const { dir } = makeRepo();
-  const gate = (ev) => spawnSync(process.execPath, [GATE], { input: JSON.stringify({ cwd: dir, ...ev }), env: { ...process.env, CLAUDE_PROJECT_DIR: dir }, encoding: 'utf8' });
+  const gate = (ev) => spawnSync(process.execPath, [GATE], {
+    input: JSON.stringify({ cwd: dir, ...ev }), env: { ...process.env, CLAUDE_PROJECT_DIR: dir }, encoding: 'utf8',
+  });
   const r = gate(W(path.join(dir, 'src/cfg.ts'), `const k = "${AWS}";`));
   assert.equal(r.status, 2); assert.match(r.stderr, /\[secrets\].*credential/);
   assert.equal(gate(W(path.join(dir, '.env.local'), `AWS_KEY=${AWS}`)).status, 0);

@@ -24,7 +24,7 @@ Active ledger: `.scratch/<feature>/00-status.md`
 - <decision nobody has made yet, and who makes it>
 
 ## Keel
-Rules: the keel-v2 block in `CLAUDE.md` (eleven danger surfaces, FAST/HEAVY).
+Rules: the keel-v2 block in `CLAUDE.md` (Tier 1; the `keel-v2` skill has the full rules).
 Gates: `keel.policy.json` → `keel compile` → `keel doctor`.
 Maintain loop (production only): <owner and schedule per job, or "not needed">
 

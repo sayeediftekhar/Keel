@@ -23,9 +23,10 @@ App once ([docs/v3/GUIDE.md §0](docs/v3/GUIDE.md)).
    about what you're actually building until it's clear. (`grill-with-docs` for
    code work, `grill-me` for anything else.)
 2. **`keel init`** (or `/keel:keel-setup` in a session). It writes
-   `keel.policy.json`, the keel-v2 router + LAWS block and the standing
+   `keel.policy.json`, the keel-v2 Tier-1 router block and the standing
    authorization into `CLAUDE.md`, and scaffolds `CONTEXT.md`, `GLOSSARY.md`,
-   `CODING_STANDARDS.md`, `DESIGN.md` and `.scratch/` — only the ones you don't
+   `CODING_STANDARDS.md`, `DESIGN.md`, `LAWS.md`, `LEARNINGS.md`, `docs/INDEX.md`,
+   `docs/ARCHITECTURE.md` and `.scratch/` — only the ones you don't
    have. Fill the policy (approver, the App's bot login, your danger paths,
    the checks CI must pass) and run `keel init` again; fill the scaffolds
    (`DESIGN.md` + `CONTEXT.md` are the brand — see [RECIPES.md](RECIPES.md)).
@@ -56,7 +57,7 @@ App once ([docs/v3/GUIDE.md §0](docs/v3/GUIDE.md)).
 **Submodule layout instead of the plugin** (still supported, same files):
 ```bash
 git submodule add https://github.com/sayeediftekhar/Keel .claude/keel
-(cd .claude/keel && ./install.sh arbiter)      # keel-v2 router + LAWS → CLAUDE.md (the block keel init writes)
+(cd .claude/keel && ./install.sh arbiter)      # keel-v2 router + LAWS → CLAUDE.md (keel init writes the Tier-1 version)
 (cd .claude/keel && ./install.sh dev design)   # only the lanes you need; links them into .claude/skills/
 (cd .claude/keel && ./install.sh check)        # verify the wiring; then /skills in a fresh session
 node .claude/keel/plugin/bin/keel.mjs init     # gates: same CLI, same files

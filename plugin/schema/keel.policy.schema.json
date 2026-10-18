@@ -86,8 +86,9 @@
     "budget": {
       "type": "object", "additionalProperties": false,
       "properties": {
-        "alwaysOnTokens": { "type": ["integer", "null"], "minimum": 1 },
-        "maxLineChars": { "type": "integer", "minimum": 40, "default": 400 }
+        "alwaysOnTokens": { "description": "Ceiling for always-on context (CLAUDE.md, .claude/CLAUDE.md, AGENTS.md and their @imports), in tokens estimated conservatively by keel-ci.mjs (labeled est.). Default 2000 (D20b).", "type": ["integer", "null"], "minimum": 1, "default": 2000 },
+        "maxLineChars": { "type": "integer", "minimum": 40, "default": 400 },
+        "mode": { "description": "What token overage does: warn (default when alwaysOnTokens is not set) or fail (default when it is). Over-long lines always fail.", "enum": ["warn", "fail"] }
       }
     },
     "ci": {
@@ -143,6 +144,20 @@
             "paths": { "description": "Directories to check (default: whichever of src, lib, app, packages exist, else .).", "type": ["array", "null"], "items": { "type": "string" } }
           }
         },
+        "limits": {
+          "description": "Clean-code limits (D20e): a ratchet on the files a PR changes. A changed file may not get worse than its base version and a new file meets the caps; code the PR only moves keeps its old measure. Each limit is a cap number or {max, mode}; mode warn (default) annotates, fail fails keel-checks.",
+          "type": "object", "additionalProperties": false,
+          "properties": {
+            "mode": { "description": "Default mode for every limit below.", "enum": ["fail", "warn", "off"], "default": "warn" },
+            "fileLines": { "$ref": "#/$defs/limit", "description": "Lines per source file (default 400)." },
+            "functionLines": { "$ref": "#/$defs/limit", "description": "Lines per function, JS/TS via ESLint max-lines-per-function (default 80)." },
+            "lineLength": { "$ref": "#/$defs/limit", "description": "Characters per line (default 120)." },
+            "complexity": { "$ref": "#/$defs/limit", "description": "Cyclomatic complexity per function, JS/TS via ESLint complexity (default 15)." },
+            "boundaries": { "description": "docs/ARCHITECTURE.md module map: a stable module may not import a volatile one.", "type": "object", "additionalProperties": false, "properties": { "mode": { "enum": ["fail", "warn", "off"] } } },
+            "exclude": { "description": "Globs the limits skip (node_modules, dist, build, vendor, *.min.* and .keel/ are always skipped).", "type": "array", "items": { "type": "string" } },
+            "formatter": { "description": "Command the format hook runs on each file the agent writes (argv, no shell), e.g. \"node_modules/.bin/prettier --write --ignore-unknown\". null = detected at compile time; false = none.", "type": ["string", "boolean", "null"], "pattern": "^[A-Za-z0-9._/@:=+ -]+$" }
+          }
+        },
         "threatModel": {
           "description": "keel-rigor: a HEAVY PR's feature ledger must have a spec.md with a non-empty Threat model section. The ledger is found from a \"Feature: <slug>\" line in the PR body, a ledger path in the body, or the branch name.",
           "type": "object", "additionalProperties": false,
@@ -150,5 +165,8 @@
         }
       }
     }
+  },
+  "$defs": {
+    "limit": { "oneOf": [ { "type": "integer", "minimum": 1 }, { "type": "object", "additionalProperties": false, "properties": { "max": { "type": "integer", "minimum": 1 }, "mode": { "enum": ["fail", "warn", "off"] } } } ] }
   }
 }
