@@ -123,14 +123,15 @@ secret scan.
 ## Quick start — plugin install → keel init → keel compile
 
 ```bash
-# 1. Install (once per machine; one step on Claude Code 2.1.275+)
-/plugin install keel --marketplace sayeediftekhar/Keel
-#    or: /plugin marketplace add sayeediftekhar/Keel  then  /plugin install keel@keel
+# 1. Install (once per machine; Claude Code 2.1.295+, where gate hooks fail closed)
+/plugin marketplace add sayeediftekhar/Keel
+/plugin install keel@keel
 #    non-interactive: claude plugin marketplace add sayeediftekhar/Keel && claude plugin install keel@keel --scope project
-alias keel='node <plugin>/plugin/bin/keel.mjs'   # <plugin> = the installed plugin directory (`/plugin` shows it), or a checkout of this repo
+alias keel='node ~/.claude/plugins/marketplaces/keel/plugin/bin/keel.mjs'   # or <checkout>/plugin/bin/keel.mjs
 
 # 2. In a project
-keel init          # policy + the two CLAUDE.md blocks + CONTEXT/GLOSSARY/CODING_STANDARDS/DESIGN/.scratch
+keel init          # policy + the two CLAUDE.md blocks + CONTEXT/GLOSSARY/CODING_STANDARDS/DESIGN/LAWS/LEARNINGS,
+                   #   docs/INDEX.md, docs/ARCHITECTURE.md, .scratch/ (only the missing ones)
 #    edit keel.policy.json: approver, agentIdentity, danger paths (surfaces), checks; run `keel init` again
 keel compile       # lock, deny rules, CODEOWNERS, keel.yml, ruleset — commit in one PR marked "Rigor: HEAVY — governance"
 gh api -X POST repos/<owner>/<repo>/rulesets --input .keel/github-ruleset.json   # a repo admin, once
@@ -218,7 +219,7 @@ run tests against anything but a test database. Point
 node --test plugin/test/*.test.mjs      # or: npm test
 ```
 
-The suite (250+ tests) has the gate decision table, the red-team set from the
+The suite (430+ tests) has the gate decision table, the red-team set from the
 adversarial review (including the documented gaps), end-to-end hook runs
 against real git repos (the full batch lifecycle, forged local refs, fail-closed
 cases), compiler outputs, and doctor tests that remove each gate in turn and

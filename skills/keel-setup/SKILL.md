@@ -17,7 +17,8 @@ node "${CLAUDE_PLUGIN_ROOT}/plugin/bin/keel.mjs" <command>
 ```
 
 In the submodule layout it is `node .claude/keel/plugin/bin/keel.mjs`. The
-human can alias either as `keel`. Node 20+.
+human can alias either as `keel`; for the plugin, the marketplace clone is
+`~/.claude/plugins/marketplaces/keel/plugin/bin/keel.mjs`. Node 20+.
 
 ## Steps (done when the line is true)
 1. **Init.** Run `keel init` from the project root. *Done when:* it prints
@@ -33,7 +34,10 @@ human can alias either as `keel`. Node 20+.
    every `backPressure` name has a command. Then run `keel init` again so the
    standing authorization names the approver.
 3. **Scaffolds.** Fill `CONTEXT.md` (what/brand/phase), `DESIGN.md` (tokens),
-   `GLOSSARY.md` (terms), `CODING_STANDARDS.md` (keep the rules that fit).
+   `GLOSSARY.md` (terms), `CODING_STANDARDS.md` (keep the rules that fit),
+   `LAWS.md` (the project's Iron Laws), `LEARNINGS.md` (Trap → Rule → Why),
+   `docs/INDEX.md` (where each doc lives) and `docs/ARCHITECTURE.md`
+   (load-bearing pieces, module map).
    If the project already keeps one of these under another name (e.g.
    `docs/DOMAIN.md`), make the scaffold a one-line pointer to it — one fact,
    one home. *Done when:* each file is either filled or a pointer.
