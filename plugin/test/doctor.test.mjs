@@ -113,7 +113,8 @@ test('rulesetVerdict: require_last_push_approval on is BROKEN and names the PUT 
 });
 
 test('rulesetVerdict: any bypass actor is BROKEN, even the admin pull_request one', () => {
-  const v = rulesetVerdict(liveRuleset((rs) => { rs.bypass_actors = [{ actor_id: 5, actor_type: 'RepositoryRole', bypass_mode: 'pull_request' }]; }), livePolicy);
+  const adminBypass = { actor_id: 5, actor_type: 'RepositoryRole', bypass_mode: 'pull_request' };
+  const v = rulesetVerdict(liveRuleset((rs) => { rs.bypass_actors = [adminBypass]; }), livePolicy);
   assert.equal(v.status, 'BROKEN');
   assert.match(v.detail, /1 bypass actor/);
 });
@@ -121,9 +122,12 @@ test('rulesetVerdict: any bypass actor is BROKEN, even the admin pull_request on
 test('rulesetVerdict: a ruleset that is not Keel\'s is null (reported MISSING), not BROKEN', () => {
   assert.equal(rulesetVerdict(liveRuleset((rs) => { rs.enforcement = 'disabled'; }), livePolicy), null);
   assert.equal(rulesetVerdict(liveRuleset((rs, pr) => { pr.require_code_owner_review = false; }), livePolicy), null);
-  assert.equal(rulesetVerdict(liveRuleset((rs) => { rs.conditions.ref_name.include = ['refs/heads/release']; }), livePolicy), null);
+  const otherBranch = liveRuleset((rs) => { rs.conditions.ref_name.include = ['refs/heads/release']; });
+  assert.equal(rulesetVerdict(otherBranch, livePolicy), null);
   assert.equal(rulesetVerdict(liveRuleset((rs) => {
-    rs.rules.find((r) => r.type === 'required_status_checks').parameters.required_status_checks = [{ context: 'keel-checks' }];
+    const required = rs.rules.find((r) => r.type === 'required_status_checks').parameters;
+    required.required_status_checks = [{ context: 'keel-checks' }];
   }), livePolicy), null);
-  assert.equal(rulesetVerdict(liveRuleset((rs) => { rs.rules = rs.rules.filter((r) => r.type !== 'non_fast_forward'); }), livePolicy), null);
+  const forcePushAllowed = liveRuleset((rs) => { rs.rules = rs.rules.filter((r) => r.type !== 'non_fast_forward'); });
+  assert.equal(rulesetVerdict(forcePushAllowed, livePolicy), null);
 });
