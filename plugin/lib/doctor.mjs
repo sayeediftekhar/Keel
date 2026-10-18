@@ -154,16 +154,46 @@ function coversDefault(rs, defaultBranch) {
     && !exc.some((x) => names.includes(x) || x.includes('*'));
 }
 
-/** An active ruleset on the default branch: code-owner review, keel-checks + keel-rigor, no force-push, no bypass. */
-function rulesetEnforces(rs, policy) {
+/** Is this Keel's ruleset: active on the default branch, code-owner review, keel-checks + keel-rigor, no force-push? */
+function isKeelRuleset(rs, policy) {
   const rules = rs.rules ?? [];
   const pr = rules.find((x) => x.type === 'pull_request')?.parameters;
   const checks = (rules.find((x) => x.type === 'required_status_checks')?.parameters?.required_status_checks ?? [])
     .map((c) => c.context);
-  const covers = coversDefault(rs, policy.defaultBranch);
-  return rs.enforcement === 'active' && covers && pr?.require_code_owner_review
+  return rs.enforcement === 'active' && coversDefault(rs, policy.defaultBranch)
+    && Boolean(pr?.require_code_owner_review)
     && rules.some((x) => x.type === 'non_fast_forward')
-    && checks.includes('keel-checks') && checks.includes('keel-rigor') && !(rs.bypass_actors ?? []).length;
+    && checks.includes('keel-checks') && checks.includes('keel-rigor');
+}
+
+/** Pure: does one GitHub ruleset enforce what the policy needs? null = it is not Keel's ruleset at all;
+ *  otherwise {status, detail} for the github-ruleset line. Verified live on a public repo (D22, 2026-10-18):
+ *  require_last_push_approval at required_approving_review_count 0 blocks every PR for every author, so a
+ *  ruleset that still sets it is BROKEN, as is one with any bypass actor. */
+export function rulesetVerdict(rs, policy) {
+  if (!isKeelRuleset(rs, policy)) return null;
+  const pr = rs.rules.find((x) => x.type === 'pull_request').parameters;
+  const fix = 'update it: gh api -X PUT ' +
+    `repos/<owner>/<repo>/rulesets/${rs.id ?? '<id>'} --input .keel/github-ruleset.json`;
+  const bypass = rs.bypass_actors ?? [];
+  if (bypass.length) {
+    return {
+      status: 'BROKEN',
+      detail: `ruleset "${rs.name}" has ${bypass.length} bypass actor(s); Keel's ruleset has none — ${fix}`,
+    };
+  }
+  if (pr.require_last_push_approval) {
+    return {
+      status: 'BROKEN',
+      detail: `ruleset "${rs.name}" sets require_last_push_approval, which at review count 0 blocks every PR ` +
+        `for every author (D22) — ${fix}`,
+    };
+  }
+  return {
+    status: 'OK',
+    detail: `ruleset "${rs.name}" is active: code-owner review, keel-checks + keel-rigor required, no force-push, ` +
+      'no bypass actors, no last-push approval',
+  };
 }
 
 function rulesetItem(slug, policy) {
@@ -176,23 +206,19 @@ function rulesetItem(slug, policy) {
     return item('github-ruleset', true, 'UNPROVEN',
       `cannot read rulesets: ${list.err.trim().split('\n')[0]}${upgrade}`);
   }
-  let good = null;
+  const verdicts = [];
   for (const r of JSON.parse(list.out || '[]')) {
     const full = gh(['api', `${slug}/rulesets/${r.id}`]);
     if (!full.ok) continue;
-    const rs = JSON.parse(full.out);
-    if (rulesetEnforces(rs, policy)) {
-      good = rs;
-      break;
-    }
+    const v = rulesetVerdict(JSON.parse(full.out), policy);
+    if (v) verdicts.push(v);
   }
-  return good
-    ? item('github-ruleset', true, 'OK',
-      `ruleset "${good.name}" is active: code-owner review, keel-checks + keel-rigor required, ` +
-      'no force-push, no bypass actors')
-    : item('github-ruleset', true, 'MISSING',
-      'no active ruleset matches the policy. ' +
-      `Apply it: gh api -X POST ${slug}/rulesets --input .keel/github-ruleset.json`);
+  // One healthy ruleset is enough; otherwise explain the nearest miss rather than just "missing".
+  const best = verdicts.find((v) => v.status === 'OK') ?? verdicts[0];
+  if (best) return item('github-ruleset', true, best.status, best.detail.replace('repos/<owner>/<repo>', slug));
+  return item('github-ruleset', true, 'MISSING',
+    'no active ruleset matches the policy. ' +
+    `Apply it: gh api -X POST ${slug}/rulesets --input .keel/github-ruleset.json`);
 }
 
 function agentIdentityItem(slug, agent) {

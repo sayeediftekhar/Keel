@@ -87,11 +87,17 @@ test('no Write(path) deny rules: Claude Code only honors Edit(path) for file too
   assert.ok(!rules.some((r) => r.startsWith('Write(')));
 });
 
-test('ruleset: code-owner review, both keel checks, no bypass, no force push', () => {
+test('ruleset: code-owner review, both keel checks, no bypass, no force push, no last-push approval', () => {
   const rs = rulesetJson(normalizePolicy(BASE_POLICY));
   assert.deepEqual(rs.bypass_actors, []);
   assert.equal(rs.enforcement, 'active');
-  assert.ok(rs.rules.find((r) => r.type === 'pull_request').parameters.require_code_owner_review);
+  const pr = rs.rules.find((r) => r.type === 'pull_request').parameters;
+  assert.ok(pr.require_code_owner_review);
+  // Verified live on a public repo (D22): at count 0, require_last_push_approval blocks every PR for every
+  // author (the approver's own included) while require_code_owner_review does not block the owner's own PR.
+  assert.equal(pr.required_approving_review_count, 0);
+  assert.equal(pr.require_last_push_approval, false);
+  assert.equal(pr.dismiss_stale_reviews_on_push, true);
   assert.deepEqual(
     rs.rules.find((r) => r.type === 'required_status_checks').parameters.required_status_checks.map((c) => c.context),
     ['keel-checks', 'keel-rigor'],

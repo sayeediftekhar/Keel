@@ -136,12 +136,40 @@ guide now says so instead of claiming `keel-rigor` still separates them.
   (a `RepositoryRole` admin bypass actor in `pull_request` mode) that cannot
   be verified from a GitHub Free private repo.
 
-**Open, to verify when a ruleset is first enforced (paid plan or public
-repo):** the compiled ruleset also sets `require_code_owner_review: true`
-with `required_approving_review_count: 0`. If GitHub applies the code-owner
-rule at count 0, the approver's own danger-path PRs are still blocked at the
-GitHub layer (the sole code owner cannot approve their own PR) even though
-`keel-rigor` is green. The recorded fallback is that admin bypass actor in
-`pull_request` mode, which the agent cannot use (its identity is not a repo
-admin; the doctor checks that) and which GitHub logs — plus the matching
-`keel doctor` relaxation. Not changed here because it is unverified.
+**Verified (2026-10-18, session laughing-chatterjee, throwaway public repo
+`keel-ruleset-probe`, the compiled ruleset applied as-is, PRs authored by the
+sole code owner):** `require_code_owner_review: true` at
+`required_approving_review_count: 0` does **not** block the owner's own
+danger-path PR. The GitHub layer was blocking, but for another reason —
+see D22. The admin bypass fallback is therefore not adopted (the API does
+accept `{actor_id: 5, actor_type: RepositoryRole, bypass_mode: pull_request}`
+on a user-owned repo; whether the merge box then offers the owner a bypass
+merge was not checked, and it would not have helped LIGHT auto-merge anyway).
+
+## Last-push approval blocks everything (2026-10-18)
+
+Same probe, isolating the two review parameters with the status-check rule
+removed (two PRs by the owner: one on a CODEOWNERS path, one not):
+
+| `require_code_owner_review` | `require_last_push_approval` | owned-path PR | plain PR |
+|---|---|---|---|
+| true | true (as compiled before D22) | BLOCKED | BLOCKED |
+| true | false | CLEAN | CLEAN |
+| false | true | BLOCKED | BLOCKED |
+| false | false | CLEAN | CLEAN |
+
+`reviewDecision` was null throughout: GitHub asks for no review, yet the
+last-push rule blocks. With it on, nothing merges — not the approver's own
+governance PRs, and not the agent's LIGHT PRs that D1/D6 say auto-merge on
+green (an agent-authored PR would need a human approval of its last push).
+
+| # | Decision | Implication |
+|---|---|---|
+| D22 | The compiled ruleset sets `require_last_push_approval: false` | What the setting guarded is covered elsewhere: `dismiss_stale_reviews_on_push: true` drops an approval when new commits land, and `keel-rigor` re-runs on every `synchronize` and reads the reviews again. `keel doctor` reports a ruleset that still sets it (or that has any bypass actor) as **BROKEN** with the `gh api -X PUT …/rulesets/<id>` call that fixes it, instead of lumping it with "missing". Projects whose ruleset was applied before this must re-apply `.keel/github-ruleset.json` with that PUT. |
+
+**Still open:** whether GitHub enforces code-owner review at count 0 for a
+*non-owner* author (the agent). The probe had one account, so it could not
+tell "the owner's own review is implied" from "the rule is inert at count 0".
+Keel does not depend on the answer: `keel-rigor` is a required check and
+refuses a HEAVY PR by any other author until the approver's APPROVED review
+exists. Verify when the GitHub App identity (D15) is wired.
