@@ -46,7 +46,7 @@ alias keel='node /path/to/keel/plugin/bin/keel.mjs'
 3. Install it on the repos Keel will govern.
 4. Point the agent's `gh` at the App instead of your account (an installation token, e.g. via a token-helper `gh` extension). Verify with `gh api user` or by checking who authored the next PR: it must be `sayeed-keel[bot]`, not you. Until this is done, `keel doctor` reports the identity as unproven, and GitHub can't tell your approval from the agent's.
 
-> Cloud sessions (Claude Code on the web) push through the Claude GitHub connection. Check which identity a cloud session's PRs show before relying on "HEAVY needs the approver". If it's you, the `keel-rigor` check still requires *your* approval review, but GitHub's own review rules can't separate you from the agent.
+> Cloud sessions (Claude Code on the web) push through the Claude GitHub connection. Check which identity a cloud session's PRs show before relying on "HEAVY needs the approver". If it's you, nothing can separate you from the agent: GitHub's review rules can't, and `keel-rigor` takes a HEAVY PR you authored as yours and passes it (D21). Wire the App first; `keel doctor` reports the identity as unproven until then.
 
 ---
 
@@ -151,7 +151,10 @@ This writes `.keel/policy.lock.json`, deny rules in `.claude/settings.json`, a
 Keel block in `.github/CODEOWNERS`, `.github/workflows/keel.yml`,
 `.keel/ci/keel-ci.mjs` and `.keel/github-ruleset.json`. Read the notes it
 prints. Commit everything in **one PR** marked `Rigor: HEAVY — governance`,
-and merge it yourself.
+and merge it yourself. `keel-rigor` passes a HEAVY PR *you* authored without
+a review: GitHub forbids approving your own PR, so your authorship stands as
+the approval (D21) and nobody else reviews it. PRs the agent authors still
+wait for your approval.
 
 ### 1.5 Apply the ruleset (repo admin, once)
 
@@ -160,6 +163,8 @@ gh api -X POST repos/<owner>/<repo>/rulesets --input .keel/github-ruleset.json
 ```
 
 The ruleset requires `keel-checks` and `keel-rigor`, code-owner review on danger paths, no force-push and no bypass. If you already require other CI jobs, add them in GitHub's ruleset UI afterwards (the compiler only knows Keel's two).
+
+> Not yet verified on an enforced ruleset: whether GitHub's code-owner review also blocks a danger-path PR *you* authored (you are the sole code owner and can't approve your own PR). If it does, see the fallback recorded under D21 in [DECISIONS.md](DECISIONS.md).
 
 ### 1.6 Tell the agent what it may do
 

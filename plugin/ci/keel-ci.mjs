@@ -49,8 +49,40 @@ export function globToRegExp(pattern) {
   return new RegExp(`^${re}$`);
 }
 
-/** Pure: given changed files, a PR body, the policy and the PR's reviews, return {ok, message}. */
-export function rigorVerdict(changed, body, policy, reviews = []) {
+/** HEAVY needs the approver: their APPROVED review, or (D21) their own authorship. */
+function heavyVerdict(policy, reviews, author) {
+  const approver = policy.approver.github;
+  const who = String(author ?? '').trim().toLowerCase();
+  // D21: GitHub forbids approving your own PR, so HEAVY work the approver authored
+  // is taken as approved by its author. The agent's identity never equals the
+  // approver's (policy validation), so an agent-authored PR always waits below.
+  const agent = String(policy.agentIdentity?.github ?? '').toLowerCase();
+  if (who && who === approver.toLowerCase() && who !== agent) {
+    return {
+      ok: true,
+      message: `HEAVY: authored by the approver @${approver}. GitHub forbids self-approval, so the author's ` +
+        'own review stands as the approval (D21); nobody else has reviewed this PR.',
+    };
+  }
+  // Latest review per reviewer; the approver's must be APPROVED.
+  const latest = new Map();
+  for (const r of reviews) {
+    if (r?.user?.login && ['APPROVED', 'CHANGES_REQUESTED', 'DISMISSED'].includes(r.state)) {
+      latest.set(r.user.login.toLowerCase(), r.state);
+    }
+  }
+  if (latest.get(approver.toLowerCase()) === 'APPROVED') {
+    return { ok: true, message: `HEAVY: approved by @${approver}.` };
+  }
+  return {
+    ok: false,
+    message: `HEAVY: waiting for @${approver} to approve. This check re-runs when they review.`,
+  };
+}
+
+/** Pure: given changed files, a PR body, the policy, the PR's reviews and the PR author's
+ *  login, return {ok, message}. */
+export function rigorVerdict(changed, body, policy, reviews = [], author = '') {
   const rec = /^[\s>*-]*`?\s*Rigor:\s*(FAST|LIGHT|HEAVY)\b/im.exec(body ?? '');
   if (!rec) {
     return {
@@ -69,22 +101,7 @@ export function rigorVerdict(changed, body, policy, reviews = []) {
       if (globs.some((g) => globToRegExp(g).test(f))) { danger.push(`${f} (${s})`); break; }
     }
   }
-  if (level === 'HEAVY') {
-    // Latest review per reviewer; the approver's must be APPROVED.
-    const latest = new Map();
-    for (const r of reviews) {
-      if (r?.user?.login && ['APPROVED', 'CHANGES_REQUESTED', 'DISMISSED'].includes(r.state)) {
-        latest.set(r.user.login.toLowerCase(), r.state);
-      }
-    }
-    if (latest.get(policy.approver.github.toLowerCase()) === 'APPROVED') {
-      return { ok: true, message: `HEAVY: approved by @${policy.approver.github}.` };
-    }
-    return {
-      ok: false,
-      message: `HEAVY: waiting for @${policy.approver.github} to approve. This check re-runs when they review.`,
-    };
-  }
+  if (level === 'HEAVY') return heavyVerdict(policy, reviews, author);
   if (danger.length) {
     return {
       ok: false,
@@ -111,7 +128,7 @@ function rigor() {
       reviews = JSON.parse(`[${out.replace(/\]\s*\[/g, ',').replace(/^\[|\]$/g, '')}]`);
     } catch (e) { console.log(`::warning::couldn't read reviews: ${e.message}`); }
   }
-  const v = rigorVerdict(changed, process.env.PR_BODY ?? '', policy, reviews);
+  const v = rigorVerdict(changed, process.env.PR_BODY ?? '', policy, reviews, process.env.PR_AUTHOR ?? '');
   const tm = threatModel(policy);
   if (tm?.mode === 'fail') fail(v.ok ? tm.message : `${tm.message}\n${v.message}`);
   if (tm) console.log(`::warning::${tm.message}`);
