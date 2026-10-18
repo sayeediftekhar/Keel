@@ -94,7 +94,7 @@ own `backPressure` ladder, so they are part of a required check (D17/D18).
 
 | Check (`quality.*`) | Default | Runs |
 |---|---|---|
-| `audit` | `fail` at `high` | the lockfile's audit (npm, pnpm, Yarn classic/Berry), or `quality.audit.command` for other stacks |
+| `audit` | `fail` at `high` | `keel-ci.mjs audit`: the lockfile's audit as JSON (npm, pnpm, Yarn classic/Berry), dev dependencies included. `allow` lists reviewed exceptions, `{id, reason, reviewBy}` with a GHSA id (D23): an expired one fails, one no longer reported warns. `quality.audit.command` replaces it for other stacks |
 | `secrets` | `fail`, builtin | `keel-ci.mjs secrets`: the diff's added lines against the secrets gate's credential shapes (a test keeps the two regexes identical); `allowPaths` globs for fixtures. Opt-in `engine: gitleaks` (8.30.1, sha256-checked) |
 | `sast` | `off` | semgrep 1.178.0 + `semgrep/semgrep-rules` at a pinned commit, in a clean worktree, only new findings on PRs |
 | `architecture` | `fail` | dependency-cruiser 18.4.0 with the project's own config; without one, a compile note and a CI notice |

@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 // Keel CI checks. Copied into a project as .keel/ci/keel-ci.mjs by
 // `keel compile`; self-contained (Node built-ins, plus its sibling
-// .keel/ci/limits.mjs for the limits check).
+// .keel/ci/limits.mjs and .keel/ci/audit.mjs for the limits and audit checks).
 //
 //   node .keel/ci/keel-ci.mjs rigor    PR rigor record must match the diff
 //   node .keel/ci/keel-ci.mjs budget   always-on context stays within budget
 //   node .keel/ci/keel-ci.mjs phantom  docs name only paths that exist
 //   node .keel/ci/keel-ci.mjs secrets  no credential literal in the diff's added lines
 //   node .keel/ci/keel-ci.mjs limits   changed files don't get worse (clean-code ratchet, limits.mjs)
+//   node .keel/ci/keel-ci.mjs audit <pm> dependency audit with the policy's reviewed exceptions (audit.mjs)
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -383,5 +384,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
   else if (cmd === 'secrets') secrets();
   else if (cmd === 'limits') {
     import('./limits.mjs').then((m) => m.main()).catch((e) => fail(`limits: ${e.message}`));
-  } else { console.log('usage: keel-ci.mjs rigor|budget|phantom|secrets|limits'); process.exit(2); }
+  } else if (cmd === 'audit') {
+    import('./audit.mjs').then((m) => m.main(process.argv[3])).catch((e) => fail(`audit: ${e.message}`));
+  } else { console.log('usage: keel-ci.mjs rigor|budget|phantom|secrets|limits|audit'); process.exit(2); }
 }

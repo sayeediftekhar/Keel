@@ -66,7 +66,7 @@ missed. A floor that CI runs is the check a model can't talk past.
 | # | Decision | Implication |
 |---|---|---|
 | D17 | `keel.policy.json` gains a `quality` section; the compiled `keel-checks` job runs it **after** the project's own `backPressure` ladder. Each check has `mode: fail \| warn \| off` (`warn` = the step runs with `continue-on-error`) and anything it installs is pinned to an exact version | Defaults give every governed project a dependency audit and a diff secret scan with no setup; turning one off is a policy edit, so a governance PR the approver merges |
-| D17a | **audit** — default `fail` at `level: high`. The command follows the lockfile: npm → `npm audit --audit-level=high`, pnpm → `pnpm audit --audit-level high`, Yarn Berry → `yarn npm audit --all --recursive --severity high`, Yarn classic → `yarn audit` with its exit bitmask cut at the level. Other stacks set `quality.audit.command`; with neither, the step warns and `keel compile` says so | Dev dependencies count (CI tooling is attack surface). A project adopting Keel with known high advisories goes red until it upgrades or the approver sets `warn` |
+| D17a | **audit** — default `fail` at `level: high`. The command follows the lockfile: npm → `npm audit --audit-level=high`, pnpm → `pnpm audit --audit-level high`, Yarn Berry → `yarn npm audit --all --recursive --severity high`, Yarn classic → `yarn audit` with its exit bitmask cut at the level. Other stacks set `quality.audit.command`; with neither, the step warns and `keel compile` says so | Dev dependencies count (CI tooling is attack surface). A project adopting Keel with known high advisories goes red until it upgrades or the approver sets `warn` (since D23: or lists a reviewed exception in `quality.audit.allow`) |
 | D17b | **secrets** — default `fail`, engine `builtin`: `keel-ci.mjs secrets` scans the **added lines** of the diff (PR: base...head; push: before..sha; first push: the whole tree) for the same shapes as the write-time secrets gate (`SECRET_LITERAL`, kept identical by a test). Exceptions are policy globs (`quality.secrets.allowPaths`), never inline markers the agent could type. Opt-in engine `gitleaks` downloads gitleaks 8.30.1 checked against a pinned sha256 (overriding the version requires the matching sha256) | Zero install, no network for the default; the log shows file:line and an 8-character prefix, never the value. gitleaks buys broader rules at a download per run |
 | D17c | **sast** — semgrep, **opt-in** (`off` by default: ~1 min install per run). Pinned twice: `semgrep==1.178.0` via `pipx run`, and the rules from `semgrep/semgrep-rules` fetched at commit `a84ff9c…` (content-addressed, not the moving registry). Rule directories follow the detected stack (or `quality.sast.rules`); a project's own `.semgrep.yml` / `.semgrep/` is added. PRs scan with `--baseline-commit`, so only new findings fail | Legacy findings don't block adoption; new ones do. Registry packs (`p/…`) are deliberately not the default because they can change under a pinned version |
 | D17d | **architecture** — dependency-cruiser 18.4.0 with the project's own config (`.dependency-cruiser.{js,cjs,mjs,json}`), detected at compile time, so deleting the config fails CI rather than silently skipping. No config → `keel compile` notes it and the step prints a notice | Keel doesn't invent architecture rules; it enforces the ones the project wrote. Projects that want the rules agent-proof add the config to `governancePaths` |
@@ -173,3 +173,46 @@ tell "the owner's own review is implied" from "the rule is inert at count 0".
 Keel does not depend on the answer: `keel-rigor` is a required check and
 refuses a HEAVY PR by any other author until the approver's APPROVED review
 exists. Verify when the GitHub App identity (D15) is wired.
+
+## Reviewed audit exceptions (2026-10-18)
+
+D17a fails the build on any high advisory, dev dependencies included, and the
+only ways out were `quality.audit.mode: warn` (which hides every advisory) or a
+custom `quality.audit.command`. The pilot (sugabalance-website, PR #23) hit
+GHSA-vfj7-8cjw-p6xm: braces ≤ 3.0.3, no fixed version published, reached only
+through `eslint-config-next`'s lint tooling. Every npm project using
+`eslint-config-next` hits it. The pilot solved it with its own script
+(`scripts/audit-high.mjs` plus `audit-allowlist.json`, both added to
+`governancePaths`); D23 builds that into Keel.
+
+| # | Decision | Implication |
+|---|---|---|
+| D23 | **Audit exceptions are policy.** `quality.audit.allow` lists `{id, reason, reviewBy}` in `keel.policy.json`: a GHSA id, why it doesn't apply or can't be fixed yet, and a date (`YYYY-MM-DD`). `normalizePolicy` checks each entry: a GHSA id (every npm-registry advisory has one; CVE and numeric npm ids are refused), listed once, a non-blank reason, a real calendar date, no other keys. The compiled audit step is `node .keel/ci/keel-ci.mjs audit <npm\|pnpm\|yarn\|yarn-berry>`, which runs the package manager's audit as JSON (`npm audit --json --include=dev --include=optional --include=peer`, `pnpm audit --json`, `yarn audit --json`, `yarn npm audit --all --recursive --json`) and judges it in `.keel/ci/audit.mjs`: an advisory at `level` or above **fails** unless an entry allows it; an entry whose `reviewBy` has passed (UTC) **fails** while its advisory is still reported; an entry no longer reported at the level **warns** ("remove it"); each allowed advisory prints a `::notice::` with its reason on every run. Output that isn't the expected JSON, or a non-zero exit with no advisories, fails. A severity Keel doesn't know counts as critical. `quality.audit.command` still replaces all of it (`keel compile` notes that the exceptions then don't apply) | Same as the secrets floor (D17b): exceptions are policy, never inline markers or project files the agent could edit; `keel.policy.json` is already a governance path, so only the approver adds or renews one, and the PR doing it is HEAVY. Expiry makes every exception come back for review. The step name shows the count (`quality / dependency audit (npm, high+, 1 allowed)`). Projects drop their own audit scripts. |
+
+**Also closed:** `npm audit` reads `omit` from the project's `.npmrc`, so an
+`omit=dev` line there (not a governance path) silently dropped dev
+dependencies from D17a's audit. The JSON command passes `--include=dev`
+(checked on npm 10.9). All four JSON shapes were captured from real runs on
+2026-10-18 (npm 10.9, pnpm 11.5, Yarn 1.22, 3.8 and 4.5) and the fixtures in
+`plugin/test/audit.test.mjs` are trimmed from them.
+
+**No lock churn:** a policy without exceptions normalizes exactly as before
+(`allow` appears in the lock only when non-empty), so upgrading Keel does not
+break existing locks. Projects pick up the new step with `keel compile`.
+
+**Rejected:**
+- *a separate `audit-allowlist.json`* (the pilot's layout) — a second
+  governance file every project must remember to list in `governancePaths`;
+  the policy file already is one, and `normalizePolicy` validates it at compile
+  time instead of in CI.
+- *a maximum `reviewBy` horizon* — the approver sets the date; a cap would
+  only make them renew without new information. Revisit if exceptions start
+  carrying far-future dates.
+- *failing on an expired entry whose advisory is gone* — it allows nothing, so
+  it warns like any other unused entry; failing would turn every PR red for a
+  cleanup.
+
+**Not covered:** package managers' own ignore lists (pnpm's
+`auditConfig.ignoreGhsas` / `ignoreCves`, Yarn 4's `npmAuditIgnoreAdvisories`)
+filter advisories before Keel sees them, and they live in files that are not
+governance paths by default. Add those files to `governancePaths`.

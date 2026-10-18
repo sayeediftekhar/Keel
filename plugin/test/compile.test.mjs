@@ -6,7 +6,7 @@ import os from 'node:os';
 import { makeRepo, BASE_POLICY, write } from './helpers.mjs';
 import { compile, denyRules, rulesetJson, workflowYaml, qualityFloor } from '../lib/compile.mjs';
 import { normalizePolicy, PolicyError, QUALITY_PINS } from '../lib/policy.mjs';
-import { moduleMap } from '../lib/quality.mjs';
+import { moduleMap, qualityFiles } from '../lib/quality.mjs';
 import { formatCommand } from '../lib/format.mjs';
 
 test('policy validation rejects an agent holding the approval stamp', () => {
@@ -140,7 +140,9 @@ test('quality defaults: a project compiled with defaults gets audit + secret sca
   assert.match(
     keelChecks(y), /- uses: actions\/checkout@v4\n\s+with:\n\s+fetch-depth: 0/, 'the diff scan needs history',
   );
-  assert.match(y, /- name: quality \/ dependency audit \(npm, high\+\)\n\s+run: \|\n\s+npm audit --audit-level=high\n/);
+  assert.match(
+    y, /- name: quality \/ dependency audit \(npm, high\+\)\n\s+run: \|\n\s+node \.keel\/ci\/keel-ci\.mjs audit npm\n/,
+  );
   assert.match(y, new RegExp(
     String.raw`- name: quality \/ secret scan of the diff\n\s+env:\n` +
     String.raw`\s+BASE_SHA: \$\{\{ github\.event\.pull_request\.base\.sha \}\}\n\s+HEAD_SHA: .*\n` +
@@ -157,24 +159,51 @@ test('quality defaults: a project compiled with defaults gets audit + secret sca
   assert.equal(lock.policy.quality.secrets.gitleaks.sha256, QUALITY_PINS.gitleaks.sha256);
 });
 
-test('quality audit follows the lockfile, and the level maps per package manager', () => {
+test('quality audit follows the lockfile: keel-ci.mjs runs that package manager\'s audit (D23)', () => {
   const cases = [
-    [{ 'package.json': '{}', 'pnpm-lock.yaml': '' }, 'pnpm audit --audit-level critical', 'pnpm'],
-    [
-      { 'package.json': '{}', 'yarn.lock': '', '.yarnrc.yml': '' },
-      'yarn npm audit --all --recursive --severity critical',
-      'yarn-berry',
-    ],
-    [{ 'package.json': '{}', 'yarn.lock': '' }, 'yarn audit --level critical || code=$?', 'yarn'],
+    [{ 'package.json': '{}', 'pnpm-lock.yaml': '' }, 'pnpm'],
+    [{ 'package.json': '{}', 'yarn.lock': '', '.yarnrc.yml': '' }, 'yarn-berry'],
+    [{ 'package.json': '{}', 'yarn.lock': '' }, 'yarn'],
+    [{ 'package.json': '{}' }, 'npm'],
   ];
-  for (const [files, cmd, label] of cases) {
+  for (const [files, pm] of cases) {
     const { dir, policy } = fixture(files, { audit: { level: 'critical' } });
     const y = workflowYaml(dir, policy);
-    assert.ok(y.includes(cmd), `${label}: ${cmd}`);
-    assert.ok(y.includes(`quality / dependency audit (${label}, critical+)`), label);
+    assert.match(y, new RegExp(String.raw`- name: quality \/ dependency audit \(${pm}, critical\+\)\n\s+run: \|\n` +
+      String.raw`\s+node \.keel\/ci\/keel-ci\.mjs audit ${pm}\n`), pm);
+    assert.ok(!/(npm|pnpm|yarn) audit --/.test(y), `${pm}: the level is applied by keel-ci.mjs, not the command`);
   }
-  const { dir, policy } = fixture({ 'package.json': '{}', 'yarn.lock': '' });
-  assert.match(workflowYaml(dir, policy), /test \$\(\(code & 24\)\) -eq 0/, 'yarn classic: high = the 8 and 16 bits');
+  const { dir, policy } = fixture({ 'package.json': '{}', 'package-lock.json': '{}' });
+  assert.equal(qualityFiles(dir, policy)['.keel/ci/audit.mjs'], fs.readFileSync(
+    new URL('../ci/audit.mjs', import.meta.url), 'utf8',
+  ), 'keel-ci.mjs audit imports its sibling audit.mjs');
+});
+
+const ALLOW = [
+  { id: 'GHSA-vfj7-8cjw-p6xm', reason: 'dev-only lint tooling; no fixed version', reviewBy: '2026-11-18' },
+];
+
+test('quality audit allow: the exceptions go into the lock and the step name; a custom command or ' +
+  'no package manager gets a note that they do not apply', () => {
+  const { dir, policy } = fixture({ 'package.json': '{}', 'package-lock.json': '{}' }, { audit: { allow: ALLOW } });
+  assert.deepEqual(policy.quality.audit.allow, ALLOW);
+  const y = workflowYaml(dir, policy);
+  assert.match(y, /- name: quality \/ dependency audit \(npm, high\+, 1 allowed\)\n\s+run: \|\n\s+node .+ audit npm\n/);
+  assert.equal(qualityFloor(dir, policy).notes.filter((n) => /quality\.audit/.test(n)).length, 0);
+  const custom = fixture({ 'package.json': '{}', 'package-lock.json': '{}' },
+    { audit: { command: 'node scripts/audit-high.mjs', allow: ALLOW } });
+  assert.match(
+    workflowYaml(custom.dir, custom.policy), /dependency audit \(custom, high\+\)\n\s+run: \|\n\s+node scripts/,
+  );
+  assert.ok(qualityFloor(custom.dir, custom.policy).notes.some((n) => /allow.*command replaces it/.test(n)));
+  const bare = fixture({ 'requirements.txt': 'flask\n' }, { audit: { allow: ALLOW } });
+  assert.ok(qualityFloor(bare.dir, bare.policy).notes.some((n) => /allow.*none runs here/.test(n)));
+});
+
+test('quality audit allow: a policy without exceptions normalizes exactly as before D23 (no lock churn)', () => {
+  const before = { mode: 'fail', level: 'high', command: null };
+  assert.deepEqual(normalizePolicy(BASE_POLICY).quality.audit, before);
+  assert.deepEqual(normalizePolicy({ ...BASE_POLICY, quality: { audit: { allow: [] } } }).quality.audit, before);
 });
 
 test('quality audit: no JavaScript → a warning step and a note; a custom command replaces detection', () => {
@@ -281,6 +310,15 @@ test('quality policy validation: unknown keys, bad modes, unpinned gitleaks, pat
   bad({ lint: {} }, /unknown key "quality\.lint"/);
   bad({ audit: { mode: 'strict' } }, /quality\.audit\.mode must be one of fail, warn, off/);
   bad({ audit: { level: 'severe' } }, /quality\.audit\.level/);
+  bad({ audit: { allow: ALLOW[0] } }, /quality\.audit\.allow must be an array/);
+  bad({ audit: { allow: [{ ...ALLOW[0], id: 'CVE-2024-4068' }] } }, /allow\[0\]\.id must be a GitHub advisory id/);
+  bad({ audit: { allow: [{ ...ALLOW[0], reason: '  ' }] } }, /allow\[0\]\.reason must say why/);
+  bad({ audit: { allow: [{ ...ALLOW[0], reviewBy: '2026-02-30' }] } }, /allow\[0\]\.reviewBy must be a date/);
+  bad({ audit: { allow: [{ id: ALLOW[0].id, reason: 'x' }] } }, /allow\[0\]\.reviewBy must be a date/);
+  bad({ audit: { allow: [{ ...ALLOW[0], approvedBy: 'me' }] } },
+    /unknown key "quality\.audit\.allow\[0\]\.approvedBy"/);
+  bad({ audit: { allow: [ALLOW[0], { ...ALLOW[0], id: 'ghsa-VFJ7-8cjw-p6xm' }] } }, /allow\[1\]\.id: .* listed twice/);
+  bad({ audit: { allow: [null] } }, /allow\[0\] must be/);
   bad({ secrets: { engine: 'trufflehog' } }, /quality\.secrets\.engine/);
   bad({ secrets: { gitleaks: { version: '8.30.2' } } }, /sha256/);
   bad({ secrets: { gitleaks: { version: 'latest', sha256: 'a'.repeat(64) } } }, /quality\.secrets\.gitleaks/);

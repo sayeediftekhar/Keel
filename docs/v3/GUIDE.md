@@ -116,7 +116,7 @@ merges.
 
 | Check | Default | What runs |
 |---|---|---|
-| `quality.audit` | `fail`, `level: high` | the lockfile's audit: `npm audit --audit-level=high`, `pnpm audit`, `yarn npm audit` (Berry) or `yarn audit` (classic). Not JavaScript? Set `command`, e.g. `pipx run --spec pip-audit==2.9.0 pip-audit -r requirements.txt` |
+| `quality.audit` | `fail`, `level: high` | `keel-ci.mjs audit`: the lockfile's audit as JSON (npm, pnpm, Yarn classic or Berry), dev dependencies included; fails on any advisory at the level unless `allow` lists it (below). Not JavaScript? Set `command`, e.g. `pipx run --spec pip-audit==2.9.0 pip-audit -r requirements.txt`; it replaces Keel's audit, `allow` included |
 | `quality.secrets` | `fail`, `engine: builtin` | `keel-ci.mjs secrets`: the added lines of the diff, checked for the same credential shapes the write-time secrets gate blocks. Fixture paths go in `allowPaths`. `engine: gitleaks` downloads gitleaks 8.30.1 and checks its sha256 first |
 | `quality.sast` | `off` (opt-in) | semgrep 1.178.0 with `semgrep/semgrep-rules` at a pinned commit (directories from your stack, or `rules`), plus your `.semgrep.yml`. PRs report only new findings. Costs about a minute per run |
 | `quality.architecture` | `fail` | dependency-cruiser 18.4.0 with your `.dependency-cruiser.*` config. No config: `keel compile` says so and nothing is checked; write the rules (`npx dependency-cruiser --init`) and recompile |
@@ -134,8 +134,32 @@ fetch it needs is the one the secret scan already does. SAST and
 dependency-cruiser stay opt-in.
 
 A project compiled with the defaults gets the audit and the secret scan with no
-other setup. If the first run finds high advisories, upgrade the dependencies,
-or set `quality.audit.mode` to `warn` while you do and say so in the PR.
+other setup. If the first run finds high advisories, upgrade the dependencies.
+
+**An advisory you can't fix yet** (no patched version, or it only reaches dev
+tooling) goes in `quality.audit.allow` (D23), not `mode: warn`, which would hide
+every other advisory too:
+
+```json
+"quality": {
+  "audit": {
+    "allow": [
+      {
+        "id": "GHSA-vfj7-8cjw-p6xm",
+        "reason": "braces <=3.0.3 has no fixed version; only eslint-config-next's lint tooling reaches it",
+        "reviewBy": "2026-11-18"
+      }
+    ]
+  }
+}
+```
+
+The id is the GHSA id the failing run printed. The entry allows that advisory
+through `reviewBy`; after that date the check fails until the approver renews it
+(new date, reason still true) or the dependency is upgraded. An entry the audit
+no longer reports gives a warning: remove it. Each allowed advisory and its
+reason are printed on every run. `keel.policy.json` is a governance file, so
+adding an entry is a HEAVY PR the approver merges; run `keel compile` after it.
 
 ### 1.3 Test-database guard
 

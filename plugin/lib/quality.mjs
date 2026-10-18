@@ -1,7 +1,7 @@
 // The quality floor: the checks `keel compile` adds to the keel-checks job after
 // the project's own ladder (D17-D19: audit, secret scan, SAST, architecture) and
 // the clean-code limits ratchet (D20e), plus the files those checks read:
-// .keel/ci/limits.mjs, .keel/ci/eslint.limits.mjs and .keel/ci/modules.json.
+// .keel/ci/limits.mjs, .keel/ci/audit.mjs, .keel/ci/eslint.limits.mjs and .keel/ci/modules.json.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -14,6 +14,8 @@ export const CI_SCRIPT_SRC = path.join(HERE, '..', 'ci', 'keel-ci.mjs');
 export const CI_SCRIPT_DST = '.keel/ci/keel-ci.mjs';
 export const LIMITS_SRC = path.join(HERE, '..', 'ci', 'limits.mjs');
 export const LIMITS_DST = '.keel/ci/limits.mjs';
+export const AUDIT_SRC = path.join(HERE, '..', 'ci', 'audit.mjs');
+export const AUDIT_DST = '.keel/ci/audit.mjs';
 export const ESLINT_LIMITS = '.keel/ci/eslint.limits.mjs';
 export const MODULES = '.keel/ci/modules.json';
 
@@ -40,8 +42,6 @@ const DIFF_ENV = 'env:\n' +
   '  BASE_SHA: ${{ github.event.pull_request.base.sha }}\n' +
   '  HEAD_SHA: ${{ github.event.pull_request.head.sha }}\n' +
   '  BEFORE_SHA: ${{ github.event.before }}';
-// yarn audit exits with a bitmask: 2 low … 16 critical
-const YARN_CLASSIC_MASK = { low: 30, moderate: 28, high: 24, critical: 16 };
 const DEPCRUISE_CONFIGS = [
   '.dependency-cruiser.js', '.dependency-cruiser.cjs', '.dependency-cruiser.mjs', '.dependency-cruiser.json',
 ];
@@ -51,18 +51,19 @@ function qualityStep(name, mode, body) {
 }
 const runBlock = (cmd) => `run: |\n${indent(cmd, 2)}`;
 
+// D23: keel-ci.mjs runs the package manager's audit as JSON and applies quality.audit.allow.
+const KEEL_AUDIT = { npm: 'npm', 'npm-unlocked': 'npm', pnpm: 'pnpm', yarn: 'yarn', 'yarn-berry': 'yarn-berry' };
+
 function auditStep(projectDir, q) {
   if (q.mode === 'off') return { step: null, notes: [] };
   const pm = packageManager(projectDir);
-  const cmd = q.command ?? {
-    npm: `npm audit --audit-level=${q.level}`,
-    'npm-unlocked': `npm audit --audit-level=${q.level}`,
-    pnpm: `pnpm audit --audit-level ${q.level}`,
-    'yarn-berry': `yarn npm audit --all --recursive --severity ${q.level}`,
-    yarn: `code=0; yarn audit --level ${q.level} || code=$?\n` +
-      '# yarn classic exits with a severity bitmask (2 low, 4 moderate, 8 high, 16 critical)\n' +
-      `test $((code & ${YARN_CLASSIC_MASK[q.level]})) -eq 0`,
-  }[pm];
+  const keelAudit = q.command === null && Object.hasOwn(KEEL_AUDIT, pm ?? '');
+  const cmd = q.command ?? (keelAudit ? `node ${CI_SCRIPT_DST} audit ${KEEL_AUDIT[pm]}` : null);
+  const exceptions = q.allow?.length ?? 0;
+  const notes = exceptions && !keelAudit
+    ? [`quality.audit.allow: its ${exceptions} exception(s) apply only to Keel's own npm, pnpm and Yarn audit; ` +
+      (q.command ? 'quality.audit.command replaces it, so that command must apply its own.' : 'none runs here.')]
+    : [];
   if (!cmd) {
     return {
       step: qualityStep('quality / dependency audit', 'warn', runBlock(
@@ -72,16 +73,18 @@ function auditStep(projectDir, q) {
       notes: [
         'quality.audit: no npm, pnpm or Yarn lockfile and no quality.audit.command, so CI audits no dependencies. ' +
           'Set the command for this stack.',
+        ...notes,
       ],
     };
   }
+  const allowed = keelAudit && exceptions ? `, ${exceptions} allowed` : '';
   return {
     step: qualityStep(
-      `quality / dependency audit (${q.command ? 'custom' : pm.replace('-unlocked', '')}, ${q.level}+)`,
+      `quality / dependency audit (${q.command ? 'custom' : pm.replace('-unlocked', '')}, ${q.level}+${allowed})`,
       q.mode,
       runBlock(cmd),
     ),
-    notes: [],
+    notes,
   };
 }
 
@@ -304,6 +307,7 @@ export function qualityFiles(projectDir, policy) {
   const files = {
     [CI_SCRIPT_DST]: fs.readFileSync(CI_SCRIPT_SRC, 'utf8'),
     [LIMITS_DST]: fs.readFileSync(LIMITS_SRC, 'utf8'),
+    [AUDIT_DST]: fs.readFileSync(AUDIT_SRC, 'utf8'),
   };
   if (exists(projectDir, 'package.json')) files[ESLINT_LIMITS] = eslintLimitsConfig(policy.quality.limits);
   const map = readModuleMap(projectDir);
