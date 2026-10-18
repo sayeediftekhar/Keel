@@ -10,8 +10,9 @@ MCP servers, keeps them **unmodified**, decides when to reach for each one
 under a single rigor standard, and enforces the gates that standard needs.
 
 ```
-/plugin install keel --marketplace sayeediftekhar/Keel   # once per machine
-keel init && keel compile                                # per project; then keel doctor
+/plugin marketplace add sayeediftekhar/Keel   # once per machine
+/plugin install keel@keel
+keel init && keel compile                     # per project; then keel doctor
 ```
 
 See **[HOWTO.md](HOWTO.md)** for the simple per-project/per-session workflow,
@@ -68,11 +69,12 @@ them. Keel also carries builder-stack's architecture layer: the seven-rung
 **Plugin (the default).** Once per machine:
 
 ```
-/plugin install keel --marketplace sayeediftekhar/Keel
+/plugin marketplace add sayeediftekhar/Keel
+/plugin install keel@keel
+alias keel='node ~/.claude/plugins/marketplaces/keel/plugin/bin/keel.mjs'
 ```
 
-Then, per project (`keel` = `node <plugin>/plugin/bin/keel.mjs`; `/plugin`
-shows the directory):
+Then, per project:
 
 ```bash
 keel init       # keel.policy.json + Tier-1 rules and standing authorization in CLAUDE.md + CONTEXT/GLOSSARY/CODING_STANDARDS/DESIGN/LAWS/LEARNINGS/docs/.scratch

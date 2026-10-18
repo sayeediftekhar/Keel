@@ -3,7 +3,9 @@
 //
 //   keel init [--no-scaffold] [--name <project>]
 //                                     starter keel.policy.json + the keel-v2 rules and standing-authorization
-//                                     blocks in CLAUDE.md + CONTEXT/GLOSSARY/CODING_STANDARDS/DESIGN/.scratch scaffolds
+//                                     blocks in CLAUDE.md + scaffolds (only if absent): CONTEXT, GLOSSARY,
+//                                     CODING_STANDARDS, DESIGN, LAWS, LEARNINGS, docs/INDEX, docs/ARCHITECTURE,
+//                                     .scratch/
 //   keel compile [--dry-run]          policy → lock, deny rules, CODEOWNERS, CI, ruleset
 //   keel doctor [--offline] [--json] [--allow-unproven]
 //   keel batch create <id> <migration files…> [--hours N]

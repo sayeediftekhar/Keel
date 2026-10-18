@@ -10,11 +10,12 @@ the submodule layout).
 ## Once per machine
 
 ```
-/plugin install keel --marketplace sayeediftekhar/Keel
+/plugin marketplace add sayeediftekhar/Keel
+/plugin install keel@keel
 ```
 
-and an alias for the CLI (`/plugin` shows the plugin directory):
-`alias keel='node <plugin>/plugin/bin/keel.mjs'`. Create the agent's GitHub
+and an alias for the CLI:
+`alias keel='node ~/.claude/plugins/marketplaces/keel/plugin/bin/keel.mjs'`. Create the agent's GitHub
 App once ([docs/v3/GUIDE.md §0](docs/v3/GUIDE.md)).
 
 ## Once per project (setup)

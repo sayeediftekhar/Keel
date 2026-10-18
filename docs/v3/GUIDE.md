@@ -5,7 +5,7 @@ Keel has two parts. Read this first so the steps make sense.
 | Part | What it is | Where | State |
 |---|---|---|---|
 | **Keel rules** | Instructions the agent reads: the rigor router (FAST/LIGHT vs HEAVY), laws, the dev pipeline, lane routers | `skills/`, shipped by the plugin as `/keel:<lane>`; the always-on Tier-1 router goes into `CLAUDE.md` via `keel init`; the full router + LAWS load on demand as the `keel-v2` skill (D20a) | Merged (D2, 2026-10-17): the card-set's governance (human confirms HEAVY, eleven surfaces, laws) + Model B's lanes and FAST economy, one rule set. |
-| **Keel gates** (v3) | Enforcement the agent can't talk past: hooks, deny rules, CODEOWNERS, CI, a GitHub ruleset, `keel doctor` | `plugin/` (a Claude Code plugin) | **Alpha.** Tested (258 tests, adversarial review, live runs), not yet piloted on a real project. |
+| **Keel gates** (v3) | Enforcement the agent can't talk past: hooks, deny rules, CODEOWNERS, CI, a GitHub ruleset, `keel doctor` | `plugin/` (a Claude Code plugin) | **Alpha.** Tested (431 tests, adversarial review, live runs) and piloted on one real project (sugabalance-website); its ruleset is not yet enforced there (private repo, GitHub Free). |
 
 Keep using whichever rules your project has. Add the gates on top.
 
@@ -14,24 +14,28 @@ Keep using whichever rules your project has. Add the gates on top.
 ## 0. Before you start (once)
 
 **You need:**
-- Claude Code **2.1.295 or later** (gate hooks rely on `onFailure: "block"`; check with `claude --version`).
+- Claude Code **2.1.295 or later**; check with `claude --version`. The gates fail safe only there: every
+  gate hook sets `onFailure: "block"`, so a hook that crashes or times out blocks the action. Older
+  versions ignore that setting, and a crashed hook lets the action through. After upgrading Claude Code
+  or the plugin, run `keel doctor` and check that its `fail-closed` line reads `OK` (doctor reads the
+  plugin's hook settings; it can't see your Claude Code version, so check that yourself).
 - Node **20+** and the GitHub CLI (`gh`), signed in.
 - For **private** repos: a GitHub plan that enforces rulesets (Pro/Team or higher). On GitHub Free, private-repo rulesets aren't enforced; `keel doctor` will say so.
 
 **Install the plugin on each machine you run Claude Code on:**
 
 ```
-/plugin install keel --marketplace sayeediftekhar/Keel          # Claude Code 2.1.275+
-/plugin marketplace add sayeediftekhar/Keel  +  /plugin install keel@keel   # older
+/plugin marketplace add sayeediftekhar/Keel
+/plugin install keel@keel
 ```
 
 The plugin is the whole Keel repo: the lanes arrive as `/keel:keel-dev`,
 `/keel:keel-design`, …, and `plugin/` is the engine. Set an alias so the CLI
-is easy to call (the plugin directory is shown by `/plugin`; in a Keel
-checkout it's the repo root):
+is easy to call (the marketplace clone below; in a Keel checkout, use the
+repo root instead):
 
 ```bash
-alias keel='node /path/to/keel/plugin/bin/keel.mjs'
+alias keel='node ~/.claude/plugins/marketplaces/keel/plugin/bin/keel.mjs'
 ```
 
 **Recommended user setting** (`~/.claude/settings.json`), so nobody runs agents in a mode that skips prompts entirely:
@@ -95,7 +99,7 @@ names the approver:
 | `approver.github` | your GitHub handle |
 | `agentIdentity.github` | the App's bot login, e.g. `sayeed-keel[bot]` |
 | `github` | `{ "owner": "...", "repo": "..." }` (otherwise taken from `origin`) |
-| `surfaces` | your danger paths: money code, tenancy helpers, auth, migrations, secrets. Map the nine surfaces onto real folders. |
+| `surfaces` | your danger paths: money code, tenancy helpers, auth, migrations, secrets. Map the eleven surfaces onto real folders. |
 | `environments.live.markers` | env vars holding live credentials (`DATABASE_URL`, `DIRECT_URL`, `SUPABASE_SERVICE_ROLE_KEY`, …) |
 | `environments.live/test.supabaseProjectIds` | which Supabase projects are live and which are test |
 | `environments.test.guardFile` | your test setup file (see 1.3) |
