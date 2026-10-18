@@ -8,13 +8,15 @@ import { block, flagValue, safe } from './common.mjs';
 import { decideBashInner } from './bash.mjs';
 
 
-const GIT_VALUED = new Set(['-C', '-c', '--git-dir', '--work-tree', '--namespace', '--config-env', '--super-prefix', '--exec-path', '--list-cmds', '--attr-source']);
+const GIT_VALUED = new Set(['-C', '-c', '--git-dir', '--work-tree', '--namespace', '--config-env', '--super-prefix',
+  '--exec-path', '--list-cmds', '--attr-source']);
 
 export function pushBash(cmd, cwd, ctx) {
   if (ctx.policy.gates.push.mode !== 'block') return null;
   const prog = base(cmd.argv[0]);
   const protectedB = ctx.policy.protectedBranches;
-  const msg = (what) => block('push', `${what}. Agents push to feature branches and open a PR; ${protectedB.join(', ')} only changes through reviewed merges.`);
+  const msg = (what) => block('push', `${what}. Agents push to feature branches and open a PR; `
+    + `${protectedB.join(', ')} only changes through reviewed merges.`);
   if (prog === 'git') {
     let i = 1; let dir = cwd; const configs = [];
     while (i < cmd.argv.length && cmd.argv[i].startsWith('-')) {
@@ -34,14 +36,18 @@ export function pushBash(cmd, cwd, ctx) {
     }
     if (sub === 'config' && rest.some((a) => /^remote\..*\.push$/i.test(a) || /^alias\./i.test(a))) {
       const val = rest.filter((a) => !a.startsWith('-')).slice(1).join(' ');
-      if (/push|merge/.test(val) || /^remote\..*\.push$/i.test(rest.find((a) => !a.startsWith('-')) ?? '')) return msg('setting a push refspec or a git alias that pushes');
+      if (/push|merge/.test(val) || /^remote\..*\.push$/i.test(rest.find((a) => !a.startsWith('-')) ?? '')) {
+        return msg('setting a push refspec or a git alias that pushes');
+      }
     }
     if (sub !== 'push') return null;
     const valued = new Set(['-o', '--push-option', '--repo', '--receive-pack', '--exec']);
     const pos = []; let del = false;
     for (let k = 0; k < rest.length; k++) {
       const t = rest[k];
-      if (t === '--all' || t === '--mirror' || t === '--branches') return msg(`\`git push ${t}\` would update protected branches`);
+      if (t === '--all' || t === '--mirror' || t === '--branches') {
+        return msg(`\`git push ${t}\` would update protected branches`);
+      }
       if (t === '-d' || t === '--delete') { del = true; continue; }
       if (valued.has(t)) { k++; continue; }
       if (t.startsWith('-')) continue;
@@ -51,7 +57,8 @@ export function pushBash(cmd, cwd, ctx) {
     const remote = pos[0] ?? 'origin';
     let refspecs = pos.slice(1);
     if (!refspecs.length) {
-      const fromC = configs.filter((c) => new RegExp(`^remote\\.${escapeRe(remote)}\\.push=`, 'i').test(c)).map((c) => c.slice(c.indexOf('=') + 1));
+      const fromC = configs.filter((c) => new RegExp(`^remote\\.${escapeRe(remote)}\\.push=`, 'i').test(c))
+        .map((c) => c.slice(c.indexOf('=') + 1));
       const fromConfig = safe(() => ctx.env.gitConfig?.(dir, `remote.${remote}.push`), []) ?? [];
       refspecs = [...fromC, ...fromConfig];
     }
@@ -77,7 +84,9 @@ export function pushBash(cmd, cwd, ctx) {
     const joined = cmd.argv.join(' ');
     const ref = /git\/refs\/heads\/([^\s?]+)/.exec(joined);
     const method = (flagValue(cmd.argv, ['-X', '--method']) ?? 'GET').toUpperCase();
-    if (ref && method !== 'GET' && protectedB.includes(ref[1])) return msg(`\`gh api ${method} …/git/refs/heads/${ref[1]}\` rewrites a protected branch`);
+    if (ref && method !== 'GET' && protectedB.includes(ref[1])) {
+      return msg(`\`gh api ${method} …/git/refs/heads/${ref[1]}\` rewrites a protected branch`);
+    }
   }
   if (['curl', 'wget', 'http', 'https'].includes(prog)) {
     const ref = /api\.github\.com\S*git\/refs\/heads\/([^\s?"']+)/.exec(cmd.argv.join(' '));

@@ -25,7 +25,10 @@ function stateFor(projectDir) {
   }
   const lock = loadLock(projectDir);
   if (lock.state === 'inactive' && registry().includes(projectDir)) {
-    return { state: 'broken', reason: 'this project used Keel, but its policy and lock are gone — restore them or run `keel compile`' };
+    return {
+      state: 'broken',
+      reason: 'this project used Keel, but its policy and lock are gone — restore them or run `keel compile`',
+    };
   }
   return lock;
 }
@@ -37,8 +40,11 @@ export async function evaluate(event, deps = {}) {
     const lock = stateFor(projectDir);
     if (lock.state === 'inactive') continue;
     let policy = lock.policy; let note = ''; let slug = lock.github ?? null;
-    if (lock.state === 'broken') { policy = strictFallbackPolicy(); note = ` (Keel policy problem: ${lock.reason})`; slug = null; }
-    else { try { register(projectDir); } catch { /* registry is best effort */ } }
+    if (lock.state === 'broken') {
+      policy = strictFallbackPolicy();
+      note = ` (Keel policy problem: ${lock.reason})`;
+      slug = null;
+    } else { try { register(projectDir); } catch { /* registry is best effort */ } }
 
     const run = (remote) => decide(event, { policy, projectDir, env: makeEnv(projectDir, policy, remote) });
     let d;
@@ -47,10 +53,18 @@ export async function evaluate(event, deps = {}) {
       if (e !== NEED_REMOTE) throw e;
       let remote;
       try {
-        if (!slug) throw new Error('no GitHub repository is recorded in the Keel lock (origin must be a GitHub remote when you run `keel compile`)');
+        if (!slug) {
+          throw new Error('no GitHub repository is recorded in the Keel lock ' +
+            '(origin must be a GitHub remote when you run `keel compile`)');
+        }
         remote = await fetchRemote(slug, policy.defaultBranch, policy, projectDir);
       } catch (err) {
-        return { allow: false, gate: 'migration', reason: `a live migration needs its approval verified on GitHub, and that failed: ${err.message}. Blocking to stay safe.${note}` };
+        return {
+          allow: false,
+          gate: 'migration',
+          reason: `a live migration needs its approval verified on GitHub, and that failed: ${err.message}. ` +
+            `Blocking to stay safe.${note}`,
+        };
       }
       d = run(remote);
     }

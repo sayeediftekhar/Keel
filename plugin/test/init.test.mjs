@@ -7,7 +7,9 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { init, syncArbiter, ARB_BEGIN, ARB_END, AUTH_BEGIN, AUTH_END, hasArbiter, hasAuthorization } from '../lib/init.mjs';
+import {
+  init, syncArbiter, ARB_BEGIN, ARB_END, AUTH_BEGIN, AUTH_END, hasArbiter, hasAuthorization,
+} from '../lib/init.mjs';
 import { compile } from '../lib/compile.mjs';
 import { doctor } from '../lib/doctor.mjs';
 import { BASE_POLICY, write } from './helpers.mjs';
@@ -28,7 +30,9 @@ test('init on an empty repo: policy, both CLAUDE.md blocks, every scaffold', () 
   assert.equal(r.policy, 'written');
   assert.equal(r.arbiter, 'added');
   assert.equal(r.authorization, 'added');
-  assert.deepEqual(r.scaffolded, ['CONTEXT.md', 'GLOSSARY.md', 'CODING_STANDARDS.md', 'DESIGN.md', '.scratch/README.md']);
+  assert.deepEqual(
+    r.scaffolded, ['CONTEXT.md', 'GLOSSARY.md', 'CODING_STANDARDS.md', 'DESIGN.md', '.scratch/README.md'],
+  );
   assert.ok(fs.existsSync(path.join(dir, 'keel.policy.json')));
   const md = read(dir, 'CLAUDE.md');
   assert.equal(count(md, ARB_BEGIN), 1); assert.equal(count(md, ARB_END), 1);
@@ -78,7 +82,8 @@ test('init is idempotent: re-run refreshes the blocks, keeps house rules and sca
 
 test('an older install.sh block (old marker text) is replaced, not duplicated', () => {
   const dir = emptyRepo();
-  const old = '# >>> keel-v2 arbiter (managed by keel/install.sh) — do not edit between markers >>>\nold router text\n# <<< keel-v2 arbiter <<<\n';
+  const old = '# >>> keel-v2 arbiter (managed by keel/install.sh) — do not edit between markers >>>\n' +
+    'old router text\n# <<< keel-v2 arbiter <<<\n';
   write(dir, 'CLAUDE.md', `# Host\n\n${old}`);
   syncArbiter(dir);
   const md = read(dir, 'CLAUDE.md');
@@ -90,7 +95,9 @@ test('an older install.sh block (old marker text) is replaced, not duplicated', 
 test('compile keeps the authorization block in step with the policy, and notes when it is missing', () => {
   const dir = emptyRepo();
   init(dir);
-  write(dir, 'keel.policy.json', `${JSON.stringify({ ...BASE_POLICY, protectedBranches: ['main', 'release'] }, null, 2)}\n`);
+  write(
+    dir, 'keel.policy.json', `${JSON.stringify({ ...BASE_POLICY, protectedBranches: ['main', 'release'] }, null, 2)}\n`,
+  );
   const { notes } = compile(dir, { write: true });
   assert.match(read(dir, 'CLAUDE.md'), /never push to main, release/);
   assert.ok(!notes.some((n) => /standing-authorization/.test(n)));
@@ -118,7 +125,8 @@ test('doctor reports the rules and authorization blocks (advisory)', () => {
 
 test('the CLI: keel init → compile → doctor on a throwaway repo', () => {
   const dir = emptyRepo();
-  const run = (...a) => execFileSync(process.execPath, [CLI, ...a, '--dir', dir], { encoding: 'utf8', env: { ...process.env } });
+  const run = (...a) =>
+    execFileSync(process.execPath, [CLI, ...a, '--dir', dir], { encoding: 'utf8', env: { ...process.env } });
   const out = run('init', '--name', 'Demo');
   assert.match(out, /\+ keel\.policy\.json written/);
   assert.match(out, /\+ CLAUDE\.md: keel-v2 router \+ LAWS block added/);

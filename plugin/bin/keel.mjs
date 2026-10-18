@@ -26,7 +26,13 @@ import { init, formatInit } from '../lib/init.mjs';
 
 const args = process.argv.slice(2);
 const flag = (name) => { const i = args.indexOf(name); if (i < 0) return false; args.splice(i, 1); return true; };
-const opt = (name) => { const i = args.indexOf(name); if (i < 0) return undefined; const v = args[i + 1]; args.splice(i, 2); return v; };
+const opt = (name) => {
+  const i = args.indexOf(name);
+  if (i < 0) return undefined;
+  const v = args[i + 1];
+  args.splice(i, 2);
+  return v;
+};
 
 const dirOpt = opt('--dir');
 const projectDir = path.resolve(dirOpt ?? gitToplevel(process.cwd()) ?? process.cwd());
@@ -64,7 +70,9 @@ try {
       if (sub === 'create') {
         const hours = Number(opt('--hours') ?? policy.gates.migration.batchExpiryHours);
         const [id, ...files] = rest.filter((a) => a !== undefined);
-        if (!id || !/^[\w.-]+$/.test(id) || !files.length) die('usage: keel batch create <id> <migration files…> [--hours N]', 2);
+        if (!id || !/^[\w.-]+$/.test(id) || !files.length) {
+          die('usage: keel batch create <id> <migration files…> [--hours N]', 2);
+        }
         const out = path.join(projectDir, '.keel/approvals', `${id}.json`);
         if (fs.existsSync(out)) die(`batch ${id} already exists; pick a new id.`);
         // Paths are recorded relative to the project's real path: cwd and --dir can
@@ -79,22 +87,31 @@ try {
           if (rel.startsWith('..') || path.isAbsolute(rel)) die(`${f} is outside the project (${root})`);
           return { file: rel, sha256: contentSha(fs.readFileSync(abs, 'utf8')), order: i + 1 };
         });
-        const batch = { batch: id, target: 'live', expires: new Date(Date.now() + hours * 3600e3).toISOString(), migrations };
+        const batch = {
+          batch: id, target: 'live', expires: new Date(Date.now() + hours * 3600e3).toISOString(), migrations,
+        };
         fs.mkdirSync(path.dirname(out), { recursive: true });
         fs.writeFileSync(out, `${JSON.stringify(batch, null, 2)}\n`);
         console.log(`Wrote .keel/approvals/${id}.json (${migrations.length} migration(s), expires ${batch.expires}).`);
-        console.log('Commit it with the migrations and open a PR. When the approver merges it, the batch is approved; editing any listed file afterwards voids it.');
+        console.log('Commit it with the migrations and open a PR. ' +
+          'When the approver merges it, the batch is approved; editing any listed file afterwards voids it.');
       } else if (sub === 'status') {
         const receipts = readReceipts(projectDir);
         const applied = (t, sha) => receipts.some((r) => r.target === t && r.sha256 === sha);
         const lock = loadLock(projectDir);
-        if (lock.state !== 'ok' || !lock.github) die('Need a compiled lock with a GitHub repository; run `keel compile`.');
+        if (lock.state !== 'ok' || !lock.github) {
+          die('Need a compiled lock with a GitHub repository; run `keel compile`.');
+        }
         const { approvals: batches } = await fetchGithubRemote(lock.github, policy.defaultBranch, policy);
-        console.log(`Approved batches on github.com/${lock.github.owner}/${lock.github.repo}@${policy.defaultBranch}: ${batches.length || 'none'}`);
+        console.log(`Approved batches on github.com/${lock.github.owner}/${lock.github.repo}@` +
+          `${policy.defaultBranch}: ${batches.length || 'none'}`);
         for (const b of batches) {
           const expired = Date.parse(b.expires) <= Date.now();
           console.log(`\n${b.batch}  target=${b.target}  expires=${b.expires}${expired ? '  (EXPIRED)' : ''}`);
-          for (const m of b.migrations ?? []) console.log(`  ${m.order}. ${m.file}  test:${applied('test', m.sha256) ? 'yes' : 'no'}  live:${applied('live', m.sha256) ? 'yes' : 'no'}`);
+          for (const m of b.migrations ?? []) {
+            console.log(`  ${m.order}. ${m.file}  test:${applied('test', m.sha256) ? 'yes' : 'no'}  ` +
+              `live:${applied('live', m.sha256) ? 'yes' : 'no'}`);
+          }
         }
       } else die('usage: keel batch create|status', 2);
       break;
@@ -105,7 +122,9 @@ try {
       // itself, which is what makes an [x] in the ledger mean a person approved it.
       const [feature, gateName, ...words] = [sub, ...rest].filter((a) => a !== undefined);
       const why = words.join(' ');
-      if (!feature || !/^[\w.-]+$/.test(feature) || !['G1', 'G2', 'G3', 'Ship'].includes(gateName) || !why) die('usage: keel approve <feature> <G1|G2|G3|Ship> "<why>"', 2);
+      if (!feature || !/^[\w.-]+$/.test(feature) || !['G1', 'G2', 'G3', 'Ship'].includes(gateName) || !why) {
+        die('usage: keel approve <feature> <G1|G2|G3|Ship> "<why>"', 2);
+      }
       let ledgerDir = '.scratch';
       try { ledgerDir = readPolicyFile(projectDir).gates.ledger.dir; } catch { /* no policy: default dir */ }
       const file = path.join(projectDir, ledgerDir, feature, '00-status.md');
@@ -115,12 +134,21 @@ try {
       const done = new RegExp(`^- \\[[xX]\\][ \\t]*${gateName}(?![A-Za-z0-9])`);
       const i = lines.findIndex((l) => open.test(l));
       if (i < 0) {
-        if (lines.some((l) => done.test(l))) { console.log(`= ${gateName} already approved in ${path.relative(projectDir, file)}`); break; }
+        if (lines.some((l) => done.test(l))) {
+          console.log(`= ${gateName} already approved in ${path.relative(projectDir, file)}`);
+          break;
+        }
         die(`no unchecked "- [ ] ${gateName}" line in ${path.relative(projectDir, file)}`);
       }
       let who = process.env.KEEL_APPROVER;
-      if (!who) { try { who = execFileSync('git', ['config', 'user.name'], { cwd: projectDir, encoding: 'utf8' }).trim(); } catch { /* fall through */ } }
-      if (!who) { try { who = readPolicyFile(projectDir).approver.github; } catch { who = process.env.USER ?? 'approver'; } }
+      if (!who) {
+        try {
+          who = execFileSync('git', ['config', 'user.name'], { cwd: projectDir, encoding: 'utf8' }).trim();
+        } catch { /* fall through */ }
+      }
+      if (!who) {
+        try { who = readPolicyFile(projectDir).approver.github; } catch { who = process.env.USER ?? 'approver'; }
+      }
       let line = lines[i];
       let docs = '';
       const di = line.indexOf('(doc');
@@ -128,13 +156,19 @@ try {
       const dash = line.indexOf(' — ');
       if (dash > 0) line = line.slice(0, dash);
       line = line.replace(/^- \[ \] /, '- [x] ').trimEnd();
-      lines[i] = `${line} — approved ${new Date().toISOString().slice(0, 10)} by ${who}: "${why.replace(/"/g, '\'')}"${docs ? `  ${docs}` : ''}`;
+      lines[i] = `${line} — approved ${new Date().toISOString().slice(0, 10)} by ${who}: ` +
+        `"${why.replace(/"/g, '\'')}"${docs ? `  ${docs}` : ''}`;
       for (let j = 0; j < lines.length; j++) {
-        lines[j] = lines[j].replace(new RegExp(`(\\*\\*Blocked on:\\*\\*[ \\t]*)human approval \\(${gateName}\\)`), '$1nothing');
+        lines[j] = lines[j].replace(
+          new RegExp(`(\\*\\*Blocked on:\\*\\*[ \\t]*)human approval \\(${gateName}\\)`),
+          '$1nothing',
+        );
       }
       fs.writeFileSync(file, lines.join('\n'));
       console.log(`+ ${gateName} approved in ${path.relative(projectDir, file)} by ${who}`);
-      for (const l of lines) if (/^- \[[xX ]\][ \t]*(G[123]|Ship)(?![A-Za-z0-9])|\*\*Blocked on:\*\*/.test(l)) console.log(`  ${l}`);
+      for (const l of lines) {
+        if (/^- \[[xX ]\][ \t]*(G[123]|Ship)(?![A-Za-z0-9])|\*\*Blocked on:\*\*/.test(l)) console.log(`  ${l}`);
+      }
       break;
     }
     case 'guard-snippet': {
@@ -149,7 +183,8 @@ if (url && !/(_test|_ci)$/.test(db) && !['localhost', '127.0.0.1', '::1', 'postg
       break;
     }
     default:
-      console.log(fs.readFileSync(new URL(import.meta.url), 'utf8').split('\n').slice(1, 14).map((l) => l.replace(/^\/\/ ?/, '')).join('\n'));
+      console.log(fs.readFileSync(new URL(import.meta.url), 'utf8').split('\n').slice(1, 14)
+        .map((l) => l.replace(/^\/\/ ?/, '')).join('\n'));
       process.exit(cmd ? 2 : 0);
   }
 } catch (e) {

@@ -18,7 +18,11 @@ const RECEIPTS = '.keel/receipts.jsonl';
 const APPROVALS = '.keel/approvals/';
 
 function git(dir, args) {
-  return execFileSync('git', ['-C', dir, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 5000 }).trim();
+  return execFileSync('git', ['-C', dir, ...args], {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'ignore'],
+    timeout: 5000,
+  }).trim();
 }
 
 export function keelHome() {
@@ -43,7 +47,11 @@ export function gitToplevel(dir) {
 export function readReceipts(projectDir) {
   const file = path.join(projectDir, RECEIPTS);
   if (!fs.existsSync(file)) return [];
-  return fs.readFileSync(file, 'utf8').split('\n').filter(Boolean).map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+  return fs.readFileSync(file, 'utf8').split('\n').filter(Boolean)
+    .map((l) => {
+      try { return JSON.parse(l); } catch { return null; }
+    })
+    .filter(Boolean);
 }
 
 export function appendReceipt(projectDir, receipt) {
@@ -69,7 +77,9 @@ export function localMigrationFiles(projectDir, policy) {
   const out = [];
   for (const d of policy.migrations.dirs) {
     const abs = path.join(projectDir, d);
-    if (fs.existsSync(abs)) for (const f of walk(abs)) out.push(path.relative(projectDir, f).split(path.sep).join('/'));
+    if (fs.existsSync(abs)) {
+      for (const f of walk(abs)) out.push(path.relative(projectDir, f).split(path.sep).join('/'));
+    }
   }
   return out;
 }
@@ -77,13 +87,23 @@ export function localMigrationFiles(projectDir, policy) {
 function githubToken() {
   if (process.env.GH_TOKEN) return process.env.GH_TOKEN;
   if (process.env.GITHUB_TOKEN) return process.env.GITHUB_TOKEN;
-  try { return execFileSync('gh', ['auth', 'token'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 5000 }).trim(); } catch { return null; }
+  try {
+    return execFileSync('gh', ['auth', 'token'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+      timeout: 5000,
+    }).trim();
+  } catch { return null; }
 }
 
 /** Fetch the default branch's approvals and migration blob ids from GitHub. */
 export async function fetchGithubRemote({ owner, repo }, branch, policy) {
   const token = githubToken();
-  const headers = { Accept: 'application/vnd.github+json', 'User-Agent': 'keel-gate', 'X-GitHub-Api-Version': '2022-11-28' };
+  const headers = {
+    Accept: 'application/vnd.github+json',
+    'User-Agent': 'keel-gate',
+    'X-GitHub-Api-Version': '2022-11-28',
+  };
   if (token) headers.Authorization = `Bearer ${token}`;
   const get = async (url) => {
     const r = await fetch(url, { headers, signal: AbortSignal.timeout(8000) });
@@ -101,13 +121,17 @@ export async function fetchGithubRemote({ owner, repo }, branch, policy) {
     if (dirs.some((d) => e.path.startsWith(d)) && /\.sql$/i.test(e.path)) remoteBlobs.set(e.path, e.sha);
     if (e.path.startsWith(APPROVALS) && e.path.endsWith('.json')) {
       const blob = await get(`${base}/git/blobs/${e.sha}`);
-      try { approvals.push(JSON.parse(Buffer.from(blob.content, 'base64').toString('utf8'))); } catch { /* skip malformed batch */ }
+      try {
+        approvals.push(JSON.parse(Buffer.from(blob.content, 'base64').toString('utf8')));
+      } catch { /* skip malformed batch */ }
     }
   }
   return { approvals, remoteBlobs };
 }
 
-/** ctx.env for a project. `remote` is {approvals, remoteBlobs} once fetched; until then approvals() throws NEED_REMOTE. */
+/**
+ * ctx.env for a project. `remote` is {approvals, remoteBlobs} once fetched; until then approvals() throws NEED_REMOTE.
+ */
 export function makeEnv(projectDir, policy, remote = null) {
   const dotenv = () => {
     const out = {};
@@ -122,11 +146,16 @@ export function makeEnv(projectDir, policy, remote = null) {
   };
   return {
     currentBranch: (dir) => git(dir || projectDir, ['rev-parse', '--abbrev-ref', 'HEAD']),
-    gitConfig: (dir, key) => { try { return git(dir || projectDir, ['config', '--get-all', key]).split('\n').filter(Boolean); } catch { return []; } },
+    gitConfig: (dir, key) => {
+      try {
+        return git(dir || projectDir, ['config', '--get-all', key]).split('\n').filter(Boolean);
+      } catch { return []; }
+    },
     approvals: () => { if (!remote) throw NEED_REMOTE; return remote.approvals; },
     migrationTreeMatchesDefault: () => {
       if (!remote) throw NEED_REMOTE;
-      return localMigrationFiles(projectDir, policy).every((rel) => remote.remoteBlobs.get(rel) === blobSha(fs.readFileSync(path.join(projectDir, rel))));
+      return localMigrationFiles(projectDir, policy)
+        .every((rel) => remote.remoteBlobs.get(rel) === blobSha(fs.readFileSync(path.join(projectDir, rel))));
     },
     sha: (rel) => {
       const file = path.join(projectDir, rel);
@@ -134,9 +163,12 @@ export function makeEnv(projectDir, policy, remote = null) {
     },
     receipts: () => readReceipts(projectDir),
     pkgScripts: (dir) => {
-      try { return JSON.parse(fs.readFileSync(path.join(dir || projectDir, 'package.json'), 'utf8')).scripts ?? {}; } catch { return {}; }
+      try {
+        return JSON.parse(fs.readFileSync(path.join(dir || projectDir, 'package.json'), 'utf8')).scripts ?? {};
+      } catch { return {}; }
     },
-    // What a tool would see: the process environment first, then the project's .env (Prisma, Drizzle and others load it).
+    // What a tool would see: the process environment first, then the project's .env
+    // (Prisma, Drizzle and others load it).
     envVar: (name) => process.env[name] ?? dotenv()[name],
     prismaUsesDirectUrl: () => {
       for (const f of ['prisma/schema.prisma', 'schema.prisma']) {
@@ -153,14 +185,19 @@ export function makeEnv(projectDir, policy, remote = null) {
       for (const d of names) {
         if (!d.isDirectory()) continue;
         const f = path.join(dir, d.name, '00-status.md');
-        try { out.push({ rel: path.relative(projectDir, f).split(path.sep).join('/'), text: fs.readFileSync(f, 'utf8') }); } catch { /* no ledger */ }
+        try {
+          out.push({ rel: path.relative(projectDir, f).split(path.sep).join('/'), text: fs.readFileSync(f, 'utf8') });
+        } catch { /* no ledger */ }
       }
       return out;
     },
     realpath: (p) => {
       // resolve symlinks in the deepest existing ancestor; keep the rest as written
       let cur = p; const tail = [];
-      while (!fs.existsSync(cur) && path.dirname(cur) !== cur) { tail.unshift(path.basename(cur)); cur = path.dirname(cur); }
+      while (!fs.existsSync(cur) && path.dirname(cur) !== cur) {
+        tail.unshift(path.basename(cur));
+        cur = path.dirname(cur);
+      }
       try { return path.join(fs.realpathSync(cur), ...tail); } catch { return p; }
     },
     now: () => Date.now(),

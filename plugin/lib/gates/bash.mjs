@@ -14,8 +14,9 @@ import { deployBash } from './deploy.mjs';
 
 const SCRIPT_RUNNERS = { npm: ['run', 'run-script'], pnpm: ['run'], yarn: ['run'], bun: ['run'] };
 const NPM_BUILTIN_SCRIPTS = new Set(['test', 'start', 'stop', 'restart']);
-const PM_BUILTINS = new Set(['install', 'i', 'add', 'remove', 'rm', 'update', 'up', 'exec', 'dlx', 'ci', 'init', 'create',
-  'publish', 'pack', 'link', 'list', 'ls', 'outdated', 'audit', 'why', 'config', 'store', 'cache', 'import', 'help', 'x', 'run']);
+const PM_BUILTINS = new Set(['install', 'i', 'add', 'remove', 'rm', 'update', 'up', 'exec', 'dlx', 'ci', 'init',
+  'create', 'publish', 'pack', 'link', 'list', 'ls', 'outdated', 'audit', 'why', 'config', 'store', 'cache', 'import',
+  'help', 'x', 'run']);
 
 
 export function decideBash(command, startCwd, ctx) {
@@ -28,8 +29,9 @@ export function decideBash(command, startCwd, ctx) {
       if (to && to !== '-') cwd = path.resolve(cwd, expandHome(to));
       continue;
     }
-    const d = governanceBash(cmd, cwd, ctx) ?? ledgerBash(cmd, cwd, ctx) ?? secretsBash(cmd, ctx) ?? migrationBash(cmd, ctx)
-      ?? pushBash(cmd, cwd, ctx) ?? mergeBash(cmd, ctx) ?? deployBash(cmd, ctx) ?? dynamicBash(cmd);
+    const d = governanceBash(cmd, cwd, ctx) ?? ledgerBash(cmd, cwd, ctx) ?? secretsBash(cmd, ctx)
+      ?? migrationBash(cmd, ctx) ?? pushBash(cmd, cwd, ctx) ?? mergeBash(cmd, ctx) ?? deployBash(cmd, ctx)
+      ?? dynamicBash(cmd);
     if (d) return d;
   }
   return ALLOW;
@@ -45,7 +47,8 @@ function expandScripts(cmds, cwd, ctx, depth) {
     let scriptName = null; let binForm = null;
     if (SCRIPT_RUNNERS[prog]?.includes(cmd.argv[1])) scriptName = cmd.argv[2];
     else if (prog === 'npm' && NPM_BUILTIN_SCRIPTS.has(cmd.argv[1])) scriptName = cmd.argv[1];
-    else if ((prog === 'pnpm' || prog === 'yarn' || prog === 'bun') && cmd.argv[1] && !cmd.argv[1].startsWith('-') && !PM_BUILTINS.has(cmd.argv[1])) {
+    else if ((prog === 'pnpm' || prog === 'yarn' || prog === 'bun') && cmd.argv[1] && !cmd.argv[1].startsWith('-')
+      && !PM_BUILTINS.has(cmd.argv[1])) {
       scriptName = cmd.argv[1]; binForm = cmd.argv.slice(1);
     }
     if (!scriptName) continue;
@@ -71,6 +74,13 @@ export function decideBashInner(script, cwd, ctx) {
 function dynamicBash(cmd) {
   if (!cmd.dynamic) return null;
   const rest = cmd.argv.slice(1).join(' ');
-  const kind = /\bmerge\b/.test(rest) ? 'merge' : /\bpush\b/.test(rest) ? 'push' : /\b(migrate|db)\b/.test(rest) ? 'migration' : /--prod|\bdeploy\b/.test(rest) ? 'deploy' : null;
-  return kind ? block(kind, `\`${cmd.argv[0]} ${rest}\` computes its program name at run time, so Keel can't check it. Run the command directly.`) : null;
+  const kind = /\bmerge\b/.test(rest) ? 'merge'
+    : /\bpush\b/.test(rest) ? 'push'
+    : /\b(migrate|db)\b/.test(rest) ? 'migration'
+    : /--prod|\bdeploy\b/.test(rest) ? 'deploy'
+    : null;
+  return kind
+    ? block(kind, `\`${cmd.argv[0]} ${rest}\` computes its program name at run time, so Keel can't check it. `
+      + 'Run the command directly.')
+    : null;
 }

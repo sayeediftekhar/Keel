@@ -19,7 +19,10 @@ test('policy validation rejects unknown keys and bad modes', () => {
 
 test('compile writes every target and the lock', () => {
   const { dir } = makeRepo();
-  for (const f of ['.keel/policy.lock.json', '.claude/settings.json', '.github/CODEOWNERS', '.github/workflows/keel.yml', '.keel/ci/keel-ci.mjs', '.keel/github-ruleset.json']) {
+  for (const f of [
+    '.keel/policy.lock.json', '.claude/settings.json', '.github/CODEOWNERS', '.github/workflows/keel.yml',
+    '.keel/ci/keel-ci.mjs', '.keel/github-ruleset.json',
+  ]) {
     assert.ok(fs.existsSync(path.join(dir, f)), `${f} written`);
   }
   assert.match(fs.readFileSync(path.join(dir, '.gitignore'), 'utf8'), /\.keel\/receipts\.jsonl/);
@@ -54,7 +57,10 @@ test('settings.json keeps user deny rules, replaces only Keel-managed ones', () 
 
 test('deny rules cover each gate', () => {
   const rules = denyRules(normalizePolicy(BASE_POLICY));
-  for (const r of ['Bash(printenv DATABASE_URL)', 'Bash(git push origin main)', 'mcp__github__merge_pull_request', 'Bash(vercel --prod:*)', 'Edit(./keel.policy.json)']) {
+  for (const r of [
+    'Bash(printenv DATABASE_URL)', 'Bash(git push origin main)', 'mcp__github__merge_pull_request',
+    'Bash(vercel --prod:*)', 'Edit(./keel.policy.json)',
+  ]) {
     assert.ok(rules.includes(r), r);
   }
 });
@@ -70,7 +76,10 @@ test('ruleset: code-owner review, both keel checks, no bypass, no force push', (
   assert.deepEqual(rs.bypass_actors, []);
   assert.equal(rs.enforcement, 'active');
   assert.ok(rs.rules.find((r) => r.type === 'pull_request').parameters.require_code_owner_review);
-  assert.deepEqual(rs.rules.find((r) => r.type === 'required_status_checks').parameters.required_status_checks.map((c) => c.context), ['keel-checks', 'keel-rigor']);
+  assert.deepEqual(
+    rs.rules.find((r) => r.type === 'required_status_checks').parameters.required_status_checks.map((c) => c.context),
+    ['keel-checks', 'keel-rigor'],
+  );
   assert.ok(rs.rules.some((r) => r.type === 'non_fast_forward'));
 });
 
@@ -96,17 +105,27 @@ function fixture(files = {}, quality) {
   return { dir, policy: normalizePolicy({ ...BASE_POLICY, ...(quality ? { quality } : {}) }) };
 }
 
-test('quality defaults: a project compiled with defaults gets audit + secret scan after its ladder, nothing else to set up', () => {
+test('quality defaults: a project compiled with defaults gets audit + secret scan after its ladder, ' +
+  'nothing else to set up', () => {
   const { dir } = makeRepo();
   write(dir, 'package-lock.json', '{}');
   const { files, notes } = compile(dir);
   const y = files['.github/workflows/keel.yml'];
   assert.deepEqual(stepNames(y), ['actions/checkout@v4', 'actions/setup-node@v4', 'install', 'unit',
     'quality / dependency audit (npm, high+)', 'quality / secret scan of the diff', 'quality / architecture rules']);
-  assert.match(keelChecks(y), /- uses: actions\/checkout@v4\n\s+with:\n\s+fetch-depth: 0/, 'the diff scan needs history');
+  assert.match(
+    keelChecks(y), /- uses: actions\/checkout@v4\n\s+with:\n\s+fetch-depth: 0/, 'the diff scan needs history',
+  );
   assert.match(y, /- name: quality \/ dependency audit \(npm, high\+\)\n\s+run: \|\n\s+npm audit --audit-level=high\n/);
-  assert.match(y, /- name: quality \/ secret scan of the diff\n\s+env:\n\s+BASE_SHA: \$\{\{ github\.event\.pull_request\.base\.sha \}\}\n\s+HEAD_SHA: .*\n\s+BEFORE_SHA: \$\{\{ github\.event\.before \}\}\n\s+run: \|\n\s+node \.keel\/ci\/keel-ci\.mjs secrets\n/);
-  assert.ok(!/continue-on-error/.test(y.split('quality / architecture')[0]), 'fail mode: audit and secrets fail the job');
+  assert.match(y, new RegExp(
+    String.raw`- name: quality \/ secret scan of the diff\n\s+env:\n` +
+    String.raw`\s+BASE_SHA: \$\{\{ github\.event\.pull_request\.base\.sha \}\}\n\s+HEAD_SHA: .*\n` +
+    String.raw`\s+BEFORE_SHA: \$\{\{ github\.event\.before \}\}\n\s+run: \|\n` +
+    String.raw`\s+node \.keel\/ci\/keel-ci\.mjs secrets\n`,
+  ));
+  assert.ok(
+    !/continue-on-error/.test(y.split('quality / architecture')[0]), 'fail mode: audit and secrets fail the job',
+  );
   assert.ok(!/semgrep/.test(y), 'SAST is opt-in');
   assert.ok(notes.some((n) => /no dependency-cruiser config/.test(n)), 'missing architecture rules are noted');
   const lock = JSON.parse(files['.keel/policy.lock.json']);
@@ -117,7 +136,11 @@ test('quality defaults: a project compiled with defaults gets audit + secret sca
 test('quality audit follows the lockfile, and the level maps per package manager', () => {
   const cases = [
     [{ 'package.json': '{}', 'pnpm-lock.yaml': '' }, 'pnpm audit --audit-level critical', 'pnpm'],
-    [{ 'package.json': '{}', 'yarn.lock': '', '.yarnrc.yml': '' }, 'yarn npm audit --all --recursive --severity critical', 'yarn-berry'],
+    [
+      { 'package.json': '{}', 'yarn.lock': '', '.yarnrc.yml': '' },
+      'yarn npm audit --all --recursive --severity critical',
+      'yarn-berry',
+    ],
     [{ 'package.json': '{}', 'yarn.lock': '' }, 'yarn audit --level critical || code=$?', 'yarn'],
   ];
   for (const [files, cmd, label] of cases) {
@@ -133,18 +156,32 @@ test('quality audit follows the lockfile, and the level maps per package manager
 test('quality audit: no JavaScript → a warning step and a note; a custom command replaces detection', () => {
   const bare = fixture({ 'requirements.txt': 'flask\n' });
   const y = workflowYaml(bare.dir, bare.policy);
-  assert.match(y, /- name: quality \/ dependency audit\n\s+continue-on-error: true\n\s+run: \|\n\s+echo "::warning::No dependency audit/);
+  assert.match(y, new RegExp(
+    String.raw`- name: quality \/ dependency audit\n\s+continue-on-error: true\n\s+run: \|\n` +
+    String.raw`\s+echo "::warning::No dependency audit`,
+  ));
   assert.ok(qualityFloor(bare.dir, bare.policy).notes.some((n) => /quality\.audit/.test(n)));
-  const custom = fixture({ 'requirements.txt': 'flask\n' }, { audit: { command: 'pipx run --spec pip-audit==2.9.0 pip-audit -r requirements.txt' } });
+  const custom = fixture(
+    { 'requirements.txt': 'flask\n' },
+    { audit: { command: 'pipx run --spec pip-audit==2.9.0 pip-audit -r requirements.txt' } },
+  );
   const yc = workflowYaml(custom.dir, custom.policy);
-  assert.match(yc, /- name: quality \/ dependency audit \(custom, high\+\)\n\s+run: \|\n\s+pipx run --spec pip-audit==2\.9\.0/);
+  assert.match(
+    yc, /- name: quality \/ dependency audit \(custom, high\+\)\n\s+run: \|\n\s+pipx run --spec pip-audit==2\.9\.0/,
+  );
   assert.equal(qualityFloor(custom.dir, custom.policy).notes.filter((n) => /quality\.audit/.test(n)).length, 0);
   const bun = fixture({ 'package.json': '{}', 'bun.lockb': '' });
-  assert.ok(!workflowYaml(bun.dir, bun.policy).includes('npm audit'), 'npm audit needs package-lock.json; Bun gets the warning instead');
+  assert.ok(
+    !workflowYaml(bun.dir, bun.policy).includes('npm audit'),
+    'npm audit needs package-lock.json; Bun gets the warning instead',
+  );
 });
 
 test('quality policy: explicit nulls mean "use the default", as the schema allows', () => {
-  const p = normalizePolicy({ ...BASE_POLICY, quality: { audit: { command: null }, sast: { rules: null }, architecture: { config: null, paths: null } } });
+  const p = normalizePolicy({
+    ...BASE_POLICY,
+    quality: { audit: { command: null }, sast: { rules: null }, architecture: { config: null, paths: null } },
+  });
   assert.equal(p.quality.audit.command, null);
   assert.equal(p.quality.architecture.paths, null);
 });
@@ -155,13 +192,17 @@ test('quality modes: off drops the step, warn keeps it but lets the job pass', (
   const y = workflowYaml(dir, policy);
   assert.deepEqual(stepNames(y).filter((n) => n.startsWith('quality')), ['quality / secret scan of the diff']);
   assert.match(y, /- name: quality \/ secret scan of the diff\n\s+continue-on-error: true\n/);
-  const none = fixture({ 'package.json': '{}' }, { audit: { mode: 'off' }, secrets: { mode: 'off' }, architecture: { mode: 'off' } });
+  const none = fixture(
+    { 'package.json': '{}' },
+    { audit: { mode: 'off' }, secrets: { mode: 'off' }, architecture: { mode: 'off' } },
+  );
   const yn = workflowYaml(none.dir, none.policy);
   assert.ok(!/quality \//.test(yn));
   assert.ok(!keelChecks(yn).includes('fetch-depth'), 'no history fetch when nothing scans the diff');
 });
 
-test('quality secrets: gitleaks is downloaded at the pinned version and checked against its sha256 before it runs', () => {
+test('quality secrets: gitleaks is downloaded at the pinned version and checked against its sha256 ' +
+  'before it runs', () => {
   const { dir, policy } = fixture({}, { secrets: { engine: 'gitleaks' } });
   const y = workflowYaml(dir, policy);
   const { version, sha256 } = QUALITY_PINS.gitleaks;
@@ -173,15 +214,24 @@ test('quality secrets: gitleaks is downloaded at the pinned version and checked 
   assert.ok(y.includes('range="$BASE_SHA..$HEAD_SHA"'), 'a PR scans only its own commits');
 });
 
-test('quality sast: opt-in semgrep pinned twice (tool + rules commit), stack-detected rules, the project\'s own rules, new findings only', () => {
-  const { dir, policy } = fixture({ 'package.json': '{}', 'go.mod': 'module x\n', '.semgrep.yml': 'rules: []\n' }, { sast: { mode: 'fail' } });
+test('quality sast: opt-in semgrep pinned twice (tool + rules commit), stack-detected rules, ' +
+  'the project\'s own rules, new findings only', () => {
+  const { dir, policy } = fixture(
+    { 'package.json': '{}', 'go.mod': 'module x\n', '.semgrep.yml': 'rules: []\n' },
+    { sast: { mode: 'fail' } },
+  );
   const y = workflowYaml(dir, policy);
   assert.ok(y.includes(`pipx run --spec semgrep==${QUALITY_PINS.semgrep} semgrep scan --metrics=off`));
   assert.ok(y.includes(`fetch -q --depth 1 https://github.com/semgrep/semgrep-rules ${QUALITY_PINS.semgrepRules}`));
-  for (const r of ['javascript', 'typescript', 'go']) assert.ok(y.includes(`--config "$RUNNER_TEMP/semgrep-rules/${r}"`), r);
+  for (const r of ['javascript', 'typescript', 'go']) assert.ok(
+    y.includes(`--config "$RUNNER_TEMP/semgrep-rules/${r}"`), r,
+  );
   assert.ok(!y.includes('semgrep-rules/python'));
   assert.ok(y.includes('--config "$GITHUB_WORKSPACE/.semgrep.yml"'));
-  assert.ok(y.includes('baseline="--baseline-commit=$base"') && y.includes('git worktree add -q --detach "$RUNNER_TEMP/sast-src" HEAD'));
+  assert.ok(
+    y.includes('baseline="--baseline-commit=$base"') &&
+      y.includes('git worktree add -q --detach "$RUNNER_TEMP/sast-src" HEAD'),
+  );
   assert.match(QUALITY_PINS.semgrep, /^\d+\.\d+\.\d+$/);
   assert.match(QUALITY_PINS.semgrepRules, /^[0-9a-f]{40}$/);
   const explicit = fixture({}, { sast: { mode: 'warn', rules: ['python'] } });
@@ -189,9 +239,14 @@ test('quality sast: opt-in semgrep pinned twice (tool + rules commit), stack-det
 });
 
 test('quality architecture: the project\'s dependency-cruiser config, pinned tool, existing source dirs', () => {
-  const { dir, policy } = fixture({ 'package.json': '{}', '.dependency-cruiser.cjs': 'module.exports = {};', 'src/a.ts': '', 'lib/b.ts': '' });
+  const { dir, policy } = fixture({
+    'package.json': '{}', '.dependency-cruiser.cjs': 'module.exports = {};', 'src/a.ts': '', 'lib/b.ts': '',
+  });
   const y = workflowYaml(dir, policy);
-  assert.ok(y.includes(`npx --yes dependency-cruiser@${QUALITY_PINS.dependencyCruiser} --config .dependency-cruiser.cjs --output-type err src lib`));
+  assert.ok(y.includes(
+    `npx --yes dependency-cruiser@${QUALITY_PINS.dependencyCruiser} ` +
+      '--config .dependency-cruiser.cjs --output-type err src lib',
+  ));
   assert.equal(qualityFloor(dir, policy).notes.length, 0);
   const set = fixture({ 'deps.json': '{}' }, { architecture: { config: 'deps.json', paths: ['packages/api'] } });
   assert.ok(workflowYaml(set.dir, set.policy).includes('--config deps.json --output-type err packages/api'));
@@ -209,7 +264,9 @@ test('quality policy validation: unknown keys, bad modes, unpinned gitleaks, pat
   bad({ architecture: { config: '$(curl x)' } }, /quality\.architecture\.config/);
   bad({ threatModel: 'fail' }, /quality\.threatModel must be an object/);
   bad({ threatModel: { mode: 'fail', strict: true } }, /unknown key "quality\.threatModel\.strict"/);
-  assert.equal(normalizePolicy({ ...BASE_POLICY, quality: { threatModel: { mode: 'fail' } } }).quality.threatModel.mode, 'fail');
+  assert.equal(
+    normalizePolicy({ ...BASE_POLICY, quality: { threatModel: { mode: 'fail' } } }).quality.threatModel.mode, 'fail',
+  );
 });
 
 test('keel-rigor gets the branch name through env, never interpolated into the shell', () => {
