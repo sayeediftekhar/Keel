@@ -106,6 +106,7 @@ names the approver:
 | `migrations.dirs` | where migrations live |
 | `backPressure` + `checks` | the checks CI must pass, in order, e.g. `typecheck`, `lint`, `unit`, `build` |
 | `ci.postgres` | `true` if tests need a Postgres service in CI |
+| `ci.checksOn` | `"code-changes"` to run `keel-checks` only when a PR's code changes (its own `keel-checks.yml`), not on body edits, reviews or pushes to a protected branch; saves Actions minutes. Default `"all"` (D24) |
 | `quality` | the quality floor below; the defaults need no edit |
 
 **The quality floor** (D17/D18). After your `backPressure` ladder, the

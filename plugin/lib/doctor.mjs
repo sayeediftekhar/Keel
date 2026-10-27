@@ -16,7 +16,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { loadLock, readPolicyFile } from './policy.mjs';
-import { compile, githubRepo, SETTINGS, CODEOWNERS, WORKFLOW, CI_SCRIPT_DST } from './compile.mjs';
+import {
+  compile, githubRepo, SETTINGS, CODEOWNERS, WORKFLOW, CHECKS_WORKFLOW, CI_SCRIPT_DST,
+} from './compile.mjs';
 import { hasArbiter, hasAuthorization } from './init.mjs';
 import { plantedCases } from './planted.mjs';
 
@@ -280,14 +282,23 @@ function denyRulesItem(projectDir, settings) {
     : item('deny-rules', true, 'OK', `${wanted.length} deny rules present`);
 }
 
-/** CODEOWNERS, the workflow and the CI script, each against what `keel compile` would write. */
+/** CODEOWNERS, the workflow(s) and the CI script, each against what `keel compile` would write. */
 function compiledFileItems(projectDir, expected) {
-  return [['codeowners', CODEOWNERS], ['workflow', WORKFLOW], ['ci-script', CI_SCRIPT_DST]].map(([id, rel]) => {
+  const files = [['codeowners', CODEOWNERS], ['workflow', WORKFLOW], ['ci-script', CI_SCRIPT_DST]];
+  if (expected[CHECKS_WORKFLOW]) files.splice(2, 0, ['checks-workflow', CHECKS_WORKFLOW]);
+  const items = files.map(([id, rel]) => {
     const st = sameFile(projectDir, rel, expected[rel]);
     return item(id, true, st, st === 'OK' ? `${rel} matches the policy`
       : st === 'MISSING' ? `${rel} is missing — run \`keel compile\``
       : `${rel} differs from what the policy compiles to — run \`keel compile\``);
   });
+  // keel.yml runs keel-checks, so a leftover keel-checks.yml would report a second keel-checks result.
+  if (!expected[CHECKS_WORKFLOW] && fs.existsSync(path.join(projectDir, CHECKS_WORKFLOW))) {
+    items.push(item('checks-workflow', true, 'BROKEN',
+      `${CHECKS_WORKFLOW} exists but the policy runs keel-checks in ${WORKFLOW}: delete it, ` +
+      'or set ci.checksOn to "code-changes" and recompile'));
+  }
+  return items;
 }
 
 function bypassModeItem(projectDir) {

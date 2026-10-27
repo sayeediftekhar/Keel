@@ -216,3 +216,26 @@ break existing locks. Projects pick up the new step with `keel compile`.
 `auditConfig.ignoreGhsas` / `ignoreCves`, Yarn 4's `npmAuditIgnoreAdvisories`)
 filter advisories before Keel sees them, and they live in files that are not
 governance paths by default. Add those files to `governancePaths`.
+
+## keel-checks on code changes only (2026-10-27)
+
+`keel.yml` runs `keel-checks` (install, the ladder, the quality floor: the
+expensive job) on every event `keel-rigor` needs: PR opened, synchronize,
+reopened and **edited**, every review, and every push to a protected branch.
+A PR body edit or an approval re-ran the whole ladder on unchanged code. A
+pilot (tj-web) ran out of GitHub Actions minutes and hand-trimmed `keel.yml`;
+`keel compile` hard-coded `on:`, so `keel doctor` flagged the drift and any
+recompile undid it. D24 makes the trim a policy option.
+
+| # | Decision | Implication |
+|---|---|---|
+| D24 | **`ci.checksOn`: `all` (default) or `code-changes`.** `all` compiles exactly as before. `code-changes` moves the `keel-checks` job, byte-identical, into `.github/workflows/keel-checks.yml`, triggered only by `pull_request` opened, synchronize, reopened, with its own concurrency group (`keel-checks-<ref>`). `keel.yml` keeps `keel-rigor` on every event it had. `keel-checks.yml` joins the governance paths (deny rule, CODEOWNERS, governance gate) only when split; `keel doctor` checks it as `checks-workflow`, and reports a leftover one as BROKEN when the policy is `all` (`keel compile` notes it too) | The ruleset is unchanged: both required contexts still exist, and a body edit or review leaves the last `keel-checks` result standing. No `keel-checks` on pushes to protected branches in `code-changes` mode: the PR ran it before merge, and a project wanting a main-branch run keeps its own CI there. **No lock churn:** `checksOn` appears in the lock only when `code-changes`. |
+
+**Rejected:**
+- *a job-level `if:` on `keel-checks` in `keel.yml`* — the workflow shares one
+  concurrency group with `cancel-in-progress`, so a body edit would cancel a
+  running `keel-checks`, and the edit's run reports it "skipped", which
+  replaces the real result on the PR (and a skipped required check passes).
+- *a free-form list of trigger events* — every list but these two either
+  re-runs the ladder on unchanged code or skips `keel-rigor` on an event it
+  needs; an enum keeps the policy reviewable.
