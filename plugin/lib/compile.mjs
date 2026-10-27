@@ -107,20 +107,25 @@ function installCommand(projectDir, policy) {
 /** Does keel-checks run in a workflow of its own, only on the PR events that change code? */
 export const checksSplit = (policy) => policy.ci.checksOn === 'code-changes';
 
-/** keel.yml, plus keel-checks.yml (else null) when the policy splits keel-checks out. */
+/** keel.yml, plus keel-checks.yml when the policy splits keel-checks out (else a note if one is left over). */
 function compileWorkflow(projectDir, policy) {
   const quality = qualityFloor(projectDir, policy);
   const checks = checksJob(projectDir, policy, quality);
   const split = checksSplit(policy);
-  return {
-    yaml: renderWorkflow(policy, split ? '' : checks),
-    checksYaml: split ? renderChecksWorkflow(checks) : null,
-    notes: quality.notes,
-  };
+  const files = { [WORKFLOW]: renderWorkflow(policy, split ? '' : checks) };
+  if (split) return { files: { ...files, [CHECKS_WORKFLOW]: renderChecksWorkflow(checks) }, notes: quality.notes };
+  const notes = [...quality.notes];
+  if (fs.existsSync(path.join(projectDir, CHECKS_WORKFLOW))) {
+    notes.push(
+      `${CHECKS_WORKFLOW} exists but keel.yml runs keel-checks (ci.checksOn isn't "code-changes"): ` +
+        'delete it, or keel-checks runs twice.',
+    );
+  }
+  return { files, notes };
 }
 
 export function workflowYaml(projectDir, policy) {
-  return compileWorkflow(projectDir, policy).yaml;
+  return compileWorkflow(projectDir, policy).files[WORKFLOW];
 }
 
 // keel-checks' Postgres service when policy.ci.postgres is on (YAML at job indent).
@@ -290,8 +295,7 @@ export function compile(projectDir, { write = false } = {}) {
     [LOCK_FILE]: `${JSON.stringify(lock, null, 2)}\n`,
     [SETTINGS]: settings.content,
     [CODEOWNERS]: codeowners(projectDir, policy),
-    [WORKFLOW]: workflow.yaml,
-    ...(workflow.checksYaml ? { [CHECKS_WORKFLOW]: workflow.checksYaml } : {}),
+    ...workflow.files,
     ...qualityFiles(projectDir, policy),
     [RULESET]: `${JSON.stringify(rulesetJson(policy), null, 2)}\n`,
     '.gitignore': gitignore(projectDir),
@@ -306,12 +310,6 @@ export function compile(projectDir, { write = false } = {}) {
     );
   }
   notes.push(...workflow.notes);
-  if (!workflow.checksYaml && fs.existsSync(path.join(projectDir, CHECKS_WORKFLOW))) {
-    notes.push(
-      `${CHECKS_WORKFLOW} exists but keel.yml runs keel-checks (ci.checksOn isn't "code-changes"): ` +
-        'delete it, or keel-checks runs twice.',
-    );
-  }
   if (settings.risky.length) {
     notes.push(
       `.claude/settings.json pre-allows risky commands: ${settings.risky.join(', ')}. ` +
