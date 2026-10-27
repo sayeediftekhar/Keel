@@ -22,6 +22,9 @@ const DEFAULT_GOVERNANCE = [
   '~/.claude/settings.local.json',
   '~/.claude/keel/projects.json',
 ];
+const governancePaths = (raw) => [...new Set([...DEFAULT_GOVERNANCE, // + keel-checks.yml when compiled (ci.checksOn)
+  ...(raw.ci?.checksOn === 'code-changes' ? ['.github/workflows/keel-checks.yml'] : []),
+  ...(raw.governancePaths ?? [])])];
 
 const DEFAULT_DEPLOY = [
   'vercel --prod', 'vercel deploy --prod', 'netlify deploy --prod',
@@ -67,7 +70,7 @@ export function normalizePolicy(raw) {
     defaultBranch,
     protectedBranches: raw.protectedBranches ?? [defaultBranch],
     surfaces: raw.surfaces ?? {},
-    governancePaths: [...new Set([...DEFAULT_GOVERNANCE, ...(raw.governancePaths ?? [])])],
+    governancePaths: governancePaths(raw),
     environments: normalizeEnvironments(raw.environments),
     migrations: {
       dirs: raw.migrations?.dirs ?? ['supabase/migrations', 'prisma/migrations', 'migrations', 'db/migrations'],
@@ -189,6 +192,7 @@ function normalizeCi(ci) {
     install: ci?.install ?? null,
     postgres: Boolean(ci?.postgres),
     phantom: ci?.phantom ?? 'warn',
+    ...(ci?.checksOn === 'code-changes' ? { checksOn: 'code-changes' } : {}), // only when set: locks keep their hash
   };
 }
 
@@ -209,6 +213,7 @@ function workflowValueErrors(raw, oneOf, errs) {
   if (raw.ci?.node !== undefined && !/^[0-9]+(\.[0-9x]+)*$/.test(String(raw.ci.node))) {
     errs.push('ci.node must be a version like "20"');
   }
+  oneOf(raw.ci?.checksOn, ['all', 'code-changes'], 'ci.checksOn');
   oneOf(raw.budget?.mode, ['warn', 'fail'], 'budget.mode');
 }
 

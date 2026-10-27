@@ -97,7 +97,11 @@
         "node": { "type": ["string", "number"] },
         "install": { "type": ["string", "null"] },
         "postgres": { "type": "boolean" },
-        "phantom": { "enum": ["warn", "fail"] }
+        "phantom": { "enum": ["warn", "fail"] },
+        "checksOn": {
+          "description": "When keel-checks runs. all: in keel.yml with keel-rigor, on every PR event, review and push to a protected branch. code-changes: in its own .github/workflows/keel-checks.yml, only when a PR is opened, synchronized or reopened; keel-rigor keeps every event (a body edit or review re-runs only keel-rigor). Saves Actions minutes.",
+          "enum": ["all", "code-changes"], "default": "all"
+        }
       }
     },
     "quality": {
